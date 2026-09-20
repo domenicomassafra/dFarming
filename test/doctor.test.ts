@@ -117,6 +117,7 @@ test('Linux Android device worker requires ADB and UiAutomator2 but never Xcode'
     const report = collectDoctorReport(runner({
         'adb version': { stdout: 'Android Debug Bridge version 1.0.41\n' },
         'adb devices -l': { stdout: 'List of devices attached\nABC123 device model:Pixel_9 transport_id:1\n' },
+        'adb -s ABC123 shell getprop ro.kernel.qemu': { stdout: '0\n' },
         'java -version': { stderr: 'openjdk version "21.0.12"\n' },
     }), {
         PHONE_FARM_ROLE: 'device-worker',
@@ -133,6 +134,26 @@ test('Linux Android device worker requires ADB and UiAutomator2 but never Xcode'
     assert.equal(report.checks.find(({ id }) => id === 'android-sdk')?.status, 'pass');
     assert.equal(report.checks.find(({ id }) => id === 'java')?.status, 'pass');
     assert.equal(report.checks.find(({ id }) => id === 'android-device')?.status, 'pass');
+});
+
+test('Linux Android doctor never counts a TCP-connected qemu emulator as a physical device', (context) => {
+    const cwd = doctorCwd(context);
+    addAndroidRuntime(cwd);
+    const sdk = addAndroidSdk(cwd);
+    const report = collectDoctorReport(runner({
+        'adb version': { stdout: 'Android Debug Bridge version 1.0.41\n' },
+        'adb devices -l': { stdout: 'List of devices attached\n127.0.0.1:5555 device model:sdk_gphone_x86_64_arm64 transport_id:1\n' },
+        'adb -s 127.0.0.1:5555 shell getprop ro.kernel.qemu': { stdout: '1\n' },
+        'java -version': { stderr: 'openjdk version "21.0.12"\n' },
+    }), {
+        PHONE_FARM_ROLE: 'device-worker',
+        PHONE_FARM_WORKER_ID: 'android-linux',
+        DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
+        ANDROID_HOME: sdk,
+    }, cwd, 'linux');
+    assert.equal(report.runtimeReady, true);
+    assert.equal(report.realDeviceReady, false);
+    assert.equal(report.checks.find(({ id }) => id === 'android-device')?.status, 'warn');
 });
 
 test('Linux Android worker is not runtime-ready with adb alone and no SDK root', (context) => {

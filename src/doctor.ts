@@ -275,7 +275,12 @@ export function collectDoctorReport(
     if (androidOnlyWorker) {
         const devices = command(runner, 'adb', ['devices', '-l']);
         const physical = devices.status === 0
-            ? androidDeviceLines(devices.stdout).filter((line) => !line.startsWith('emulator-'))
+            ? androidDeviceLines(devices.stdout).filter((line) => {
+                const serial = line.split(/\s+/)[0] ?? '';
+                if (!serial || serial.startsWith('emulator-')) return false;
+                const qemu = command(runner, 'adb', ['-s', serial, 'shell', 'getprop', 'ro.kernel.qemu']);
+                return qemu.status !== 0 || qemu.stdout.trim() !== '1';
+            })
             : [];
         checks.push(physical.length
             ? { id: 'android-device', status: 'pass', summary: `${physical.length} physical Android device${physical.length === 1 ? '' : 's'} visible`, detail: physical.join(' · ') }
