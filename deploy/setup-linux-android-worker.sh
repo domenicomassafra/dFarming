@@ -33,6 +33,23 @@ require_configured() {
   fi
 }
 
+wait_for_http() {
+  local name="$1"
+  local url="$2"
+  local header="${3:-}"
+  local attempt
+  for attempt in $(seq 1 30); do
+    if [[ -n "$header" ]]; then
+      curl -fsS -H "$header" "$url" >/dev/null 2>&1 && return 0
+    else
+      curl -fsS "$url" >/dev/null 2>&1 && return 0
+    fi
+    sleep 0.5
+  done
+  echo "$name did not become ready at $url" >&2
+  exit 1
+}
+
 [[ "${PHONE_FARM_ROLE:-}" == "device-worker" ]] || { echo "PHONE_FARM_ROLE=device-worker is required." >&2; exit 1; }
 require_configured PHONE_FARM_DEVICE_WORKER_TOKEN "${PHONE_FARM_DEVICE_WORKER_TOKEN:-}"
 require_configured PHONE_FARM_INTERNAL_TOKEN "${PHONE_FARM_INTERNAL_TOKEN:-}"
@@ -57,6 +74,7 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$repo
+Environment=APPIUM_HOME=$repo/.appium-runtime
 ExecStart=$node_bin --env-file-if-exists=.env node_modules/appium-runtime/index.js --address 127.0.0.1 --base-path / --port $port --log-level info
 Restart=on-failure
 RestartSec=2
@@ -106,6 +124,9 @@ for unit in dfarming-appium-runtime.service dfarming-worker.service dfarming-dev
   systemctl --user --no-pager --full status "$unit" >/dev/null
 done
 
+wait_for_http "Appium runtime" "http://127.0.0.1:${APPIUM_RUNTIME_PORT:-4726}/status"
+wait_for_http "Device worker" "http://127.0.0.1:${DEVICE_WORKER_PORT:-3010}/health" \
+  "Authorization: Bearer $PHONE_FARM_DEVICE_WORKER_TOKEN"
 curl -fsS -H "Authorization: Bearer $PHONE_FARM_DEVICE_WORKER_TOKEN" \
   "http://127.0.0.1:${DEVICE_WORKER_PORT:-3010}/health"
 echo
