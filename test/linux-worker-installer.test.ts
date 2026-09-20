@@ -14,5 +14,7 @@ test('Linux Android worker pins Appium home and waits for service readiness', as
     assert.doesNotMatch(installer, /ExecStart=.*--env-file-if-exists/);
     assert.match(installer, /wait_for_http "Appium runtime"/);
     assert.match(installer, /wait_for_http "Device worker"/);
+    assert.match(installer, /systemctl --user restart dfarming-appium-runtime\.service/);
+    assert.match(installer, /systemctl --user restart dfarming-worker\.service dfarming-device-worker\.service/);
     assert.doesNotMatch(installer, /curl -fsS[^\n]+3010[^\n]*\n(?:echo|$)/);
 });

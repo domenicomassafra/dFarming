@@ -124,7 +124,13 @@ WantedBy=default.target
 EOF
 
 systemctl --user daemon-reload
-systemctl --user enable --now dfarming-appium-runtime.service dfarming-worker.service dfarming-device-worker.service
+systemctl --user enable dfarming-appium-runtime.service dfarming-worker.service dfarming-device-worker.service
+# A unit can already be running from an older checkout/configuration.
+# enable --now does not restart it after daemon-reload, so explicitly restart
+# in dependency order to guarantee the freshly rendered EnvironmentFile and
+# APPIUM_HOME are live.
+systemctl --user restart dfarming-appium-runtime.service
+systemctl --user restart dfarming-worker.service dfarming-device-worker.service
 
 for unit in dfarming-appium-runtime.service dfarming-worker.service dfarming-device-worker.service; do
   systemctl --user --no-pager --full status "$unit" >/dev/null
