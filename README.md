@@ -122,6 +122,17 @@ UiAutomator2 runtime. Android Emulator support additionally requires an SDK
 emulator/AVD and, on Linux, working hardware virtualization for useful
 performance.
 
+For the pinned Google container donor on a KVM-capable Linux worker:
+
+```bash
+./deploy/setup-google-android-emulator.sh
+```
+
+The default image is the official no-metrics API-30 image pinned in
+`donors.lock.json`. The installer keeps the container restartable and uses a
+small systemd timer to restore the host ADB connection after reboots/container
+restarts.
+
 ## Development gates
 
 ```bash

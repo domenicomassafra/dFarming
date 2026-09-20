@@ -40,6 +40,7 @@
       "fork": "domenicomassafra/dFarming-android-emulator-containers",
       "sha": "0654f694b46794fae4b178f1e1a17cb60c5d2d34",
       "license": "Apache-2.0",
+      "runtimeImage": "us-docker.pkg.dev/android-emulator-268719/images/30-google-x64-no-metrics:30.1.2",
       "role": "Linux/Docker Android Emulator container runtime"
     },
     {
