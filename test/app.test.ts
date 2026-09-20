@@ -264,7 +264,11 @@ test('overview control center exposes the major product surfaces instead of hidi
     assert.match(fragment.body, /Semantic cross-platform flows/i);
     assert.match(fragment.body, /Recent runs/);
     assert.match(fragment.body, /Portable flow/);
-    assert.match(fragment.body, /No devices registered/);
+    // The app intentionally reads the operator registry from the working tree.
+    // CI has no devices, while a live development checkout may already contain
+    // a registered-but-offline runtime. Both states must surface an attention
+    // alert without making this product-surface test environment-dependent.
+    assert.match(fragment.body, /(No devices registered|All devices offline)/);
 
     const hosts = await inject(app, { method: 'GET', url: '/api/fragments/hosts' });
     assert.equal(hosts.statusCode, 200);

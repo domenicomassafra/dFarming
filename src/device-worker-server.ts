@@ -95,6 +95,42 @@ async function requireWorkerDevice(udid: string): Promise<RegisteredDevice> {
     return registered;
 }
 
+export type WorkerDeviceConfigPatch = Partial<Pick<
+    RegisteredDevice,
+    'name' | 'tags' | 'coordinateProfile' | 'coordinates' | 'instagramCoordinates' | 'disabled'
+>> & { pluginData?: Record<string, JsonObject> };
+
+/**
+ * Apply control-plane metadata without tearing down a live transport session
+ * for ordinary/idempotent configuration syncs. Appium sessions do not depend
+ * on names, tags, plugin metadata or coordinate calibration. WDA only needs a
+ * rebuild when its passcode keypad profile changes. Disabling/enabling a
+ * device is an explicit lifecycle transition and may release the transport.
+ */
+export function applyWorkerDeviceConfig(device: RegisteredDevice, patch: WorkerDeviceConfigPatch): boolean {
+    const backend = device.automationBackend
+        ?? ((device.platform ?? 'ios') === 'ios' && (device.kind ?? 'physical') === 'physical' ? 'wda' : 'appium');
+    const previousProfile = device.coordinateProfile;
+    const previouslyDisabled = device.disabled === true;
+
+    if (patch.name !== undefined) device.name = patch.name;
+    if (patch.tags !== undefined) {
+        const tags = normalizeDeviceTags(patch.tags);
+        if (tags.length) device.tags = tags;
+        else delete device.tags;
+    }
+    if (patch.coordinateProfile !== undefined) device.coordinateProfile = patch.coordinateProfile;
+    if (patch.coordinates !== undefined) device.coordinates = patch.coordinates;
+    if (patch.instagramCoordinates !== undefined) device.instagramCoordinates = patch.instagramCoordinates;
+    if (patch.pluginData !== undefined) device.pluginData = patch.pluginData;
+    if (patch.disabled === true) device.disabled = true;
+    else if (patch.disabled === false) delete device.disabled;
+
+    const disabledChanged = previouslyDisabled !== (device.disabled === true);
+    const wdaProfileChanged = backend === 'wda' && previousProfile !== device.coordinateProfile;
+    return disabledChanged || wdaProfileChanged;
+}
+
 export interface StartDeviceWorkerServerOptions {
     host?: string;
     port?: number;
@@ -237,28 +273,18 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
     });
     app.patch<{
         Params: { udid: string };
-        Body: Pick<RegisteredDevice, 'name' | 'tags' | 'coordinateProfile' | 'coordinates' | 'instagramCoordinates' | 'disabled'> & { pluginData?: Record<string, JsonObject> };
+        Body: WorkerDeviceConfigPatch;
     }>('/v1/devices/:udid/config', async (request, reply) => {
         let found = false;
+        let resetTransport = false;
         await mutateRegisteredDevices((devices) => {
             const device = devices.find(({ udid }) => udid === request.params.udid);
             if (!device) return;
             found = true;
-            if (request.body.name !== undefined) device.name = request.body.name;
-            if (request.body.tags !== undefined) {
-                const tags = normalizeDeviceTags(request.body.tags);
-                if (tags.length) device.tags = tags;
-                else delete device.tags;
-            }
-            if (request.body.coordinateProfile !== undefined) device.coordinateProfile = request.body.coordinateProfile;
-            if (request.body.coordinates !== undefined) device.coordinates = request.body.coordinates;
-            if (request.body.instagramCoordinates !== undefined) device.instagramCoordinates = request.body.instagramCoordinates;
-            if (request.body.pluginData !== undefined) device.pluginData = request.body.pluginData;
-            if (request.body.disabled === true) device.disabled = true;
-            else if (request.body.disabled === false) delete device.disabled;
+            resetTransport = applyWorkerDeviceConfig(device, request.body);
         });
         if (!found) return reply.code(404).send({ error: 'Device is not registered on this worker' });
-        remote.forget(request.params.udid);
+        if (resetTransport) remote.forget(request.params.udid);
         return { ok: true };
     });
 
