@@ -7,25 +7,63 @@ import { ScrcpyVideoSource } from './scrcpy-video.js';
 
 export class RegistryWdaRemoteControl implements RemoteControl {
     private readonly controls = new Map<string, WdaRemoteControl | AppiumRemoteControl>();
+    private readonly builds = new Map<string, Promise<{
+        control: WdaRemoteControl | AppiumRemoteControl;
+        generation: number;
+        cacheable: boolean;
+    }>>();
+    private readonly generations = new Map<string, number>();
 
     /** Forget the cached client so the next call rebuilds it from devices.json (passcode, ports, profile). */
     forget(udid: string): void {
+        this.generations.set(udid, (this.generations.get(udid) ?? 0) + 1);
         const current = this.controls.get(udid);
         if (current instanceof AppiumRemoteControl) current.forget();
         this.controls.delete(udid);
     }
 
     async control(udid: string): Promise<WdaRemoteControl | AppiumRemoteControl> {
-        const cached = this.controls.get(udid);
-        if (cached) return cached;
+        for (;;) {
+            const cached = this.controls.get(udid);
+            if (cached) return cached;
+            let build = this.builds.get(udid);
+            if (!build) {
+                const generation = this.generations.get(udid) ?? 0;
+                build = this.buildControl(udid, generation);
+                this.builds.set(udid, build);
+            }
+            const result = await build;
+            if (this.builds.get(udid) === build) this.builds.delete(udid);
+            if ((this.generations.get(udid) ?? 0) !== result.generation) {
+                if (result.control instanceof AppiumRemoteControl) result.control.forget();
+                continue;
+            }
+            if (!result.cacheable) return result.control;
+            const winner = this.controls.get(udid);
+            if (winner) {
+                if (result.control instanceof AppiumRemoteControl && winner !== result.control) result.control.forget();
+                return winner;
+            }
+            this.controls.set(udid, result.control);
+            return result.control;
+        }
+    }
+
+    private async buildControl(
+        udid: string,
+        generation: number,
+    ): Promise<{
+        control: WdaRemoteControl | AppiumRemoteControl;
+        generation: number;
+        cacheable: boolean;
+    }> {
         const device = (await loadRegisteredDevices()).find((candidate) => candidate.udid === udid);
-        if (!device) return new WdaRemoteControl();
+        if (!device) return { control: new WdaRemoteControl(), generation, cacheable: false };
         const backend = device.automationBackend
             ?? ((device.platform ?? 'ios') === 'ios' && (device.kind ?? 'physical') === 'physical' ? 'wda' : 'appium');
         if (backend === 'appium') {
             const control = new AppiumRemoteControl(device);
-            this.controls.set(udid, control);
-            return control;
+            return { control, generation, cacheable: true };
         }
         const control = new WdaRemoteControl({
             deviceUdid: udid,
@@ -34,8 +72,7 @@ export class RegistryWdaRemoteControl implements RemoteControl {
             wdaUrl: `http://127.0.0.1:${device.wdaLocalPort ?? Number(process.env.WDA_LOCAL_PORT ?? 8100)}`,
             mjpegUrl: `http://127.0.0.1:${device.mjpegLocalPort ?? Number(process.env.MJPEG_LOCAL_PORT ?? 9100)}`,
         });
-        this.controls.set(udid, control);
-        return control;
+        return { control, generation, cacheable: true };
     }
 
     async getScreenInfo(udid: string): Promise<ScreenInfo> { return (await this.control(udid)).getScreenInfo(udid); }
