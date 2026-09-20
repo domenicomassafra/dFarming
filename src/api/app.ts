@@ -16,9 +16,7 @@ import {
     validateCoordinateOverrides, parseSocialApp,
 } from '../devices/coordinates.js';
 import { RegistryWdaRemoteControl } from '../devices/registry-remote.js';
-import type {
-    DeviceRegistrationManager, RegistrationAction, RegistrationUpdate,
-} from '../devices/registration.js';
+import type { DeviceRegistrationManager } from '../devices/registration.js';
 import { type RemoteAction, type RemoteControl } from '../devices/wda-remote.js';
 import { requestWdaService } from '../devices/wda-service-client.js';
 import type { DeviceConnectionStatus } from '../devices/connection-manager.js';
@@ -41,6 +39,8 @@ import type { VirtualRuntime, VirtualRuntimePlatform } from '../devices/virtual-
 import { exportMaestroFlow, importMaestroFlow } from '../flows/maestro.js';
 import type { PortableFlowPayload } from '../flow-plugin.js';
 import { installAuthentication, installCsrfGuard, internalWorkerAuthorized } from './http-security.js';
+import { registerRuntimeRoutes } from './runtime-routes.js';
+import { registerDeviceRegistrationRoutes } from './device-registration-routes.js';
 
 export interface CreateAppOptions {
     plugins: PluginRegistry;
@@ -430,59 +430,8 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
         }
         return { ok: results.every(({ ok }) => ok), action, results };
     });
-    app.get('/api/runtime-devices/discovered', async () => ({ devices: await options.runtimeCandidates?.() ?? [] }));
-    app.get('/api/virtual-runtimes', async () => ({ runtimes: await options.virtualRuntimes?.() ?? [] }));
-    app.post<{
-        Params: { workerId: string; platform: VirtualRuntimePlatform; id: string; action: 'boot' | 'shutdown' };
-    }>('/api/virtual-runtimes/:workerId/:platform/:id/:action', async (request, reply) => {
-        if (!options.changeVirtualRuntimeState) return reply.code(503).send({ error: 'Virtual runtime lifecycle is not configured' });
-        if (!['ios', 'android'].includes(request.params.platform) || !['boot', 'shutdown'].includes(request.params.action)) {
-            return reply.code(400).send({ error: 'Unsupported virtual runtime action' });
-        }
-        await options.changeVirtualRuntimeState(request.params.workerId === 'local' ? undefined : request.params.workerId,
-            request.params.platform, request.params.id, request.params.action);
-        return reply.code(202).send({ ok: true });
-    });
-    app.post<{ Body: { workerId?: string; udid?: string; name?: string } }>('/api/runtime-devices', async (request, reply) => {
-        if (!options.registerRuntime) return reply.code(503).send({ error: 'Runtime registration is not configured' });
-        if (!request.body.udid?.trim()) return reply.code(400).send({ error: 'Runtime device UDID is required' });
-        await options.registerRuntime(request.body.workerId, request.body.udid.trim(), request.body.name?.trim());
-        return reply.code(201).send({ ok: true });
-    });
-    app.get('/api/device-registrations/candidates', async (_request, reply) => {
-        if (!options.registrations) return reply.code(503).send({ error: 'Device registration is not configured' });
-        return { devices: await options.registrations.candidates() };
-    });
-    app.post<{ Body: { udid?: string } }>('/api/device-registrations', async (request, reply) => {
-        if (!options.registrations) return reply.code(503).send({ error: 'Device registration is not configured' });
-        if (!request.body.udid?.trim()) return reply.code(400).send({ error: 'Device UDID is required' });
-        return reply.code(201).send(await options.registrations.create(request.body.udid.trim()));
-    });
-    app.get<{ Params: { id: string } }>('/api/device-registrations/:id', async (request, reply) => {
-        if (!options.registrations) return reply.code(503).send({ error: 'Device registration is not configured' });
-        return await options.registrations.get(request.params.id)
-            ?? reply.code(404).send({ error: 'Registration draft not found' });
-    });
-    app.patch<{ Params: { id: string }; Body: RegistrationUpdate }>('/api/device-registrations/:id', async (request, reply) => {
-        if (!options.registrations) return reply.code(503).send({ error: 'Device registration is not configured' });
-        return options.registrations.update(request.params.id, request.body);
-    });
-    app.post<{ Params: { id: string; action: RegistrationAction }; Body: { authorizeTeamRegistration?: boolean } }>(
-        '/api/device-registrations/:id/actions/:action', async (request, reply) => {
-            if (!options.registrations) return reply.code(503).send({ error: 'Device registration is not configured' });
-            if (!['refresh', 'prepare', 'verify', 'finalize'].includes(request.params.action)) {
-                return reply.code(404).send({ error: 'Unknown registration action' });
-            }
-            return options.registrations.run(request.params.id, request.params.action, {
-                authorizeTeamRegistration: request.body?.authorizeTeamRegistration === true,
-            });
-        },
-    );
-    app.delete<{ Params: { id: string } }>('/api/device-registrations/:id', async (request, reply) => {
-        if (!options.registrations) return reply.code(503).send({ error: 'Device registration is not configured' });
-        await options.registrations.cancel(request.params.id);
-        return reply.code(204).send();
-    });
+    registerRuntimeRoutes(app, options);
+    registerDeviceRegistrationRoutes(app, options.registrations);
     app.post<{ Body: { name?: string; udid?: string; tags?: string[]; wdaLocalPort?: number; mjpegLocalPort?: number; passcode?: string; coordinateProfile?: string; pluginData?: Record<string, JsonObject> } }>(
         '/api/devices', async (request, reply) => {
             const { name, udid, tags, wdaLocalPort, mjpegLocalPort, passcode, coordinateProfile, pluginData } = request.body;
