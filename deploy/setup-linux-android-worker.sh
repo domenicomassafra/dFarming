@@ -11,6 +11,7 @@ fi
 command -v node >/dev/null || { echo "Node.js >=22 is required." >&2; exit 1; }
 command -v npm >/dev/null || { echo "npm is required." >&2; exit 1; }
 command -v adb >/dev/null || { echo "Android platform-tools / adb is required." >&2; exit 1; }
+command -v java >/dev/null || { echo "A Java runtime/JDK is required by UiAutomator2." >&2; exit 1; }
 command -v systemctl >/dev/null || { echo "systemd user services are required." >&2; exit 1; }
 
 if [[ ! -f .env ]]; then
@@ -56,6 +57,21 @@ require_configured PHONE_FARM_INTERNAL_TOKEN "${PHONE_FARM_INTERNAL_TOKEN:-}"
 require_configured PHONE_FARM_CONTROL_PLANE_URL "${PHONE_FARM_CONTROL_PLANE_URL:-}"
 require_configured DATABASE_URL "${DATABASE_URL:-}"
 
+android_sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.local/share/android-sdk}}"
+[[ -x "$android_sdk_root/platform-tools/adb" ]] || {
+  echo "Android SDK platform-tools are missing under $android_sdk_root. Set ANDROID_HOME/ANDROID_SDK_ROOT to a complete SDK." >&2
+  exit 1
+}
+build_tools="$(find "$android_sdk_root/build-tools" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -V | tail -1)"
+[[ -n "$build_tools" && -x "$build_tools/aapt2" && -x "$build_tools/apksigner" ]] || {
+  echo "Android SDK build-tools with aapt2/apksigner are required under $android_sdk_root/build-tools." >&2
+  exit 1
+}
+java_home="${JAVA_HOME:-$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")}"
+export ANDROID_HOME="$android_sdk_root"
+export ANDROID_SDK_ROOT="$android_sdk_root"
+export JAVA_HOME="$java_home"
+
 npm ci --ignore-scripts
 npm rebuild node-native-ocr esbuild sharp --foreground-scripts
 [[ -d .appium-runtime/node_modules/appium-uiautomator2-driver ]] || npm run appium:runtime:install-android
@@ -77,6 +93,9 @@ WorkingDirectory=$repo
 EnvironmentFile=-$repo/.env
 EnvironmentFile=-$repo/.env.devices
 Environment=APPIUM_HOME=$repo/.appium-runtime
+Environment=ANDROID_HOME=$android_sdk_root
+Environment=ANDROID_SDK_ROOT=$android_sdk_root
+Environment=JAVA_HOME=$java_home
 ExecStart=$node_bin node_modules/appium-runtime/index.js --address 127.0.0.1 --base-path / --port $port --log-level info
 Restart=on-failure
 RestartSec=2

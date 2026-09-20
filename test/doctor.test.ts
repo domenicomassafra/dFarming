@@ -30,6 +30,16 @@ function addAndroidRuntime(cwd: string): void {
     mkdirSync(path.join(cwd, '.appium-runtime', 'node_modules', 'appium-uiautomator2-driver'), { recursive: true });
 }
 
+function addAndroidSdk(cwd: string): string {
+    const sdk = path.join(cwd, 'android-sdk');
+    mkdirSync(path.join(sdk, 'platform-tools'), { recursive: true });
+    mkdirSync(path.join(sdk, 'build-tools', '37.0.0'), { recursive: true });
+    writeFileSync(path.join(sdk, 'platform-tools', 'adb'), '');
+    writeFileSync(path.join(sdk, 'build-tools', '37.0.0', 'aapt2'), '');
+    writeFileSync(path.join(sdk, 'build-tools', '37.0.0', 'apksigner'), '');
+    return sdk;
+}
+
 test('doctor reports a missing full Xcode as a real-device blocker without blocking source readiness', (context) => {
     const report = collectDoctorReport(runner({
         'xcode-select -p': { stdout: '/Library/Developer/CommandLineTools\n' },
@@ -103,18 +113,40 @@ test('control-plane doctor does not require Xcode and requires Docker/database c
 test('Linux Android device worker requires ADB and UiAutomator2 but never Xcode', (context) => {
     const cwd = doctorCwd(context);
     addAndroidRuntime(cwd);
+    const sdk = addAndroidSdk(cwd);
     const report = collectDoctorReport(runner({
         'adb version': { stdout: 'Android Debug Bridge version 1.0.41\n' },
         'adb devices -l': { stdout: 'List of devices attached\nABC123 device model:Pixel_9 transport_id:1\n' },
+        'java -version': { stderr: 'openjdk version "21.0.12"\n' },
     }), {
         PHONE_FARM_ROLE: 'device-worker',
         PHONE_FARM_WORKER_ID: 'android-linux',
         DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
+        ANDROID_HOME: sdk,
+        ANDROID_SDK_ROOT: sdk,
     }, cwd, 'linux');
     assert.equal(report.runtimeReady, true);
     assert.equal(report.realDeviceReady, true);
     assert.equal(report.checks.some(({ id }) => id === 'xcode'), false);
     assert.equal(report.checks.find(({ id }) => id === 'adb')?.status, 'pass');
     assert.equal(report.checks.find(({ id }) => id === 'uiautomator2')?.status, 'pass');
+    assert.equal(report.checks.find(({ id }) => id === 'android-sdk')?.status, 'pass');
+    assert.equal(report.checks.find(({ id }) => id === 'java')?.status, 'pass');
     assert.equal(report.checks.find(({ id }) => id === 'android-device')?.status, 'pass');
+});
+
+test('Linux Android worker is not runtime-ready with adb alone and no SDK root', (context) => {
+    const cwd = doctorCwd(context);
+    addAndroidRuntime(cwd);
+    const report = collectDoctorReport(runner({
+        'adb version': { stdout: 'Android Debug Bridge version 1.0.41\n' },
+        'adb devices -l': { stdout: 'List of devices attached\n' },
+        'java -version': { stderr: 'openjdk version "21.0.12"\n' },
+    }), {
+        PHONE_FARM_ROLE: 'device-worker',
+        PHONE_FARM_WORKER_ID: 'android-linux',
+        DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
+    }, cwd, 'linux');
+    assert.equal(report.runtimeReady, false);
+    assert.equal(report.checks.find(({ id }) => id === 'android-sdk')?.status, 'fail');
 });

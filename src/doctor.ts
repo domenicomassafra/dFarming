@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -66,6 +66,20 @@ function androidDeviceLines(output: string): string[] {
         .map((line) => line.trim())
         .filter((line) => line && !line.startsWith('List of devices attached'))
         .filter((line) => /\sdevice(?:\s|$)/.test(line));
+}
+
+function androidSdkHasBuildTools(sdkRoot: string): boolean {
+    const root = path.join(sdkRoot, 'build-tools');
+    if (!existsSync(root)) return false;
+    try {
+        return readdirSync(root, { withFileTypes: true }).some((entry) => (
+            entry.isDirectory()
+            && existsSync(path.join(root, entry.name, 'aapt2'))
+            && existsSync(path.join(root, entry.name, 'apksigner'))
+        ));
+    } catch {
+        return false;
+    }
 }
 
 export function collectDoctorReport(
@@ -153,6 +167,26 @@ export function collectDoctorReport(
                 summary: 'ADB is unavailable',
                 detail: androidOnlyWorker ? 'Install Android platform-tools for this Android worker.' : 'Install Android platform-tools to enable Android devices.',
             });
+        if (androidOnlyWorker) {
+            const sdkRoot = env.ANDROID_HOME?.trim() || env.ANDROID_SDK_ROOT?.trim();
+            const sdkReady = Boolean(
+                sdkRoot
+                && existsSync(path.join(sdkRoot, 'platform-tools', 'adb'))
+                && androidSdkHasBuildTools(sdkRoot),
+            );
+            checks.push(sdkReady
+                ? { id: 'android-sdk', status: 'pass', summary: `Android SDK toolchain: ${sdkRoot}` }
+                : {
+                    id: 'android-sdk',
+                    status: 'fail',
+                    summary: 'Android SDK toolchain is incomplete',
+                    detail: 'Set ANDROID_HOME/ANDROID_SDK_ROOT to an SDK containing platform-tools/adb plus build-tools with aapt2 and apksigner.',
+                });
+            const java = command(runner, 'java', ['-version']);
+            checks.push(java.status === 0
+                ? { id: 'java', status: 'pass', summary: (java.stderr || java.stdout).trim().split(/\r?\n/)[0] || 'Java is available' }
+                : { id: 'java', status: 'fail', summary: 'Java is unavailable', detail: 'Install a supported JDK for UiAutomator2/Appium.' });
+        }
     }
 
     const insideControlPlaneContainer = role === 'control-plane' && env.PHONE_FARM_CONTAINER === 'true';
@@ -253,13 +287,13 @@ export function collectDoctorReport(
         ? ['node', 'database-runtime', 'database-url', ...(env.PHONE_FARM_DEVICE_WORKERS?.trim() ? ['worker-token', 'internal-token'] : [])]
         : role === 'device-worker'
             ? androidOnlyWorker
-                ? ['node', 'appium', 'uiautomator2', 'adb', 'control-database']
+                ? ['node', 'appium', 'uiautomator2', 'adb', 'android-sdk', 'java', 'control-database']
                 : ['node', 'appium', 'xcode', 'control-database']
             : ['node', 'appium', 'xcode', 'iphone'];
     const realDeviceRequired = role === 'control-plane'
         ? []
         : androidOnlyWorker
-            ? ['node', 'appium', 'uiautomator2', 'adb', 'android-device']
+            ? ['node', 'appium', 'uiautomator2', 'adb', 'android-sdk', 'java', 'android-device']
             : ['node', 'appium', 'xcode', 'iphone', 'signing'];
     const failed = (ids: string[]) => checks.some((check) => ids.includes(check.id) && check.status === 'fail');
     return {
