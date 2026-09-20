@@ -3,6 +3,11 @@ import type { RemoteAction, RemoteControl, ScreenInfo } from './wda-remote.js';
 import { normalizeAppiumPageSource } from '../semantic/appium-source.js';
 import { remoteWithFetch, type Browser } from './appium-driver.js';
 
+function driverBackend(device: RegisteredDevice): { platformName: 'iOS' | 'Android'; automationName: 'XCUITest' | 'UiAutomator2' } {
+    if ((device.platform ?? 'ios') === 'android') return { platformName: 'Android', automationName: 'UiAutomator2' };
+    return { platformName: 'iOS', automationName: 'XCUITest' };
+}
+
 export class AppiumRemoteControl implements RemoteControl {
     private driverPromise?: Promise<Browser>;
     readonly passcode: string | undefined = undefined;
@@ -19,6 +24,7 @@ export class AppiumRemoteControl implements RemoteControl {
     }
 
     private async driver(): Promise<Browser> {
+        const selected = driverBackend(this.device);
         this.driverPromise ??= remoteWithFetch({
             hostname: this.appiumHost,
             port: this.appiumPort,
@@ -26,8 +32,8 @@ export class AppiumRemoteControl implements RemoteControl {
             connectionRetryCount: 2,
             connectionRetryTimeout: 120_000,
             capabilities: {
-                platformName: 'iOS',
-                'appium:automationName': 'XCUITest',
+                platformName: selected.platformName,
+                'appium:automationName': selected.automationName,
                 'appium:udid': this.device.udid,
                 'appium:noReset': true,
                 'appium:newCommandTimeout': 300,
@@ -103,6 +109,7 @@ export class AppiumRemoteControl implements RemoteControl {
     async performAction(udid: string, action: RemoteAction): Promise<void> {
         this.assertTarget(udid);
         const driver = await this.driver();
+        const platform = this.device.platform ?? 'ios';
         if (action.type === 'tap' || action.type === 'swipe') {
             const actions = action.type === 'tap'
                 ? [
@@ -130,6 +137,11 @@ export class AppiumRemoteControl implements RemoteControl {
         }
         if (action.type === 'unlock' || action.type === 'wake') {
             await driver.unlock();
+            return;
+        }
+        if (platform === 'android') {
+            const keycode = action.type === 'home' ? 3 : action.type === 'volumeUp' ? 24 : 25;
+            await driver.execute('mobile: pressKey', { keycode });
             return;
         }
         const name = action.type === 'home' ? 'home' : action.type === 'volumeUp' ? 'volumeUp' : 'volumeDown';

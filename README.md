@@ -1,119 +1,144 @@
-# Phone Farm iOS — canonical control plane
+# dFarming
 
-This repository is the **single canonical control plane** for the Farming / Farm Account / Phone Farm project. It is iPhone/iOS-only.
+dFarming is the canonical cross-platform mobile-device farm for owner-managed
+real and virtual iOS and Android devices. The Linux MiniPC is the always-on
+control-plane authority; execution hosts expose device transports through a
+narrow authenticated worker API.
 
-## Authority
+## Runtime authority
 
-- Canonical Mac working source: `/Users/domenico/Code/Kevs-IOS-Agents`, branch `main`.
-- Canonical MiniPC checkout: `/home/udodo/farming/Kevs-IOS-Agents`, branch `main`.
-- Canonical remote: `origin` → `domenicomassafra/Kevs-IOS-Agents`.
-- Source ancestry remote: `upstream` → `kevinbadi/Kevs-IOS-Agents`.
-- `Git-Agni/prod-FARM-IOS-Core` is ancestry only: its `main` diverged at `bec4331` and contains three old README-only commits not carried into the canonical product line.
-- `origin/main` is the release line. `upstream/main` is retained only for ancestry/upstream review; neither upstream nor Git-Agni is a second control plane.
-- No Android runtime, ADB, UiAutomator2, Android Emulator, scrcpy control path, second scheduler or second device registry belongs in this product.
+- Canonical repository: `domenicomassafra/dFarming`, branch `main`.
+- Canonical development checkout: `~/Code/dFarming`.
+- Production control plane: MiniPC / Linux / Docker Compose.
+- PostgreSQL + pg-boss on the MiniPC own schedules, execution history, pools,
+  flow revisions and the canonical fleet view.
+- Device workers never become a second scheduler or database authority.
+- `Kevs-IOS-Agents` is retained only as iOS lineage/history.
 
-## Runtime map
+## Runtime matrix
 
-```text
-Kevs-IOS-Agents/main
-        ↓
-MiniPC / Linux / Docker control plane + PostgreSQL
-        ↓
-authenticated macOS device worker (transport only)
-        ↓
-physical iPhone via WDA   OR   iOS Simulator via Appium/XCUITest
-        ↓
-Hermes stock client → Phone Farm API (no Hermes fork, WDA owner or scheduler)
-```
-
-The MiniPC owns the API, scheduler, registry view, database and orchestration. A macOS worker is required for Apple's physical-device/Xcode transport; that worker is not a competing control plane.
-
-## Supported device lanes
-
-| Target | Transport | Owner |
+| Runtime | Transport | Execution host |
 | --- | --- | --- |
-| Physical iPhone | WDA + MJPEG | macOS device worker, supervised by Phone Farm |
-| iOS Simulator | Appium + XCUITest | macOS device worker |
+| Physical iPhone/iPad | WDA + Apple device tooling | macOS |
+| iOS Simulator | Appium 3 + XCUITest | macOS |
+| Physical Android | ADB + Appium 3 + UiAutomator2 | Linux/macOS/Windows-capable worker |
+| Android Emulator | Android Emulator/AVD + ADB + UiAutomator2 | Linux/macOS worker with the Android SDK |
 
-`devices.json` is local runtime state and may contain device-specific configuration. `.env*`, Apple signing material, pairing records and local WDA/Appium state must never be removed as generic cleanup without first proving they are non-authoritative or reproducible.
+Android can additionally expose an opt-in scrcpy raw-H.264 video transport.
+Control remains Appium/UiAutomator2; video is not allowed to become a second
+input/control authority.
+
+## Product capabilities
+
+- Fleet registry with host, platform, runtime kind, health, tags and reusable
+  device pools.
+- Capability-aware allocation that resolves every run to a concrete device.
+- One serialized scheduler authority with normal queue, stop and evidence
+  semantics for every runtime.
+- Physical/virtual runtime discovery and virtual-runtime boot/shutdown.
+- Live device wall with bounded streaming and one focused live stream.
+- Portable versioned flows with semantic accessibility actions such as
+  `tapText`, `waitVisible`, `assertVisible`, `waitGone` and
+  `inputText`.
+- Maestro JSON/YAML interoperability for the safe, lossless subset.
+- Stable accessibility refs normalized from XCUITest and UiAutomator2 trees.
+- Deterministic TikTok/Instagram recipes remain plugins rather than a second
+  automation core.
+- Thin Hermes/MCP clients consume the dFarming API; they do not own WDA,
+  Appium, scheduling or device state.
+
+## Donor-first architecture
+
+dFarming does not copy whole upstream projects into its core. Mature projects
+are kept as pinned forks and integrated through narrow adapters. See
+`donors.lock.json` and `docs/donors.md`.
+
+The current donor set covers Appium Device Farm, DeviceFarmer/STF, Facebook
+IDB, pymobiledevice3, Google's Android emulator container scripts, scrcpy and
+Maestro. GPL components such as pymobiledevice3 stay behind process/service
+boundaries rather than being linked into the Apache-2.0 core.
+
+## Account and network isolation
+
+Accounts are explicitly bound to configured devices and policy. Different
+identities should use separate device/app profiles and, where required for
+privacy, testing or operational separation, separately configured network
+routes. dFarming does not share browser cookies or provider sessions with
+dCreator.
+
+Network/proxy routing is an execution policy boundary, not a mechanism for
+evading provider enforcement, bans, rate limits or other safeguards. Provider
+and platform rules remain authoritative.
+
+## dCreator integration boundary
+
+dCreator may submit approved assets/jobs plus non-secret identity references
+to dFarming and receive execution receipts/results. dFarming owns device
+automation; dCreator owns creator/content workflows. The integration must not
+merge cookie jars, login sessions, credentials, scheduler authority or device
+registries.
 
 ## MiniPC production
 
-The production control plane runs with Docker Compose on Linux. From a clean checkout:
+The control plane is Dockerized. Existing deployments can pin the PostgreSQL
+volume name with `DFARMING_POSTGRES_VOLUME` so a repository/path rename does
+not create an empty database.
 
 ```bash
-cp .env.minipc.example .env.minipc   # first install only; keep secrets local
+cp .env.minipc.example .env.minipc   # first install only
 ./deploy/setup-minipc.sh
-```
-
-The deployment script installs/builds the compose stack, waits for PostgreSQL and the API, and runs the control-plane doctor. The MiniPC deliberately does not pretend to own Apple USB/Xcode transport; configure authenticated macOS workers with `PHONE_FARM_DEVICE_WORKERS` and the shared worker/internal tokens.
-
-Useful verification:
-
-```bash
-npm ci
-npm run check
-npm run doctor:control-plane
 docker compose --env-file .env.minipc -f docker-compose.production.yml ps
-curl -fsS http://127.0.0.1:4050/health   # .env.minipc.example default
+curl -fsS http://127.0.0.1:4050/health
+docker compose --env-file .env.minipc -f docker-compose.production.yml \
+  exec -T control-plane npm run doctor:control-plane
 ```
 
-## macOS iPhone worker
+For an existing Kevs/Phone-Farm deployment, set
+`DFARMING_POSTGRES_VOLUME=kevs-ios-agents_phone-farm-postgres` before the
+cutover. Never delete or recreate that volume as generic cleanup.
 
-Prepare a worker only on a Mac with full Xcode selected:
+## macOS iOS worker
 
 ```bash
-cp .env.device-worker.example .env           # first install only
+cp .env.device-worker.example .env
 ./deploy/setup-device-worker.sh
 npm run doctor:device-worker
 ```
 
-Physical iPhone registration stays on the guided WDA path. iOS Simulator discovery/boot/attach stays on the Appium/XCUITest path. Set `PHONE_FARM_ENABLE_PHYSICAL_IOS=false` for a simulator-only worker; the worker then omits physical discovery and physical-lane launch agents. The worker exposes one authenticated worker API back to the MiniPC; it does not run a second scheduler or product database.
+Set `PHONE_FARM_ENABLE_PHYSICAL_IOS=false` for a simulator-only Mac. The
+`PHONE_FARM_*` environment prefix remains a compatibility wire/config
+namespace during the dFarming migration; it is not the product name.
 
-The control plane and device worker use a versioned handshake. Run workers from the same released `main` line: stale, mismatched or non-iOS workers are kept offline/degraded and their advertised devices are never imported into the canonical registry. If two workers advertise the same UDID, that device is quarantined until ownership is unambiguous.
-
-## Hermes contract
-
-Hermes remains stock. `integrations/hermes/SKILL.md` is only a thin client contract over the Phone Farm API. It must never start WebDriverAgent, Appium, a second device registry or another scheduler. The Phone Farm scheduler has final ownership of device conflicts and can reject interactive actions while automation is running.
-
-## Donor policy
-
-External projects are not cloned control planes. The only approved donor/reference families are:
-
-| Donor | Allowed role |
-| --- | --- |
-| `mobctl` | component/reference only |
-| `OpenMob` | component/reference only |
-| `device-farm-ios` | component/reference only |
-| `pymobiledevice3` | dependency/component/reference only |
-
-A donor must be one of: an explicit dependency, a documented reference, or code actually integrated under this repository's ownership/licensing. Otherwise the clone is removed. No donor owns scheduling, device state or deployment.
-
-## Repository map
-
-- `src/api/` — canonical control-plane API/dashboard routes.
-- `src/scheduler/` — single scheduler/queue authority.
-- `src/devices/` — iPhone/iOS Simulator discovery, WDA/Appium control and registration.
-- `src/device-worker-server.ts` / `src/device-workers.ts` — authenticated transport workers.
-- `src/agent/` — narrow API clients/adapters used by Hermes/MCP-style consumers.
-- `integrations/hermes/SKILL.md` — stock-Hermes invocation contract.
-- `deploy/` + `docker-compose.production.yml` — MiniPC and worker release seams.
-- `docs/` — technical reference only; this README is the sole operational/status authority.
-
-## Development and acceptance
-
-Before merging to `main`:
+## Linux Android worker
 
 ```bash
-npm run check
-npm run build:web
-git status --short
-git worktree list
-git stash list
+cp .env.linux-android-worker.example .env
+./deploy/setup-linux-android-worker.sh
+npm run doctor:device-worker
 ```
 
-Release acceptance additionally requires the exact `main` SHA on the MiniPC, a healthy Docker control plane, and—when an iPhone is reachable—an innocuous discovery/connection/read-only control proof. Never infer live-device success from unit tests.
+The Linux worker requires Android platform-tools/ADB and the Appium
+UiAutomator2 runtime. Android Emulator support additionally requires an SDK
+emulator/AVD and, on Linux, working hardware virtualization for useful
+performance.
+
+## Development gates
+
+```bash
+npm ci
+npm run check
+npm run build:web
+npm audit --omit=dev
+git diff --check
+```
+
+Live acceptance is separate from unit tests: production claims require the
+exact `main` SHA deployed on the MiniPC plus a healthy control plane and a
+read-only/innocuous proof for each reachable device/runtime lane.
 
 ## Safety boundary
 
-This project automates only owner-configured iPhones/accounts. It must not create accounts, discover credentials, bypass CAPTCHA/login/platform enforcement, or turn donor code/Hermes into a hidden second authority. Public/high-impact actions stay behind the existing policy and confirmation gates.
+dFarming automates only owner-configured devices and accounts. It must not
+discover credentials, bypass CAPTCHA/login/platform enforcement, create hidden
+authorities, or silently route high-impact public actions around existing
+policy/confirmation gates.

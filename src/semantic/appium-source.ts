@@ -41,7 +41,14 @@ function rectangle(record: Record<string, unknown>): NormalizedNode['rect'] {
     const width = numberValue(record['@_width']);
     const height = numberValue(record['@_height']);
     if ([x, y, width, height].every((value) => value !== undefined)) return { x: x!, y: y!, width: width!, height: height! };
-    return;
+    const bounds = stringValue(record['@_bounds']);
+    const match = bounds?.match(/^\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]$/);
+    if (!match) return;
+    const left = Number(match[1]);
+    const top = Number(match[2]);
+    const right = Number(match[3]);
+    const bottom = Number(match[4]);
+    return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 function childEntries(record: Record<string, unknown>): Array<[string, Record<string, unknown>]> {
@@ -59,14 +66,17 @@ function childEntries(record: Record<string, unknown>): Array<[string, Record<st
 function normalize(tag: string, record: Record<string, unknown>): NormalizedNode {
     const label = stringValue(record['@_label'])
         ?? stringValue(record['@_name'])
+        ?? stringValue(record['@_text'])
+        ?? stringValue(record['@_content-desc'])
+        ?? stringValue(record['@_resource-id'])
         ?? stringValue(record['#text']);
-    const value = stringValue(record['@_value']);
+    const value = stringValue(record['@_value']) ?? stringValue(record['@_text']);
     return {
-        type: stringValue(record['@_type']) ?? tag,
+        type: stringValue(record['@_type']) ?? stringValue(record['@_class']) ?? tag,
         ...(label ? { label, name: label } : {}),
         ...(value && value !== label ? { value } : {}),
         ...(rectangle(record) ? { rect: rectangle(record) } : {}),
-        visible: booleanValue(record['@_visible'], true),
+        visible: booleanValue(record['@_visible'] ?? record['@_displayed'], true),
         enabled: booleanValue(record['@_enabled'], true),
         children: childEntries(record).map(([childTag, child]) => normalize(childTag, child)),
     };
@@ -78,5 +88,7 @@ export function normalizeAppiumPageSource(xml: string): NormalizedNode {
     const root = childEntries(parsed)[0];
     if (!root) throw new Error('Appium returned an invalid page source');
     const normalized = normalize(root[0], root[1]);
+    // Android wraps the actual hierarchy in a metadata-only <hierarchy> node.
+    if (normalized.type === 'hierarchy' && normalized.children.length === 1) return normalized.children[0]!;
     return normalized;
 }

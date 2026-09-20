@@ -1,3 +1,5 @@
+name: dfarming
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -49,3 +51,5 @@ services:
 
 volumes:
   phone-farm-postgres:
+    external: true
+    name: ${DFARMING_POSTGRES_VOLUME:-dfarming-postgres}

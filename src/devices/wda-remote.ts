@@ -77,6 +77,8 @@ export interface RemoteControl {
     getScreenshot(udid: string): Promise<Buffer>;
     /** `signal` should be tied to the client request so the upstream device stream closes when the viewer leaves. */
     getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response>;
+    /** Optional encoded-video path. Control stays on performAction regardless of selected video transport. */
+    getH264Stream?(udid: string, signal?: AbortSignal): Promise<Response>;
     performAction(udid: string, action: RemoteAction): Promise<void>;
     isLocked(udid: string): Promise<boolean>;
     /** Drop any cached client for this device so its next use re-reads devices.json. */

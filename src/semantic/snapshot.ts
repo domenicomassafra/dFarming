@@ -5,9 +5,9 @@ import type { ScreenSize } from '../devices/wda-remote.js';
  *
  * The ref/generation model is intentionally similar to browser automation:
  * callers act on short refs from the latest snapshot instead of guessing pixel
- * coordinates. The implementation stays local to the farm's existing WDA
- * lifecycle and multi-device state model instead of importing another device
- * authority.
+ * coordinates. Design research was informed by teddyoweh/iphone-mcp (MIT) and
+ * Oceanswave/hermes-iphone-plugin (MIT); this implementation is kept local to
+ * the farm's existing WDA lifecycle and multi-device state model.
  */
 
 export interface SemanticRect {

@@ -1,18 +1,19 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
-export type VirtualRuntimePlatform = 'ios';
+export type VirtualRuntimePlatform = 'ios' | 'android';
 export type VirtualRuntimeState = 'booted' | 'shutdown';
 
 export interface VirtualRuntime {
     id: string;
     name: string;
     platform: VirtualRuntimePlatform;
-    kind: 'simulator';
+    kind: 'simulator' | 'emulator';
     state: VirtualRuntimeState;
     osVersion?: string;
+    serial?: string;
 }
 
 function iosRuntimeVersion(runtime: string): string {
@@ -37,6 +38,10 @@ export function parseVirtualSimulators(stdout: string): VirtualRuntime[] {
     }));
 }
 
+export function parseAvdNames(stdout: string): string[] {
+    return stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
 async function iosVirtualRuntimes(): Promise<VirtualRuntime[]> {
     if (process.platform !== 'darwin') return [];
     try {
@@ -49,8 +54,43 @@ async function iosVirtualRuntimes(): Promise<VirtualRuntime[]> {
     }
 }
 
+async function runningAndroidAvds(): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    try {
+        const { stdout } = await execFileAsync('adb', ['devices'], { timeout: 5_000 });
+        const serials = stdout.split(/\r?\n/).slice(1).map((line) => line.trim().split(/\s+/))
+            .filter((parts) => parts[0]?.startsWith('emulator-') && parts[1] === 'device').map((parts) => parts[0]!);
+        await Promise.all(serials.map(async (serial) => {
+            try {
+                const { stdout: avd } = await execFileAsync('adb', ['-s', serial, 'emu', 'avd', 'name'], { timeout: 3_000 });
+                const name = avd.split(/\r?\n/).map((line) => line.trim()).find((line) => line && line !== 'OK');
+                if (name) result.set(name, serial);
+            } catch { /* emulator may be booting */ }
+        }));
+    } catch { /* adb unavailable */ }
+    return result;
+}
+
+async function androidVirtualRuntimes(): Promise<VirtualRuntime[]> {
+    try {
+        const { stdout } = await execFileAsync('emulator', ['-list-avds'], { timeout: 5_000 });
+        const running = await runningAndroidAvds();
+        return parseAvdNames(stdout).map((name) => ({
+            id: name,
+            name,
+            platform: 'android' as const,
+            kind: 'emulator' as const,
+            state: running.has(name) ? 'booted' as const : 'shutdown' as const,
+            ...(running.get(name) ? { serial: running.get(name) } : {}),
+        }));
+    } catch {
+        return [];
+    }
+}
+
 export async function listVirtualRuntimes(): Promise<VirtualRuntime[]> {
-    return iosVirtualRuntimes();
+    const [ios, android] = await Promise.all([iosVirtualRuntimes(), androidVirtualRuntimes()]);
+    return [...ios, ...android];
 }
 
 async function requiredRuntime(platform: VirtualRuntimePlatform, id: string): Promise<VirtualRuntime> {
@@ -65,13 +105,27 @@ export async function changeVirtualRuntimeState(
     action: 'boot' | 'shutdown',
 ): Promise<void> {
     const runtime = await requiredRuntime(platform, id);
-    if (process.platform !== 'darwin') throw Object.assign(new Error('iOS simulators require a macOS worker'), { statusCode: 409 });
+    if (platform === 'ios') {
+        if (process.platform !== 'darwin') throw Object.assign(new Error('iOS simulators require a macOS worker'), { statusCode: 409 });
+        if (action === 'boot') {
+            if (runtime.state === 'booted') return;
+            await execFileAsync('xcrun', ['simctl', 'boot', runtime.id], { timeout: 30_000 });
+            await execFileAsync('xcrun', ['simctl', 'bootstatus', runtime.id, '-b'], { timeout: 120_000 });
+        } else {
+            if (runtime.state === 'shutdown') return;
+            await execFileAsync('xcrun', ['simctl', 'shutdown', runtime.id], { timeout: 30_000 });
+        }
+        return;
+    }
     if (action === 'boot') {
         if (runtime.state === 'booted') return;
-        await execFileAsync('xcrun', ['simctl', 'boot', runtime.id], { timeout: 30_000 });
-        await execFileAsync('xcrun', ['simctl', 'bootstatus', runtime.id, '-b'], { timeout: 120_000 });
-    } else {
-        if (runtime.state === 'shutdown') return;
-        await execFileAsync('xcrun', ['simctl', 'shutdown', runtime.id], { timeout: 30_000 });
+        const args = ['-avd', runtime.id, '-no-snapshot-save', '-no-boot-anim'];
+        if (process.env.PHONE_FARM_ANDROID_EMULATOR_HEADLESS === 'true') args.push('-no-window');
+        const child = spawn('emulator', args, { detached: true, stdio: 'ignore' });
+        child.unref();
+        return;
     }
+    const serial = runtime.serial;
+    if (!serial) return;
+    await execFileAsync('adb', ['-s', serial, 'emu', 'kill'], { timeout: 10_000 });
 }

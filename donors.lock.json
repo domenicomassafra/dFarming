@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-21",
+  "donors": [
+    {
+      "id": "appium-device-farm",
+      "upstream": "AppiumTestDistribution/appium-device-farm",
+      "fork": "domenicomassafra/dFarming-appium-device-farm",
+      "sha": "fb0e2b5c8610c4a689950cd1774c3c1f6a13237b",
+      "license": "Apache-2.0",
+      "role": "cross-platform Appium device/session farm reference and optional adapter"
+    },
+    {
+      "id": "stf",
+      "upstream": "DeviceFarmer/stf",
+      "fork": "domenicomassafra/dFarming-stf",
+      "sha": "69885440ee0e33268d75db15d69b6addfa545267",
+      "license": "Apache-2.0",
+      "role": "Android device-lab and browser device-wall reference"
+    },
+    {
+      "id": "idb",
+      "upstream": "facebook/idb",
+      "fork": "domenicomassafra/dFarming-idb",
+      "sha": "e879e67baa9ad6c2c86f99462551c191d60ccdf1",
+      "license": "MIT",
+      "role": "iOS simulator/device companion and remote-control reference"
+    },
+    {
+      "id": "pymobiledevice3",
+      "upstream": "doronz88/pymobiledevice3",
+      "fork": "domenicomassafra/dFarming-pymobiledevice3",
+      "sha": "68b444e054ceb456d3215dbfb7ead7db4c507801",
+      "license": "GPL-3.0",
+      "role": "external-process Apple device discovery/tunnel reference"
+    },
+    {
+      "id": "android-emulator-containers",
+      "upstream": "google/android-emulator-container-scripts",
+      "fork": "domenicomassafra/dFarming-android-emulator-containers",
+      "sha": "0654f694b46794fae4b178f1e1a17cb60c5d2d34",
+      "license": "Apache-2.0",
+      "role": "Linux/Docker Android Emulator container runtime"
+    },
+    {
+      "id": "scrcpy",
+      "upstream": "Genymobile/scrcpy",
+      "fork": "domenicomassafra/dFarming-scrcpy",
+      "sha": "19c1261d2e2cbf2b5e6a71a8b64cc1dd3ede06ac",
+      "license": "Apache-2.0",
+      "role": "optional low-latency Android video transport"
+    },
+    {
+      "id": "maestro",
+      "upstream": "mobile-dev-inc/Maestro",
+      "fork": "domenicomassafra/dFarming-maestro",
+      "sha": "c436d39f2ba07c4241b7712f85aa5e889d90d62b",
+      "license": "Apache-2.0",
+      "role": "portable semantic flow format/runner reference"
+    }
+  ]
+}

@@ -14,7 +14,7 @@ interface DeviceWorkerHealth {
     role: 'device-worker';
     workerId: string;
     protocolVersion: number;
-    platforms: ['ios'];
+    platforms: Array<'ios' | 'android'>;
 }
 
 export interface DeviceWorkerDescriptor {
@@ -29,7 +29,11 @@ export interface DeviceWorkerDevice {
     status?: DeviceConnectionStatus;
 }
 
-const HOST_CAPABILITIES = new Set<HostCapability>(['ios.physical', 'ios.simulator', 'appium', 'wda', 'simctl']);
+const HOST_CAPABILITIES = new Set<HostCapability>([
+    'ios.physical', 'ios.simulator',
+    'android.physical', 'android.emulator', 'android.h264',
+    'appium', 'wda', 'simctl', 'adb',
+]);
 
 function record(value: unknown): Record<string, unknown> | undefined {
     return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
@@ -49,13 +53,25 @@ function sanitizedWorkerDevice(value: unknown): { device?: DeviceWorkerDevice; w
     const udid = nonEmptyString(source?.udid);
     const name = nonEmptyString(source?.name);
     if (!snapshot || !source || !udid || !name) return { warning: 'ignored malformed device advertisement' };
-    const platform = source.platform ?? 'ios';
-    const kind = source.kind ?? 'physical';
-    const automationBackend = source.automationBackend ?? (kind === 'physical' ? 'wda' : 'appium');
-    if (platform !== 'ios') return { warning: `ignored unsupported device ${udid}: platform ${String(platform)}` };
-    if (kind !== 'physical' && kind !== 'simulator') return { warning: `ignored unsupported device ${udid}: kind ${String(kind)}` };
-    if (automationBackend !== 'wda' && automationBackend !== 'appium') {
-        return { warning: `ignored unsupported device ${udid}: backend ${String(automationBackend)}` };
+    const rawPlatform = source.platform ?? 'ios';
+    const rawKind = source.kind ?? 'physical';
+    const rawAutomationBackend = source.automationBackend
+        ?? (rawPlatform === 'ios' && rawKind === 'physical' ? 'wda' : 'appium');
+    if (rawPlatform !== 'ios' && rawPlatform !== 'android') {
+        return { warning: `ignored unsupported device ${udid}: platform ${String(rawPlatform)}` };
+    }
+    const platform: 'ios' | 'android' = rawPlatform;
+    const validKind = platform === 'ios'
+        ? rawKind === 'physical' || rawKind === 'simulator'
+        : rawKind === 'physical' || rawKind === 'emulator';
+    if (!validKind) return { warning: `ignored unsupported device ${udid}: kind ${String(rawKind)} for ${platform}` };
+    const kind = rawKind as 'physical' | 'simulator' | 'emulator';
+    if (rawAutomationBackend !== 'wda' && rawAutomationBackend !== 'appium') {
+        return { warning: `ignored unsupported device ${udid}: backend ${String(rawAutomationBackend)}` };
+    }
+    const automationBackend: 'wda' | 'appium' = rawAutomationBackend;
+    if (platform === 'android' && automationBackend !== 'appium') {
+        return { warning: `ignored unsupported device ${udid}: Android requires Appium/UiAutomator2` };
     }
     let tags: string[] = [];
     try { tags = normalizeDeviceTags(source.tags); }
@@ -63,7 +79,7 @@ function sanitizedWorkerDevice(value: unknown): { device?: DeviceWorkerDevice; w
         return { warning: `ignored malformed device ${udid}: ${error instanceof Error ? error.message : String(error)}` };
     }
     let coordinateProfile: RegisteredDevice['coordinateProfile'];
-    if (source.coordinateProfile !== undefined) {
+    if (platform === 'ios' && source.coordinateProfile !== undefined) {
         if (typeof source.coordinateProfile !== 'string') return { warning: `ignored malformed device ${udid}: coordinate profile must be a string` };
         try {
             coordinatesForProfile(source.coordinateProfile);
@@ -75,8 +91,8 @@ function sanitizedWorkerDevice(value: unknown): { device?: DeviceWorkerDevice; w
     let coordinates: RegisteredDevice['coordinates'];
     let instagramCoordinates: RegisteredDevice['instagramCoordinates'];
     try {
-        if (source.coordinates !== undefined) coordinates = validateCoordinateOverrides(source.coordinates, coordinateProfile);
-        if (source.instagramCoordinates !== undefined) instagramCoordinates = validateCoordinateOverrides(source.instagramCoordinates, coordinateProfile);
+        if (platform === 'ios' && source.coordinates !== undefined) coordinates = validateCoordinateOverrides(source.coordinates, coordinateProfile);
+        if (platform === 'ios' && source.instagramCoordinates !== undefined) instagramCoordinates = validateCoordinateOverrides(source.instagramCoordinates, coordinateProfile);
     } catch (error) {
         return { warning: `ignored malformed device ${udid}: ${error instanceof Error ? error.message : String(error)}` };
     }
@@ -84,7 +100,7 @@ function sanitizedWorkerDevice(value: unknown): { device?: DeviceWorkerDevice; w
     const registered: DeviceWorkerDevice['registered'] = {
         name,
         udid,
-        platform: 'ios',
+        platform,
         kind,
         automationBackend,
         hasPasscode: source.hasPasscode === true,
@@ -104,16 +120,21 @@ function sanitizedWorkerDevice(value: unknown): { device?: DeviceWorkerDevice; w
         const osVersion = nonEmptyString(connectedSource.osVersion);
         const connectedPlatform = connectedSource.platform ?? 'ios';
         const connectedKind = connectedSource.kind ?? kind;
-        if (connectedUdid !== udid || !connectedName || !osVersion || connectedPlatform !== 'ios'
-            || (connectedKind !== 'physical' && connectedKind !== 'simulator')) {
+        const connectedKindValid = connectedPlatform === 'ios'
+            ? connectedKind === 'physical' || connectedKind === 'simulator'
+            : connectedPlatform === 'android'
+                ? connectedKind === 'physical' || connectedKind === 'emulator'
+                : false;
+        if (connectedUdid !== udid || !connectedName || !osVersion || !connectedKindValid
+            || connectedPlatform !== platform || connectedKind !== kind) {
             return { warning: `ignored malformed connected-state advertisement for ${udid}` };
         }
         connected = {
             name: connectedName,
             osVersion,
             udid,
-            platform: 'ios',
-            kind: connectedKind,
+            platform,
+            kind: connectedKind as 'physical' | 'simulator' | 'emulator',
             ...(nonEmptyString(connectedSource.productType) ? { productType: nonEmptyString(connectedSource.productType) } : {}),
             ...(nonEmptyString(connectedSource.hardwareModel) ? { hardwareModel: nonEmptyString(connectedSource.hardwareModel) } : {}),
             ...(nonEmptyString(connectedSource.modelName) ? { modelName: nonEmptyString(connectedSource.modelName) } : {}),
@@ -161,6 +182,8 @@ function sanitizedHostSnapshot(value: unknown, descriptor: DeviceWorkerDescripto
             appium: toolsSource?.appium === true,
             appiumRuntime: toolsSource?.appiumRuntime === true,
             xcrun: toolsSource?.xcrun === true,
+            adb: toolsSource?.adb === true,
+            scrcpyVideo: toolsSource?.scrcpyVideo === true,
         },
         ...(metrics ? { metrics } : {}),
     };
@@ -171,11 +194,20 @@ function sanitizedRuntimeDevice(value: unknown): RuntimeDevice | undefined {
     const name = nonEmptyString(source?.name);
     const osVersion = nonEmptyString(source?.osVersion);
     const udid = nonEmptyString(source?.udid);
-    if (!source || !name || !osVersion || !udid || source.platform !== 'ios') return;
-    if (source.kind !== 'physical' && source.kind !== 'simulator') return;
+    if (!source || !name || !osVersion || !udid || (source.platform !== 'ios' && source.platform !== 'android')) return;
+    const validKind = source.platform === 'ios'
+        ? source.kind === 'physical' || source.kind === 'simulator'
+        : source.kind === 'physical' || source.kind === 'emulator';
+    if (!validKind) return;
     if (source.automationBackend !== 'wda' && source.automationBackend !== 'appium') return;
+    if (source.platform === 'android' && source.automationBackend !== 'appium') return;
     return {
-        name, osVersion, udid, platform: 'ios', kind: source.kind, automationBackend: source.automationBackend,
+        name,
+        osVersion,
+        udid,
+        platform: source.platform,
+        kind: source.kind as 'physical' | 'simulator' | 'emulator',
+        automationBackend: source.automationBackend,
         ...(nonEmptyString(source.productType) ? { productType: nonEmptyString(source.productType) } : {}),
         ...(nonEmptyString(source.hardwareModel) ? { hardwareModel: nonEmptyString(source.hardwareModel) } : {}),
         ...(nonEmptyString(source.modelName) ? { modelName: nonEmptyString(source.modelName) } : {}),
@@ -186,11 +218,17 @@ function sanitizedVirtualRuntime(value: unknown): VirtualRuntime | undefined {
     const source = record(value);
     const id = nonEmptyString(source?.id);
     const name = nonEmptyString(source?.name);
-    if (!source || !id || !name || source.platform !== 'ios' || source.kind !== 'simulator') return;
+    if (!source || !id || !name || (source.platform !== 'ios' && source.platform !== 'android')) return;
+    if (source.platform === 'ios' ? source.kind !== 'simulator' : source.kind !== 'emulator') return;
     if (source.state !== 'booted' && source.state !== 'shutdown') return;
     return {
-        id, name, platform: 'ios', kind: 'simulator', state: source.state,
+        id,
+        name,
+        platform: source.platform,
+        kind: source.kind as 'simulator' | 'emulator',
+        state: source.state,
         ...(nonEmptyString(source.osVersion) ? { osVersion: nonEmptyString(source.osVersion) } : {}),
+        ...(nonEmptyString(source.serial) ? { serial: nonEmptyString(source.serial) } : {}),
     };
 }
 
@@ -257,8 +295,10 @@ export class DeviceWorkerClient {
         if (body.protocolVersion !== DEVICE_WORKER_PROTOCOL_VERSION) {
             throw new Error(`Device worker ${this.descriptor.id} protocol ${String(body.protocolVersion)} is incompatible with control-plane protocol ${DEVICE_WORKER_PROTOCOL_VERSION}`);
         }
-        if (!Array.isArray(body.platforms) || body.platforms.length !== 1 || body.platforms[0] !== 'ios') {
-            throw new Error(`Device worker ${this.descriptor.id} is not an iOS-only worker`);
+        if (!Array.isArray(body.platforms)
+            || body.platforms.some((platform) => platform !== 'ios' && platform !== 'android')
+            || new Set(body.platforms).size !== body.platforms.length) {
+            throw new Error(`Device worker ${this.descriptor.id} returned an invalid platform declaration`);
         }
         return body as DeviceWorkerHealth;
     }
@@ -325,6 +365,10 @@ export class DeviceWorkerClient {
 
     async getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response> {
         return this.request(`/v1/devices/${encodeURIComponent(udid)}/stream`, { signal }, 20_000);
+    }
+
+    async getH264Stream(udid: string, signal?: AbortSignal): Promise<Response> {
+        return this.request(`/v1/devices/${encodeURIComponent(udid)}/h264`, { signal }, 20_000);
     }
 
     async performAction(udid: string, action: RemoteAction): Promise<void> {
@@ -409,7 +453,7 @@ export class DeviceWorkerFleet implements RemoteControl {
             observedAt: new Date().toISOString(),
             error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
             capabilities: [],
-            tools: { appium: false, appiumRuntime: false, xcrun: false },
+            tools: { appium: false, appiumRuntime: false, xcrun: false, adb: false, scrcpyVideo: false },
         };
     }
 
@@ -552,6 +596,7 @@ export class DeviceWorkerFleet implements RemoteControl {
     async getAccessibilityTree(udid: string): Promise<unknown> { return (await this.clientFor(udid)).getAccessibilityTree(udid); }
     async getScreenshot(udid: string): Promise<Buffer> { return (await this.clientFor(udid)).getScreenshot(udid); }
     async getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response> { return (await this.clientFor(udid)).getMjpegStream(udid, signal); }
+    async getH264Stream(udid: string, signal?: AbortSignal): Promise<Response> { return (await this.clientFor(udid)).getH264Stream(udid, signal); }
     async performAction(udid: string, action: RemoteAction): Promise<void> { return (await this.clientFor(udid)).performAction(udid, action); }
     async isLocked(udid: string): Promise<boolean> { return (await this.clientFor(udid)).isLocked(udid); }
     async connectionStatus(udid: string): Promise<DeviceConnectionStatus> { return (await this.clientFor(udid)).connection(udid); }

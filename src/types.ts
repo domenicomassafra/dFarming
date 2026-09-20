@@ -4,8 +4,8 @@ export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue };
 
-export type MobilePlatform = 'ios';
-export type MobileDeviceKind = 'physical' | 'simulator';
+export type MobilePlatform = 'ios' | 'android';
+export type MobileDeviceKind = 'physical' | 'simulator' | 'emulator';
 export type MobileAutomationBackend = 'wda' | 'appium';
 
 export interface DeviceIdentity {
@@ -22,7 +22,7 @@ export interface DeviceIdentity {
 }
 
 export interface RegisteredDevice extends DeviceIdentity {
-    /** Physical iPhones use WDA; iOS Simulators use Appium/XCUITest. */
+    /** Legacy iPhone entries use WDA; generic runtimes use Appium. */
     automationBackend?: MobileAutomationBackend;
     wdaLocalPort?: number;
     mjpegLocalPort?: number;

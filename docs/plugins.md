@@ -1,4 +1,4 @@
-# Extending Phone Farm with plugins
+# Extending dFarming with plugins
 
 A plugin adds **versioned automation tasks** — and optionally device‑page
 panels, registration checks, HTTP routes, and declared WDA patches — without
@@ -12,7 +12,7 @@ compatibility rules. This document is the how‑to.
 Everything is in `src/plugin.ts`. A plugin is a plain object:
 
 ```ts
-import type { PhoneFarmPlugin } from '@git-agni/phone-farm-core';
+import type { PhoneFarmPlugin } from '@domenicomassafra/dfarming-core';
 
 const plugin: PhoneFarmPlugin = {
     id: 'com.acme.instagram',   // reverse-DNS, stable forever
@@ -35,8 +35,8 @@ loads both:
 
 | Plugin id | Package export | Tasks | Bundle env |
 | --- | --- | --- | --- |
-| `com.git-agni.tiktok` | `@git-agni/phone-farm-core/tiktok` | `doomscroll@1`, `post@1` | `TIKTOK_BUNDLE_ID` (default `com.zhiliaoapp.musically`) |
-| `com.git-agni.instagram` | `@git-agni/phone-farm-core/instagram` | `doomscroll@1`, `post@1` | `INSTAGRAM_BUNDLE_ID` (default `com.burbn.instagram`) |
+| `com.git-agni.tiktok` | `@domenicomassafra/dfarming-core/tiktok` | `doomscroll@1`, `post@1` | `TIKTOK_BUNDLE_ID` (default `com.zhiliaoapp.musically`) |
+| `com.git-agni.instagram` | `@domenicomassafra/dfarming-core/instagram` | `doomscroll@1`, `post@1` | `INSTAGRAM_BUNDLE_ID` (default `com.burbn.instagram`) |
 
 Instagram HTTP routes are namespaced under `/plugins/com.git-agni.instagram/instagram/…`
 so they do not collide with TikTok’s `/accounts` and `/posts`. Set accounts on
@@ -54,7 +54,7 @@ export with an `id` and a `tasks` array.
 ## A task definition
 
 ```ts
-import type { TaskDefinition } from '@git-agni/phone-farm-core';
+import type { TaskDefinition } from '@domenicomassafra/dfarming-core';
 
 interface LikePayload extends Record<string, unknown> {
     count: number;
@@ -216,7 +216,7 @@ through `wda:prepare`.
 ## Packaging & shipping
 
 1. A normal npm package, `"type": "module"`, `export default` the plugin.
-2. `peerDependencies`: `@git-agni/phone-farm-core`.
+2. `peerDependencies`: `@domenicomassafra/dfarming-core`.
 3. Publish privately (or reference a pinned git commit).
 4. Add the package name to `PHONE_FARM_PLUGINS` for **both** the `web` and
    `worker` units; restart both.

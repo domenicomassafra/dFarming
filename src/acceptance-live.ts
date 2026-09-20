@@ -47,7 +47,7 @@ export async function runLiveAcceptance(): Promise<Record<string, unknown>> {
     const accounts = await client.accounts();
     const devices = await (await api(base, 'GET', '/api/devices')).json() as Array<{ udid: string; name: string; disabled?: boolean }>;
     const device = devices.find((candidate) => candidate.udid === udid);
-    if (!device) throw new Error(`Device ${udid} is not registered in Phone Farm`);
+    if (!device) throw new Error(`Device ${udid} is not registered in dFarming`);
     if (device.disabled) throw new Error(`Device ${udid} is disabled`);
 
     const screenshot = await api(base, 'GET', `/api/devices/${encodeURIComponent(udid)}/remote/screenshot`);

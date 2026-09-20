@@ -13,7 +13,7 @@ function result(value: unknown) {
 export function buildFarmMcpServer(client = new FarmAgentClient()): McpServer {
     const server = new McpServer({ name: 'phone-farm', version: '0.1.0' }, { capabilities: { tools: {} } });
     server.registerTool('farm_health', {
-        description: 'Read the Phone Farm health endpoint.',
+        description: 'Read the dFarming health endpoint.',
         inputSchema: z.object({}),
         annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     }, async () => result(await client.health()));

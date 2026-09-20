@@ -22,7 +22,7 @@ test('source keeps one canonical RegisteredDevice contract and no package self-i
         file,
         body: await readFile(file, 'utf8'),
     })));
-    const selfImports = bodies.filter(({ body }) => body.includes("from '@git-agni/phone-farm-core"));
+    const selfImports = bodies.filter(({ body }) => body.includes("from '@domenicomassafra/dfarming-core"));
     assert.deepEqual(selfImports.map(({ file }) => path.relative(sourceRoot, file)), []);
 
     const declarations = bodies.flatMap(({ file, body }) => (
@@ -31,13 +31,16 @@ test('source keeps one canonical RegisteredDevice contract and no package self-i
     assert.deepEqual(declarations, ['types.ts']);
 });
 
-test('product source remains iOS-only', async () => {
-    const forbidden = /\b(?:android|adb|uiautomator2|scrcpy)\b/i;
+test('platform subprocesses stay behind device transport adapters', async () => {
+    const directTransportProcess = /(?:execFileAsync|spawn)\(\s*['"](?:adb|xcrun|emulator)['"]/;
     const findings: string[] = [];
     for (const file of await sourceFiles()) {
+        const relative = path.relative(sourceRoot, file);
         const lines = (await readFile(file, 'utf8')).split(/\r?\n/);
         lines.forEach((line, index) => {
-            if (forbidden.test(line)) findings.push(`${path.relative(sourceRoot, file)}:${index + 1}: ${line.trim()}`);
+            if (directTransportProcess.test(line) && !relative.startsWith(`devices${path.sep}`)) {
+                findings.push(`${relative}:${index + 1}: ${line.trim()}`);
+            }
         });
     }
     assert.deepEqual(findings, []);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseVirtualSimulators } from '../src/devices/virtual-runtime.js';
+import { parseAvdNames, parseVirtualSimulators } from '../src/devices/virtual-runtime.js';
 
 test('parses available iOS simulator definitions and preserves boot state', () => {
     const runtimes = parseVirtualSimulators(JSON.stringify({
@@ -17,4 +17,8 @@ test('parses available iOS simulator definitions and preserves boot state', () =
         { id: 'SIM-1', state: 'booted', osVersion: '26.0' },
         { id: 'SIM-2', state: 'shutdown', osVersion: '26.0' },
     ]);
+});
+
+test('parses Android AVD definitions without shell interpretation', () => {
+    assert.deepEqual(parseAvdNames('Pixel_9_API_36\nTablet_API_35\n\n'), ['Pixel_9_API_36', 'Tablet_API_35']);
 });

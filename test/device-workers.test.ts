@@ -23,7 +23,7 @@ test('device worker client authenticates and proxies screen/action calls without
         const request = new Request(input, init);
         requests.push(request);
         if (request.url.endsWith('/v1/host')) {
-            return Response.json({ id: 'macstudio', hostname: 'studio', os: 'darwin', arch: 'arm64', online: true, observedAt: new Date(0).toISOString(), capabilities: ['ios.physical'], tools: { appium: true, appiumRuntime: true, xcrun: true } });
+            return Response.json({ id: 'macstudio', hostname: 'studio', os: 'darwin', arch: 'arm64', online: true, observedAt: new Date(0).toISOString(), capabilities: ['ios.physical'], tools: { appium: true, appiumRuntime: true, xcrun: true, adb: false, scrcpyVideo: false } });
         }
         if (request.url.endsWith('/info')) {
             return Response.json({ screenSize: { width: 390, height: 844 }, scale: 3 });
@@ -133,7 +133,7 @@ test('worker recovery emits one recovery transition after an outage', async (con
     assert.equal(fleet.hosts()[0]?.error, undefined);
 });
 
-test('an iOS-only control plane quarantines unsupported worker devices without poisoning its registry', async (context) => {
+test('cross-platform control plane quarantines malformed worker devices without poisoning its registry', async (context) => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'phone-farm-worker-'));
     const registryPath = path.join(directory, 'devices.json');
     context.after(() => rm(directory, { recursive: true, force: true }));
@@ -141,19 +141,19 @@ test('an iOS-only control plane quarantines unsupported worker devices without p
         const pathname = new URL(new Request(input).url).pathname;
         if (pathname === '/health') return Response.json({
             ok: true, role: 'device-worker', workerId: 'macstudio',
-            protocolVersion: DEVICE_WORKER_PROTOCOL_VERSION, platforms: ['ios'],
+            protocolVersion: DEVICE_WORKER_PROTOCOL_VERSION, platforms: ['ios', 'android'],
         });
         if (pathname === '/v1/devices') return Response.json({ devices: [{
             registered: {
-                name: 'stale Android fixture', udid: 'ANDROID-STALE', platform: 'android', kind: 'emulator',
+                name: 'unsupported fixture', udid: 'WINDOWS-STALE', platform: 'windows', kind: 'physical',
                 automationBackend: 'appium', hasPasscode: false, pluginData: {},
             },
             connected: null,
         }] });
         if (pathname === '/v1/host') return Response.json({
             id: 'wrong-id', hostname: 'studio', os: 'darwin', arch: 'arm64', online: true,
-            observedAt: new Date(0).toISOString(), capabilities: ['ios.physical', 'android.emulator'],
-            tools: { appium: true, appiumRuntime: true, xcrun: true },
+            observedAt: new Date(0).toISOString(), capabilities: ['ios.physical', 'android.emulator', 'windows.device'],
+            tools: { appium: true, appiumRuntime: true, xcrun: true, adb: true, scrcpyVideo: false },
         });
         throw new Error(`Unexpected request ${pathname}`);
     };
@@ -165,9 +165,9 @@ test('an iOS-only control plane quarantines unsupported worker devices without p
     const [host] = fleet.hosts();
     assert.equal(host?.id, 'macstudio');
     assert.equal(host?.online, true);
-    assert.deepEqual(host?.capabilities, ['ios.physical']);
-    assert.match(host?.error ?? '', /unsupported device ANDROID-STALE/);
-    assert.match(host?.error ?? '', /unsupported capabilities: android\.emulator/);
+    assert.deepEqual(host?.capabilities, ['ios.physical', 'android.emulator']);
+    assert.match(host?.error ?? '', /unsupported device WINDOWS-STALE/);
+    assert.match(host?.error ?? '', /unsupported capabilities: windows\.device/);
 });
 
 test('duplicate UDIDs from two workers are quarantined instead of choosing an arbitrary owner', async (context) => {

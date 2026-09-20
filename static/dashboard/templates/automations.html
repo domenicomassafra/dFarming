@@ -16,7 +16,7 @@
                 <span class="brand-mark" aria-hidden="true"></span>
                 <span class="brand-text">
                     <span class="brand-name">MOBILE FARM</span>
-                    <span class="brand-by">iPhone + iOS Simulator control</span>
+                    <span class="brand-by">real + virtual device control</span>
                 </span>
             </a>
             <nav class="topbar-nav" aria-label="Primary">
@@ -33,7 +33,7 @@
             <div>
                 <span class="eyebrow">Automation Studio</span>
                 <h1>Build, version and schedule flows</h1>
-                <p>Semantic iOS automation, saved revisions, reusable pools and scheduler-backed execution across iPhones and iOS Simulators.</p>
+                <p>Semantic mobile automation, saved revisions, reusable pools and scheduler-backed execution across iOS and Android.</p>
             </div>
         </header>
 
@@ -45,7 +45,7 @@
             <div class="automation-mode-switch" role="tablist" aria-label="Automation workspace">
                 <button type="button" class="automation-template" data-template="flow" role="tab" aria-pressed="false">
                     <span class="automation-template-title">Portable flow</span>
-                    <span class="automation-template-meta">iOS · semantic</span>
+                    <span class="automation-template-meta">iOS + Android · semantic</span>
                 </button>
                 <button type="button" class="automation-template" data-template="pipeline" role="tab" aria-pressed="false">
                     <span class="automation-template-title">Post pipeline</span>
@@ -85,11 +85,11 @@
                             <summary><span>Allocation pool</span><small>Optional constraints when using an idle matching device</small></summary>
                             <div id="flow-pool-fields" class="flow-pool-fields" hidden>
                                 <label class="field"><span>Saved pool</span><select id="flow-saved-pool"><option value="">Custom target</option></select></label>
-                                <label class="field"><span>Pool name</span><input id="flow-pool-name" type="text" maxlength="80" placeholder="e.g. Creator staging"></label>
-                                <label class="field"><span>Platform</span><select id="flow-pool-platform"><option value="ios">iOS</option></select></label>
-                                <label class="field"><span>Kind</span><select id="flow-pool-kind"><option value="">Any</option><option value="physical">Physical</option><option value="simulator">Simulator</option></select></label>
+                                <label class="field"><span>Pool name</span><input id="flow-pool-name" type="text" maxlength="80" placeholder="e.g. Android staging"></label>
+                                <label class="field"><span>Platform</span><select id="flow-pool-platform"><option value="">Any</option><option value="ios">iOS</option><option value="android">Android</option></select></label>
+                                <label class="field"><span>Kind</span><select id="flow-pool-kind"><option value="">Any</option><option value="physical">Physical</option><option value="simulator">Simulator</option><option value="emulator">Emulator</option></select></label>
                                 <label class="field"><span>Host</span><select id="flow-pool-worker"><option value="">Any host</option></select></label>
-                                <label class="field"><span>Tags</span><input id="flow-pool-tags" type="text" placeholder="staging, creator"></label>
+                                <label class="field"><span>Tags</span><input id="flow-pool-tags" type="text" placeholder="staging, pixel"></label>
                                 <div class="flow-pool-actions">
                                     <button id="flow-pool-save" class="button secondary" type="button">Save pool</button>
                                     <button id="flow-pool-delete" class="button secondary danger-outline" type="button" disabled>Delete</button>

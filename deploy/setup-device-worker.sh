@@ -95,7 +95,7 @@ if [[ "$physical_ios_enabled" != "false" ]]; then
   [[ -d .appium2/node_modules/appium-xcuitest-driver ]] || npm run appium:install-driver
 fi
 [[ -d .appium-runtime/node_modules/appium-xcuitest-driver ]] || npm run appium:runtime:install-ios
-npm run db:migrate
+[[ -d .appium-runtime/node_modules/appium-uiautomator2-driver ]] || npm run appium:runtime:install-android
 npm run doctor:device-worker
 npm run service -- install
 require_launchd_running com.phone-farm.appium-runtime

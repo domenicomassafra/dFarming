@@ -3,8 +3,8 @@ export {};
 type CheckState = 'pending' | 'checking' | 'blocked' | 'passed' | 'failed';
 interface Device { name: string; osVersion: string; udid: string }
 interface RuntimeDevice extends Device {
-    platform: 'ios';
-    kind: 'physical' | 'simulator';
+    platform: 'ios' | 'android';
+    kind: 'physical' | 'simulator' | 'emulator';
     workerId?: string;
 }
 interface HostSnapshot {
@@ -127,7 +127,7 @@ async function runtimeCandidates(): Promise<void> {
         discoveredRuntimeCount = devices.length;
         runtimeCount.textContent = countLabel(discoveredRuntimeCount, 'attachable', 'attachable');
         if (!devices.length) {
-            runtimeList.innerHTML = '<div class="empty-state registration-empty"><span class="empty-state-kicker">Appium 3 lane</span><h3>No attachable runtime detected</h3><p>Boot an iOS Simulator on an online macOS execution host.</p><div class="empty-state-actions"><a class="button secondary" href="/#host-list">Open execution layer</a><button class="button secondary" type="button" data-rescan-runtime>Scan again</button></div></div>';
+            runtimeList.innerHTML = '<div class="empty-state registration-empty"><span class="empty-state-kicker">Appium 3 lane</span><h3>No attachable runtime detected</h3><p>Boot an iOS Simulator or Android Emulator, or reconnect an authorized Android phone on an online execution host.</p><div class="empty-state-actions"><a class="button secondary" href="/#host-list">Open execution layer</a><button class="button secondary" type="button" data-rescan-runtime>Scan again</button></div></div>';
             runtimeList.querySelector<HTMLButtonElement>('[data-rescan-runtime]')?.addEventListener('click', () => void scanHosts());
             return;
         }
@@ -141,7 +141,7 @@ async function runtimeCandidates(): Promise<void> {
             meta.textContent = `${device.platform} · ${device.kind} · ${device.osVersion || 'unknown OS'}${device.workerId ? ` · ${device.workerId}` : ''}`;
             const chips = document.createElement('div');
             chips.className = 'registration-runtime-chips';
-            for (const value of ['iOS', device.kind, device.workerId].filter(Boolean) as string[]) {
+            for (const value of [device.platform === 'ios' ? 'iOS' : 'Android', device.kind, device.workerId].filter(Boolean) as string[]) {
                 const chip = document.createElement('span');
                 chip.className = 'connection-chip';
                 chip.textContent = value;

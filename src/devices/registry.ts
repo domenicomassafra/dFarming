@@ -53,8 +53,8 @@ export async function loadRegisteredDevices(registryPath = defaultRegistryPath):
         const platform = device.platform ?? 'ios';
         const kind = device.kind ?? 'physical';
         const backend = device.automationBackend ?? (platform === 'ios' && kind === 'physical' ? 'wda' : 'appium');
-        if (platform !== 'ios') throw new Error(`Device ${device.udid} uses unsupported platform ${platform}; this farm is iOS-only`);
-        if (!['physical', 'simulator'].includes(kind)) throw new Error(`Device ${device.udid} has invalid iOS kind ${kind}`);
+        if (!['ios', 'android'].includes(platform)) throw new Error(`Device ${device.udid} has invalid platform ${platform}`);
+        if (!['physical', 'simulator', 'emulator'].includes(kind)) throw new Error(`Device ${device.udid} has invalid kind ${kind}`);
         if (!['wda', 'appium'].includes(backend)) throw new Error(`Device ${device.udid} has invalid automation backend ${backend}`);
         if (device.tags !== undefined) {
             device.tags = normalizeDeviceTags(device.tags);
@@ -81,8 +81,8 @@ export async function saveRegisteredDevices(devices: RegisteredDevice[], registr
         const platform = device.platform ?? 'ios';
         const kind = device.kind ?? 'physical';
         const backend = device.automationBackend ?? (platform === 'ios' && kind === 'physical' ? 'wda' : 'appium');
-        if (platform !== 'ios') throw new Error(`Device ${device.udid} uses unsupported platform ${platform}; this farm is iOS-only`);
-        if (!['physical', 'simulator'].includes(kind)) throw new Error(`Device ${device.udid} has invalid iOS kind ${kind}`);
+        if (!['ios', 'android'].includes(platform)) throw new Error(`Device ${device.udid} has invalid platform ${platform}`);
+        if (!['physical', 'simulator', 'emulator'].includes(kind)) throw new Error(`Device ${device.udid} has invalid kind ${kind}`);
         if (!['wda', 'appium'].includes(backend)) throw new Error(`Device ${device.udid} has invalid automation backend ${backend}`);
         if (device.tags !== undefined) {
             device.tags = normalizeDeviceTags(device.tags);

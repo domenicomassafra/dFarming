@@ -17,7 +17,7 @@
                 <span class="brand-mark" aria-hidden="true"></span>
                 <span class="brand-text">
                     <span class="brand-name">MOBILE FARM</span>
-                    <span class="brand-by">iPhone + iOS Simulator control</span>
+                    <span class="brand-by">real + virtual device control</span>
                 </span>
             </a>
             <nav class="topbar-nav" aria-label="Primary"><a class="nav-link" href="/">Overview</a><a class="nav-link" href="/fleet">Fleet</a><a class="nav-link" href="/automations">Automations</a><a class="nav-link" href="/tasks">Runs</a><a class="button primary" href="/devices/register" aria-current="page">Add device</a>__PLUGIN_NAV____AUTH_NAV__</nav>
@@ -25,21 +25,21 @@
     </header>
     <main class="shell registration-shell">
         <header class="page-header">
-            <div><span class="eyebrow">Device onboarding</span><h1>Add or register an <em>iOS device</em></h1><p>Attach iOS Simulators through Appium/XCUITest, or use the guided WDA setup for a physical iPhone.</p></div>
+            <div><span class="eyebrow">Device onboarding</span><h1>Add or register a <em>device</em></h1><p>Attach Android phones/emulators and iOS simulators directly through Appium, or use the deeper WDA setup for a physical iPhone.</p></div>
         </header>
 
         <section id="onboarding-status" class="onboarding-status" aria-label="Onboarding readiness">
             <div class="onboarding-status-card"><span>Execution hosts</span><strong id="onboarding-host-count">Checking…</strong><small id="onboarding-host-note">Reading worker state</small></div>
-            <div class="onboarding-status-card"><span>Appium attach</span><strong id="onboarding-runtime-count">Scanning…</strong><small>iOS Simulator</small></div>
+            <div class="onboarding-status-card"><span>Appium attach</span><strong id="onboarding-runtime-count">Scanning…</strong><small>Simulator / emulator / Android</small></div>
             <div class="onboarding-status-card"><span>Physical iPhone</span><strong id="onboarding-iphone-count">Checking…</strong><small>USB + WDA lane</small></div>
             <div class="onboarding-status-card"><span>Automation</span><strong>2 lanes</strong><small>Appium 3 + isolated WDA</small></div>
         </section>
 
         <div class="registration-lanes">
             <section class="registration-panel registration-lane" id="runtime-panel">
-                <div class="section-heading"><div><span class="eyebrow">Fast attach · Appium 3</span><h2>iOS Simulator</h2></div><button class="button secondary" id="refresh-runtimes" type="button">Scan hosts</button></div>
-                <p>Booted iOS Simulators on a macOS worker can join immediately and run Portable Flows.</p>
-                <div class="registration-lane-badges"><span class="connection-chip">iOS Simulator</span><span class="connection-chip">XCUITest</span></div>
+                <div class="section-heading"><div><span class="eyebrow">Fast attach · Appium 3</span><h2>Virtual &amp; Android</h2></div><button class="button secondary" id="refresh-runtimes" type="button">Scan hosts</button></div>
+                <p>Booted iOS Simulators, Android Emulators and authorized Android phones can join immediately and run Portable Flows.</p>
+                <div class="registration-lane-badges"><span class="connection-chip">iOS Simulator</span><span class="connection-chip">Android physical</span><span class="connection-chip">Android Emulator</span></div>
                 <div id="runtime-list" class="candidate-list" aria-live="polite">Scanning execution hosts…</div>
             </section>
 

@@ -58,7 +58,7 @@ export class FarmAgentClient {
                 signal: AbortSignal.timeout(35_000),
             });
         } catch (error) {
-            throw new Error(`Phone Farm is unavailable at ${this.baseUrl.origin}: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`dFarming is unavailable at ${this.baseUrl.origin}: ${error instanceof Error ? error.message : String(error)}`);
         }
         const text = await response.text();
         let payload: unknown = text;
@@ -70,7 +70,7 @@ export class FarmAgentClient {
                 && 'error' in payload && typeof (payload as { error?: unknown }).error === 'string'
                 ? (payload as { error: string }).error
                 : text.slice(0, 500);
-            throw new Error(`Phone Farm ${method} ${url.pathname} returned ${response.status}${detail ? `: ${detail}` : ''}`);
+            throw new Error(`dFarming ${method} ${url.pathname} returned ${response.status}${detail ? `: ${detail}` : ''}`);
         }
         return payload;
     }

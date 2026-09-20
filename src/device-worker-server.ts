@@ -12,7 +12,7 @@ import type { JsonObject } from './types.js';
 import { detectHostCapabilities } from './hosts/capabilities.js';
 import {
     discoverRuntimeDevices, filterRuntimeDevicesForWorker, registerRuntimeDevice,
-    workerAllowsOperationalDevice, workerAllowsRuntimeKind,
+    workerAllowsOperationalDevice, workerAllowsRuntimeDevice,
 } from './devices/runtime-discovery.js';
 import { changeVirtualRuntimeState, listVirtualRuntimes, type VirtualRuntimePlatform } from './devices/virtual-runtime.js';
 import { DEVICE_WORKER_PROTOCOL_VERSION } from './device-workers.js';
@@ -86,7 +86,7 @@ async function discoverWorkerRuntimeDevices() {
 
 async function requireWorkerDevice(udid: string): Promise<RegisteredDevice> {
     const registered = (await loadRegisteredDevices()).find((device) => device.udid === udid);
-    if (!registered || !workerAllowsRuntimeKind(registered.kind, physicalIosLaneEnabled())) {
+    if (!registered || !workerAllowsRuntimeDevice(registered, physicalIosLaneEnabled())) {
         throw Object.assign(new Error('Device is unavailable on this worker'), { statusCode: 404 });
     }
     if (!workerAllowsOperationalDevice(registered, physicalIosLaneEnabled())) {
@@ -120,19 +120,25 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
         if (!supplied || !safeEqual(supplied, token)) return reply.code(401).send({ error: 'Device worker authentication required' });
     });
 
-    app.get('/health', async () => ({
-        ok: true,
-        role: 'device-worker',
-        workerId,
-        protocolVersion: DEVICE_WORKER_PROTOCOL_VERSION,
-        platforms: ['ios'] as const,
-    }));
+    app.get('/health', async () => {
+        const snapshot = await detectHostCapabilities({ id: workerId });
+        const platforms: Array<'ios' | 'android'> = [];
+        if (snapshot.capabilities.some((capability) => capability.startsWith('ios.'))) platforms.push('ios');
+        if (snapshot.capabilities.some((capability) => capability.startsWith('android.'))) platforms.push('android');
+        return {
+            ok: true as const,
+            role: 'device-worker' as const,
+            workerId,
+            protocolVersion: DEVICE_WORKER_PROTOCOL_VERSION,
+            platforms,
+        };
+    });
     app.get('/v1/host', async () => detectHostCapabilities({ id: workerId }));
     app.get('/v1/runtime-devices', async () => ({ devices: await discoverWorkerRuntimeDevices() }));
     app.get('/v1/virtual-runtimes', async () => ({ runtimes: await listVirtualRuntimes() }));
     app.post<{ Params: { platform: VirtualRuntimePlatform; id: string; action: 'boot' | 'shutdown' } }>(
         '/v1/virtual-runtimes/:platform/:id/:action', async (request, reply) => {
-            if (request.params.platform !== 'ios' || !['boot', 'shutdown'].includes(request.params.action)) {
+            if (!['ios', 'android'].includes(request.params.platform) || !['boot', 'shutdown'].includes(request.params.action)) {
                 return reply.code(400).send({ error: 'Unsupported virtual runtime action' });
             }
             await changeVirtualRuntimeState(request.params.platform, request.params.id, request.params.action);
@@ -148,7 +154,7 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
     });
     app.get('/v1/devices', async () => {
         const [allRegistered, connected] = await Promise.all([loadRegisteredDevices(), discoverWorkerRuntimeDevices()]);
-        const registered = allRegistered.filter((device) => workerAllowsRuntimeKind(device.kind, physicalIosLaneEnabled()));
+        const registered = allRegistered.filter((device) => workerAllowsRuntimeDevice(device, physicalIosLaneEnabled()));
         const online = new Map(connected.map((device) => [device.udid, device]));
         const statuses = await Promise.all(registered.map(async (device) => {
             try { return await localConnectionStatus(device.udid); } catch { return undefined; }
@@ -186,6 +192,21 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
         return reply.header('cache-control', 'no-store, no-cache, must-revalidate')
             .type(upstream.headers.get('content-type') ?? 'multipart/x-mixed-replace; boundary=--BoundaryString')
             .send(Readable.from(upstream.body as AsyncIterable<Uint8Array>));
+    });
+    app.get<{ Params: { udid: string } }>('/v1/devices/:udid/h264', async (request, reply) => {
+        if (!remote.getH264Stream) return reply.code(501).send({ error: 'Optimized H.264 transport is unavailable' });
+        const abort = new AbortController();
+        request.raw.once('close', () => abort.abort());
+        try {
+            const upstream = await remote.getH264Stream(request.params.udid, abort.signal);
+            if (!upstream.body) return reply.code(503).send({ error: 'H.264 stream is unavailable' });
+            return reply.header('cache-control', 'no-store, no-cache, must-revalidate')
+                .header('x-mobile-farm-video-backend', upstream.headers.get('x-mobile-farm-video-backend') ?? 'h264')
+                .type(upstream.headers.get('content-type') ?? 'video/h264')
+                .send(Readable.from(upstream.body as AsyncIterable<Uint8Array>));
+        } catch (error) {
+            return reply.code(503).send({ error: error instanceof Error ? error.message : String(error) });
+        }
     });
     app.post<{ Params: { udid: string }; Body: RemoteAction }>('/v1/devices/:udid/action', async (request) => {
         await requireWorkerDevice(request.params.udid);
@@ -242,7 +263,7 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
     });
 
     await app.listen({ host, port });
-    console.log(`Phone Farm device worker ${workerId} listening on http://${host}:${port}`);
+    console.log(`dFarming device worker ${workerId} listening on http://${host}:${port}`);
     return app;
 }
 

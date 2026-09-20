@@ -3,6 +3,7 @@ import { loadRegisteredDevices } from './registry.js';
 import { WdaRemoteControl, type RemoteAction, type RemoteControl, type ScreenInfo } from './wda-remote.js';
 import { passcodeForDevice } from './secrets.js';
 import { AppiumRemoteControl } from './appium-remote.js';
+import { ScrcpyVideoSource } from './scrcpy-video.js';
 
 export class RegistryWdaRemoteControl implements RemoteControl {
     private readonly controls = new Map<string, WdaRemoteControl | AppiumRemoteControl>();
@@ -41,6 +42,11 @@ export class RegistryWdaRemoteControl implements RemoteControl {
     async getAccessibilityTree(udid: string): Promise<unknown> { return (await this.control(udid)).getAccessibilityTree(udid); }
     async getScreenshot(udid: string): Promise<Buffer> { return (await this.control(udid)).getScreenshot(udid); }
     async getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response> { return (await this.control(udid)).getMjpegStream(udid, signal); }
+    async getH264Stream(udid: string, signal?: AbortSignal): Promise<Response> {
+        const device = (await loadRegisteredDevices()).find((candidate) => candidate.udid === udid);
+        if (!device || (device.platform ?? 'ios') !== 'android') throw new Error('scrcpy H.264 is only available for registered Android devices');
+        return new ScrcpyVideoSource().stream(udid, signal);
+    }
     async performAction(udid: string, action: RemoteAction): Promise<void> { return (await this.control(udid)).performAction(udid, action); }
     async isLocked(udid: string): Promise<boolean> { return (await this.control(udid)).isLocked(udid); }
 }

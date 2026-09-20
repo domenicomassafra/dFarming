@@ -23,13 +23,13 @@ The two iOS lanes are deliberately isolated:
 
 Connect each owner-controlled iPhone by USB, unlock it, trust the Mac and enable Developer Mode. Full Xcode and valid signing are required.
 
-Open **Phone Farm → Add device** and use the guided physical-iPhone flow. Each iPhone gets its own registry entry, WDA/MJPEG ports and serialized scheduler queue. Several iPhones can share one Mac while remaining independent devices in the MiniPC control plane.
+Open **dFarming → Add device** and use the guided physical-iPhone flow. Each iPhone gets its own registry entry, WDA/MJPEG ports and serialized scheduler queue. Several iPhones can share one Mac while remaining independent devices in the MiniPC control plane.
 
 ## 3. Attach an iOS Simulator
 
 Install/select full Xcode and create an iOS Simulator normally. The worker discovers available definitions through `xcrun simctl`.
 
-From the execution-host view, boot the Simulator when needed, then open **Phone Farm → Add device → iOS Simulator → Scan hosts**. Choose the detected `ios / simulator` runtime and attach it. The Appium/XCUITest lane is used automatically; no manual `devices.json` edit is required.
+From the execution-host view, boot the Simulator when needed, then open **dFarming → Add device → iOS Simulator → Scan hosts**. Choose the detected `ios / simulator` runtime and attach it. The Appium/XCUITest lane is used automatically; no manual `devices.json` edit is required.
 
 ## 4. Create an automation
 
@@ -50,13 +50,22 @@ screenshot
 
 **Run now** creates a normal versioned scheduler task (`com.phone-farm.flow/flow@1`), so it uses the same queueing, stop behavior, logs and execution evidence as built-in tasks.
 
-Automation Studio can also choose **Any matching idle device**. Select runtime kind, execution host and/or normalized tags; the control plane previews the least-loaded eligible iOS runtime and converts the selection into a concrete device schedule. Saved pools remain selectors in PostgreSQL while each execution is bound to a concrete UDID.
+Automation Studio can also choose **Any matching idle device**. Select platform,
+runtime kind, execution host and/or normalized tags; the control plane previews
+the least-loaded eligible runtime and converts the selection into a concrete
+device schedule. Saved pools remain selectors in PostgreSQL while each
+execution is bound to a concrete UDID.
 
-Physical-iPhone TikTok/Instagram recipes remain on the WDA lane because they use iOS-specific calibrated behavior. Portable semantic flows are available on both supported iOS lanes.
+Physical-iPhone TikTok/Instagram recipes remain on the WDA lane because they
+use iOS-specific calibrated behavior. Portable semantic flows are the
+cross-platform path for iOS and Android runtimes.
 
 ## 5. Semantic/agent control
 
-WDA JSON and XCUITest XML feed the same semantic snapshot API. Hermes and other narrow clients use stable refs (`snapshot`, `tap`, `wait`, `type`) through the Phone Farm API; they do not open WDA/Appium directly or own scheduling.
+WDA JSON plus XCUITest/UiAutomator2 XML feed the same semantic snapshot API.
+Hermes and other narrow clients use stable refs (`snapshot`, `tap`, `wait`,
+`type`) through the dFarming API; they do not open WDA/Appium directly or own
+scheduling.
 
 Prefer `tapText`, `waitVisible`, `assertVisible`, `waitGone` and `inputText` over fixed coordinates. Exact matching, accessibility element type and bounded timeouts are available when a flow needs stricter targeting.
 

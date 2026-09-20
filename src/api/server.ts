@@ -88,7 +88,7 @@ export async function startServer(options: StartServerOptions = {}) {
     });
     await app.listen({ host, port });
     const address = app.server.address() as AddressInfo;
-    console.log(`Phone Farm listening on http://${host}:${address.port}`);
+    console.log(`dFarming listening on http://${host}:${address.port}`);
     return {
         app, plugins,
         async close() {

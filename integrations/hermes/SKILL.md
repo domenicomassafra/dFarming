@@ -1,11 +1,11 @@
 ---
 name: phone-farm
-description: Control owner-managed physical iPhones through the Phone Farm control plane without starting another WDA supervisor or scheduler.
+description: Control owner-managed physical iPhones through the dFarming control plane without starting another WDA supervisor or scheduler.
 ---
 
-# Phone Farm for Hermes
+# dFarming for Hermes
 
-Use the repository's `npm run agent:client -- ...` adapter. The Phone Farm web/API process remains the single authority for registered devices, account policy, WDA access and scheduler conflicts.
+Use the repository's `npm run agent:client -- ...` adapter. The dFarming web/API process remains the single authority for registered devices, account policy, WDA access and scheduler conflicts.
 
 ## Contract
 

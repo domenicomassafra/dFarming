@@ -485,7 +485,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
         Params: { workerId: string; platform: VirtualRuntimePlatform; id: string; action: 'boot' | 'shutdown' };
     }>('/api/virtual-runtimes/:workerId/:platform/:id/:action', async (request, reply) => {
         if (!options.changeVirtualRuntimeState) return reply.code(503).send({ error: 'Virtual runtime lifecycle is not configured' });
-        if (request.params.platform !== 'ios' || !['boot', 'shutdown'].includes(request.params.action)) {
+        if (!['ios', 'android'].includes(request.params.platform) || !['boot', 'shutdown'].includes(request.params.action)) {
             return reply.code(400).send({ error: 'Unsupported virtual runtime action' });
         }
         await options.changeVirtualRuntimeState(request.params.workerId === 'local' ? undefined : request.params.workerId,
@@ -780,6 +780,39 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
             throw error;
         }
     });
+    app.post<{ Params: { udid: string } }>('/api/devices/:udid/remote/h264-token', async (request, reply) => {
+        if (!remote.getH264Stream) return reply.code(501).send({ error: 'Optimized H.264 transport is unavailable' });
+        const base = `/api/devices/${encodeURIComponent(request.params.udid)}/remote/h264`;
+        if (!options.requireStreamToken) return { url: `${base}?t=${Date.now()}`, expiresAt: null };
+        const capability = streamTokens.issue(request.params.udid);
+        const query = new URLSearchParams({ exp: String(capability.expiresAt), sig: capability.signature });
+        return { url: `${base}?${query}`, expiresAt: new Date(capability.expiresAt).toISOString() };
+    });
+    app.get<{
+        Params: { udid: string };
+        Querystring: { exp?: string; sig?: string };
+    }>('/api/devices/:udid/remote/h264', async (request, reply) => {
+        if (!remote.getH264Stream) return reply.code(501).send({ error: 'Optimized H.264 transport is unavailable' });
+        if (options.requireStreamToken) {
+            const expiresAt = Number(request.query.exp);
+            const signature = request.query.sig ?? '';
+            if (!streamTokens.verify(request.params.udid, expiresAt, signature)) {
+                return reply.code(403).send({ error: 'Stream capability is missing, invalid, or expired' });
+            }
+        }
+        const abort = new AbortController();
+        request.raw.once('close', () => abort.abort());
+        try {
+            const upstream = await remote.getH264Stream(request.params.udid, abort.signal);
+            if (!upstream.body) return reply.code(503).send({ error: 'H.264 stream is unavailable' });
+            return reply.header('cache-control', 'no-store, no-cache, must-revalidate')
+                .header('x-mobile-farm-video-backend', upstream.headers.get('x-mobile-farm-video-backend') ?? 'h264')
+                .type(upstream.headers.get('content-type') ?? 'video/h264')
+                .send(Readable.from(upstream.body as AsyncIterable<Uint8Array>));
+        } catch (error) {
+            return reply.code(503).send({ error: errorMessage(error) });
+        }
+    });
     app.post<{ Params: { udid: string }; Body: RemoteAction }>('/api/devices/:udid/remote/action', async (request, reply) => {
         if (await options.scheduler.activeExecution(request.params.udid)) {
             return reply.code(409).send({ error: 'Remote input is disabled while automation is running' });
@@ -997,8 +1030,8 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     });
     const validatedAllocationSelector = (selector: DeviceAllocationSelector | undefined): DeviceAllocationSelector => {
         const value = selector ?? {};
-        if (value.platform !== undefined && value.platform !== 'ios') throw httpError(400, 'target.platform must be ios');
-        if (value.kind !== undefined && !['physical', 'simulator'].includes(value.kind)) throw httpError(400, 'target.kind is invalid');
+        if (value.platform !== undefined && !['ios', 'android'].includes(value.platform)) throw httpError(400, 'target.platform must be ios or android');
+        if (value.kind !== undefined && !['physical', 'simulator', 'emulator'].includes(value.kind)) throw httpError(400, 'target.kind is invalid');
         if (value.workerId !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(value.workerId)) throw httpError(400, 'target.workerId is invalid');
         if (value.requireIdle !== undefined && typeof value.requireIdle !== 'boolean') throw httpError(400, 'target.requireIdle must be boolean');
         if (value.deviceUdids !== undefined && (!Array.isArray(value.deviceUdids) || value.deviceUdids.length > 100
@@ -1272,7 +1305,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
             const recentFailures = executions.slice(0, 20).filter(({ status }) => status === 'failed').length;
             const attention: Array<{ title: string; copy: string; href: string }> = [];
             if (!devices.length) attention.push({
-                title: 'No devices registered', copy: 'Attach an iPhone or iOS Simulator before scheduling automation.', href: '/devices/register',
+                title: 'No devices registered', copy: 'Attach a phone, simulator or emulator before scheduling automation.', href: '/devices/register',
             });
             else if (onlineDevices === 0) attention.push({
                 title: 'All devices offline', copy: 'Check execution hosts or boot a virtual runtime from the execution layer.', href: '/fleet',
@@ -1297,12 +1330,12 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
                 },
                 {
                     href: '/automations?template=flow', eyebrow: 'Automation Studio', title: `${flows.length} saved flow${flows.length === 1 ? '' : 's'}`,
-                    copy: 'Build semantic iOS flows, inspect live accessibility and keep immutable revisions.',
+                    copy: 'Build semantic cross-platform flows, inspect live accessibility and keep immutable revisions.',
                     meta: 'JSON + Maestro YAML',
                 },
                 {
                     href: '/automations?template=flow', eyebrow: 'Device pools', title: `${pools.length} reusable pool${pools.length === 1 ? '' : 's'}`,
-                    copy: 'Allocate by iOS runtime kind, execution host and operator-defined device tags.',
+                    copy: 'Allocate by platform, runtime kind, execution host and operator-defined device tags.',
                     meta: 'Least-loaded idle allocation',
                 },
                 {
@@ -1316,9 +1349,9 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
                     meta: hosts.length ? hosts.map(({ id }) => id).join(' · ') : 'No hosts configured',
                 },
                 {
-                    href: '/devices/register', eyebrow: 'Runtime matrix', title: 'iOS only',
-                    copy: 'Physical iPhones and iOS Simulators share one control plane with isolated transports.',
-                    meta: 'WDA · Appium/XCUITest',
+                    href: '/devices/register', eyebrow: 'Runtime matrix', title: 'iOS + Android',
+                    copy: 'Physical devices, iOS Simulator and Android Emulator share one control plane with isolated transports.',
+                    meta: 'WDA · Appium · optional scrcpy H.264',
                 },
             ].map((card) => `<a class="command-card" href="${card.href}"><span class="command-card-eyebrow">${escapeHtml(card.eyebrow)}</span><strong>${escapeHtml(card.title)}</strong><p>${escapeHtml(card.copy)}</p><span class="command-card-meta">${escapeHtml(card.meta)} <span aria-hidden="true">→</span></span></a>`).join('');
             const healthState = attention.length
@@ -1345,7 +1378,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
             const cards = active.map((device) => {
                 const platform = device.platform ?? 'ios';
                 const kind = device.kind ?? 'physical';
-                const runtime = `iOS · ${kind}`;
+                const runtime = `${platform === 'ios' ? 'iOS' : 'Android'} · ${kind}`;
                 const host = device.workerId ? ` · ${device.workerId}` : '';
                 const deviceTags = device.tags ?? [];
                 const tags = deviceTags.map((tag) => `<span class="connection-chip tag">#${escapeHtml(tag)}</span>`).join('');
@@ -1372,7 +1405,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
                     return `<li data-device-entry data-search="${escapeHtml(searchText)}" data-name="${escapeHtml(device.name.toLowerCase())}" data-status="disabled" data-platform="${escapeHtml(platform)}" data-kind="${escapeHtml(kind)}" data-worker="${escapeHtml(device.workerId ?? '')}"><span><strong class="device-name">${escapeHtml(device.name)}</strong><small>${escapeHtml(platform)} · ${escapeHtml(kind)}${device.workerId ? ` · ${escapeHtml(device.workerId)}` : ''}</small></span><span class="inline-actions">${toggleButton(device.udid, 'Reconnect', false)}${secondaryMenu(device.udid)}</span></li>`;
                 }).join('')}</ul></details>`
                 : '';
-            const emptyDevices = '<div class="empty-state" data-device-base-empty><span class="empty-state-kicker">Device layer</span><h2>No active devices</h2><p>Attach an iPhone or iOS Simulator, or reconnect a disabled device below.</p><div class="empty-state-actions"><a class="button primary" href="/devices/register">Add device</a><a class="button secondary" href="/automations?template=flow">Open Automation Studio</a></div></div>';
+            const emptyDevices = '<div class="empty-state" data-device-base-empty><span class="empty-state-kicker">Device layer</span><h2>No active devices</h2><p>Attach a real phone, simulator or emulator, or reconnect a disabled device below.</p><div class="empty-state-actions"><a class="button primary" href="/devices/register">Add device</a><a class="button secondary" href="/automations?template=flow">Open Automation Studio</a></div></div>';
             return reply.type('text/html').send(`<section id="device-list" class="device-list" hx-get="/api/fragments/devices" hx-trigger="every 5s" hx-swap="outerHTML" aria-live="polite">${cards || emptyDevices}${disabledPanel}</section>`);
         });
         app.get('/api/fragments/hosts', async (_request, reply) => {
@@ -1406,7 +1439,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
                 const status = `<span class="connection-chip ${online && !degraded ? 'ready' : 'unavailable'}">${degraded ? 'degraded' : online ? 'online' : 'offline'}</span>`;
                 const error = host.error ? `<p class="host-error">${escapeHtml(host.error)}</p>` : '';
                 const empty = online
-                    ? '<p class="host-runtime-empty">No iOS Simulator definitions detected on this host.</p>'
+                    ? '<p class="host-runtime-empty">No simulator/emulator definitions detected on this host.</p>'
                     : '<p class="host-runtime-empty">Worker is configured but unreachable. Its devices stay registered and will return when the node reconnects.</p>';
                 return `<article class="host-card${online ? degraded ? ' degraded' : '' : ' offline'}"><div class="host-card-head"><div><span class="eyebrow">Execution host</span><h3>${escapeHtml(host.id)}</h3><p>${escapeHtml(host.hostname)} · ${escapeHtml(host.os)} ${escapeHtml(host.arch)}</p></div>${status}</div>${metricHtml}<div class="connection-chips">${capabilities || '<span class="connection-chip unavailable">capabilities unavailable</span>'}</div>${error}${hostRuntimes.length ? `<div class="host-runtime-list"><div class="host-runtime-head"><strong>Virtual runtimes</strong><span>${hostRuntimes.filter(({ state }) => state === 'booted').length}/${hostRuntimes.length} running</span></div>${runtimeRows}</div>` : empty}</article>`;
             }).join('');
@@ -1473,7 +1506,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
             const screen = await remote.getScreenInfo(connected.udid);
             const state = disabled ? 'disabled' : 'online';
             const label = disabled ? 'Disabled' : 'Online';
-            return reply.type('text/html').send(`<section id="device-summary" class="device-summary" data-device-disabled="${disabled}" data-device-connected="true" data-screen-width="${screen.screenSize.width}" data-screen-height="${screen.screenSize.height}"><div class="device-summary-main"><span class="eyebrow">${escapeHtml(kind)} runtime</span><div class="device-title-row"><h1 class="device-name">${escapeHtml(displayName)}</h1><span class="device-state ${state}"><span></span>${label}</span></div><p class="device-meta">iOS ${escapeHtml(connected.osVersion)} · ${screen.screenSize.width} × ${screen.screenSize.height}</p>${chips}</div><code>${escapeHtml(connected.udid)}</code></section>`);
+            return reply.type('text/html').send(`<section id="device-summary" class="device-summary" data-device-disabled="${disabled}" data-device-connected="true" data-screen-width="${screen.screenSize.width}" data-screen-height="${screen.screenSize.height}"><div class="device-summary-main"><span class="eyebrow">${escapeHtml(kind)} runtime</span><div class="device-title-row"><h1 class="device-name">${escapeHtml(displayName)}</h1><span class="device-state ${state}"><span></span>${label}</span></div><p class="device-meta">${platform === 'ios' ? 'iOS' : 'Android'} ${escapeHtml(connected.osVersion)} · ${screen.screenSize.width} × ${screen.screenSize.height}</p>${chips}</div><code>${escapeHtml(connected.udid)}</code></section>`);
         });
         app.get<{ Params: { udid: string } }>('/api/devices/:udid/fragments/activity', async (request, reply) => {
             return reply.type('text/html').send(await renderActivity(request.params.udid));
@@ -1483,7 +1516,10 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     app.get('/', async (_request, reply) => {
         if (themed) return reply.type('text/html').send(themed.indexHtml);
         const devices = await registeredWithStatus(discoverDevices);
-        const cards = devices.map((device) => `<div class="card"><h2>${escapeHtml(device.name)}</h2><p class="muted"><code>${escapeHtml(device.udid)}</code></p><p>${device.disabled ? 'Disconnected' : device.connected ? `Online · iOS ${escapeHtml(device.connected.osVersion)}` : 'Offline'}</p><a class="button" href="/devices/${encodeURIComponent(device.udid)}">Open device</a></div>`).join('');
+        const cards = devices.map((device) => {
+            const platform = (device.platform ?? device.connected?.platform ?? 'ios') === 'android' ? 'Android' : 'iOS';
+            return `<div class="card"><h2>${escapeHtml(device.name)}</h2><p class="muted"><code>${escapeHtml(device.udid)}</code></p><p>${device.disabled ? 'Disconnected' : device.connected ? `Online · ${platform} ${escapeHtml(device.connected.osVersion)}` : 'Offline'}</p><a class="button" href="/devices/${encodeURIComponent(device.udid)}">Open device</a></div>`;
+        }).join('');
         const connected = await discoverDevices();
         const registeredIds = new Set(devices.map(({ udid }) => udid));
         const candidates = connected.filter(({ udid }) => !registeredIds.has(udid)).map((device) => `<option value="${escapeHtml(device.udid)}" data-name="${escapeHtml(device.name)}">${escapeHtml(device.name)} · ${escapeHtml(device.osVersion)}</option>`).join('');

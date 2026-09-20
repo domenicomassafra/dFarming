@@ -121,7 +121,7 @@ function groupKey(device) {
 }
 function groupLabel(key) {
     if (grouping === 'platform')
-        return 'iOS';
+        return key === 'ios' ? 'iOS' : key === 'android' ? 'Android' : key;
     if (grouping === 'kind')
         return key[0].toUpperCase() + key.slice(1);
     return key;
@@ -164,7 +164,7 @@ function render() {
     count.textContent = devices.length === visible.length ? `${devices.length} device${devices.length === 1 ? '' : 's'}` : `${visible.length} shown · ${devices.length} total`;
     notice.className = `fleet-notice${devices.length === 0 || stateCounts.online === 0 ? ' needs-attention' : ''}`;
     notice.innerHTML = devices.length === 0
-        ? '<div><strong>No devices registered.</strong><span>Add an iPhone or attach an iOS Simulator to build the wall.</span></div><div class="inline-actions"><a class="button primary" href="/devices/register">Add device</a><a class="button secondary" href="/#host-list">Execution hosts</a></div>'
+        ? '<div><strong>No devices registered.</strong><span>Add a phone or attach a simulator/emulator to build the wall.</span></div><div class="inline-actions"><a class="button primary" href="/devices/register">Add device</a><a class="button secondary" href="/#host-list">Execution hosts</a></div>'
         : stateCounts.online === 0
             ? `<div><strong>No devices are online.</strong><span>${stateCounts.offline} offline · ${stateCounts.disconnected} disconnected. Check hosts or re-enable devices.</span></div><a class="button secondary" href="/#host-list">Execution hosts</a>`
             : `<div><strong>${stateCounts.online}/${devices.length} devices online.</strong><span>${stateCounts.offline} offline · ${stateCounts.disconnected} disconnected · ${running.size} running. Tiles are still previews; only the focused device streams live.</span></div>`;
@@ -174,7 +174,7 @@ function render() {
     grid.innerHTML = visible.length ? groupedHtml(visible)
         : devices.length
             ? '<div class="empty-state"><span class="empty-state-kicker">Fleet filters</span><h2>No devices match</h2><p>Clear the current search or connectivity/platform/kind filters.</p><button class="button secondary" type="button" data-reset-fleet>Reset filters</button></div>'
-            : '<div class="empty-state"><span class="empty-state-kicker">Device wall</span><h2>Your fleet is empty</h2><p>Add a physical iPhone or attach an iOS Simulator. Execution hosts stay visible on Overview while the farm is empty.</p><div class="empty-state-actions"><a class="button primary" href="/devices/register">Add device</a><a class="button secondary" href="/#host-list">Execution hosts</a></div></div>';
+            : '<div class="empty-state"><span class="empty-state-kicker">Device wall</span><h2>Your fleet is empty</h2><p>Add a physical phone or attach a simulator/emulator. Execution hosts stay visible on Overview while the farm is empty.</p><div class="empty-state-actions"><a class="button primary" href="/devices/register">Add device</a><a class="button secondary" href="/#host-list">Execution hosts</a></div></div>';
     updateBulkBar();
 }
 function closeFocus() {

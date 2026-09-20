@@ -1,9 +1,9 @@
 {
-  "name": "@git-agni/phone-farm-core",
-  "version": "0.1.0-review.0",
+  "name": "@domenicomassafra/dfarming-core",
+  "version": "0.2.0",
   "private": false,
   "license": "Apache-2.0",
-  "description": "Distributed iOS automation farm with a MiniPC control plane, macOS execution workers, streaming, scheduling, and plugins",
+  "description": "Cross-platform mobile device farm control plane for real and virtual iOS and Android devices",
   "files": [
     "src",
     "static",
@@ -39,6 +39,7 @@
     "appium:install-driver": "APPIUM_HOME=.appium2 appium driver install xcuitest@7.26.3",
     "appium:runtime": "APPIUM_HOME=.appium-runtime node node_modules/appium-runtime/index.js --address 127.0.0.1 --base-path / --port 4726 --log-level info",
     "appium:runtime:install-ios": "APPIUM_HOME=.appium-runtime node node_modules/appium-runtime/index.js driver install xcuitest@12.12.3",
+    "appium:runtime:install-android": "APPIUM_HOME=.appium-runtime node node_modules/appium-runtime/index.js driver install uiautomator2@8.6.4",
     "appium:runtime:drivers": "APPIUM_HOME=.appium-runtime node node_modules/appium-runtime/index.js driver list --installed",
     "wda:prepare": "node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/devices/wda/prepare.ts",
     "wda:service": "node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/devices/wda-service.ts",

@@ -222,7 +222,7 @@ test('overview control center exposes the major product surfaces instead of hidi
         listHosts: () => [{
             id: 'macstudio', hostname: 'studio', os: 'darwin', arch: 'arm64', online: true,
             observedAt: new Date(0).toISOString(), capabilities: ['ios.physical'],
-            tools: { appium: true, appiumRuntime: true, xcrun: true },
+            tools: { appium: true, appiumRuntime: true, xcrun: true, adb: false, scrcpyVideo: false },
             error: 'ignored unsupported worker advertisement',
         }],
     });
@@ -261,7 +261,7 @@ test('overview control center exposes the major product surfaces instead of hidi
     assert.match(fragment.body, /1 active schedule/);
     assert.match(fragment.body, /0\/1 healthy/);
     assert.match(fragment.body, /1 execution host degraded/);
-    assert.match(fragment.body, /semantic iOS flows/i);
+    assert.match(fragment.body, /Semantic cross-platform flows/i);
     assert.match(fragment.body, /Recent runs/);
     assert.match(fragment.body, /Portable flow/);
     assert.match(fragment.body, /No devices registered/);
@@ -356,19 +356,19 @@ test('device pool API normalizes selectors and rejects duplicate names', async (
 
     const created = await inject(app, {
         method: 'POST', url: '/api/pools', payload: {
-            name: 'Creator staging', selector: { platform: 'ios', tags: ['Staging', 'creator', 'creator'], requireIdle: true },
+            name: 'Android staging', selector: { platform: 'android', tags: ['Staging', 'pixel', 'pixel'], requireIdle: true },
         },
     });
     assert.equal(created.statusCode, 201);
-    assert.deepEqual(created.json().pool.selector.tags, ['staging', 'creator']);
+    assert.deepEqual(created.json().pool.selector.tags, ['staging', 'pixel']);
 
     const duplicate = await inject(app, {
-        method: 'POST', url: '/api/pools', payload: { name: 'creator STAGING', selector: {} },
+        method: 'POST', url: '/api/pools', payload: { name: 'android STAGING', selector: {} },
     });
     assert.equal(duplicate.statusCode, 409);
 
     const invalid = await inject(app, {
-        method: 'PUT', url: '/api/pools/pool-1', payload: { name: 'Creator staging', selector: { tags: ['bad tag'] } },
+        method: 'PUT', url: '/api/pools/pool-1', payload: { name: 'Android staging', selector: { tags: ['bad tag'] } },
     });
     assert.equal(invalid.statusCode, 400);
 

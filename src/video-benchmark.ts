@@ -104,15 +104,27 @@ export async function runVideoBenchmark(): Promise<Record<string, unknown>> {
 
     const qvhUrl = option('--qvh-url') ?? process.env.PHONE_FARM_QVH_URL;
     const qvh = qvhUrl ? await benchmark('qvh-h264', new URL(qvhUrl), controlUrl, headers, durationMs) : null;
+    let scrcpy: StreamBenchmarkResult | null = null;
+    try {
+        const response = await fetch(new URL(`/api/devices/${encodeURIComponent(udid)}/remote/h264-token`, client.baseUrl), {
+            method: 'POST', headers,
+        });
+        if (response.ok) {
+            const capability = await response.json() as { url: string };
+            scrcpy = await benchmark('scrcpy-raw-h264', new URL(capability.url, client.baseUrl), controlUrl, headers, durationMs);
+        }
+    } catch { /* optimized video is optional */ }
     return {
         deviceUdid: udid,
         capturedAt: new Date().toISOString(),
         baseline,
         wda,
         qvh,
+        scrcpy,
         comparison: {
             wdaP95ControlOverheadMs: baseline.controlP95Ms !== null && wda.controlP95Ms !== null ? wda.controlP95Ms - baseline.controlP95Ms : null,
             qvhP95ControlOverheadMs: qvh && baseline.controlP95Ms !== null && qvh.controlP95Ms !== null ? qvh.controlP95Ms - baseline.controlP95Ms : null,
+            scrcpyP95ControlOverheadMs: scrcpy && baseline.controlP95Ms !== null && scrcpy.controlP95Ms !== null ? scrcpy.controlP95Ms - baseline.controlP95Ms : null,
         },
     };
 }

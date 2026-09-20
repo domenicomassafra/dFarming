@@ -34,6 +34,18 @@ if [[ ! -f .env.minipc ]]; then
   echo "Created .env.minipc with private runtime secrets. Review PHONE_FARM_DEVICE_WORKERS before adding more Mac workers."
 fi
 
+set -a
+source .env.minipc
+set +a
+
+# Compose treats the database volume as an explicit external resource so a
+# repository/project rename cannot silently allocate a fresh empty database.
+postgres_volume="${DFARMING_POSTGRES_VOLUME:-dfarming-postgres}"
+if ! docker volume inspect "$postgres_volume" >/dev/null 2>&1; then
+  docker volume create "$postgres_volume" >/dev/null
+  echo "Created PostgreSQL volume: $postgres_volume"
+fi
+
 mkdir -p .runtime/minipc
 chmod 700 .runtime/minipc
 
@@ -51,9 +63,6 @@ chmod 600 .runtime/minipc/RELEASED
 docker compose --env-file .env.minipc -f docker-compose.production.yml up -d --build
 docker compose --env-file .env.minipc -f docker-compose.production.yml ps
 
-set -a
-source .env.minipc
-set +a
 healthy=0
 for _ in $(seq 1 30); do
   if curl --fail --silent --show-error "http://127.0.0.1:${WEB_PORT:-4050}/health"; then
@@ -68,6 +77,13 @@ if [[ "$healthy" != "1" ]]; then
   exit 1
 fi
 echo
+
+# Run the role-aware doctor in the same production image/environment that is
+# actually serving traffic. The host checkout intentionally does not need a
+# development node_modules tree.
+docker compose --env-file .env.minipc -f docker-compose.production.yml \
+  exec -T control-plane npm run doctor:control-plane
+
 if command -v tailscale >/dev/null 2>&1; then
   tailscale serve --bg --yes --https="${PHONE_FARM_TAILSCALE_HTTPS_PORT:-18443}" "${WEB_PORT:-4050}"
   echo "Tailscale Serve status:"

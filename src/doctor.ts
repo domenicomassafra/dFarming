@@ -61,10 +61,18 @@ function physicalDeviceLines(output: string): string[] {
             && !/(?:\bMac \(|\bMacBook\b|\bMac mini\b|\bMac Studio\b|\bMac Pro\b)/i.test(line));
 }
 
+function androidDeviceLines(output: string): string[] {
+    return output.split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith('List of devices attached'))
+        .filter((line) => /\sdevice(?:\s|$)/.test(line));
+}
+
 export function collectDoctorReport(
     runner: DoctorCommandRunner = systemCommandRunner,
     env: NodeJS.ProcessEnv = process.env,
     cwd = process.cwd(),
+    platform: NodeJS.Platform = process.platform,
 ): DoctorReport {
     const checks: DoctorCheck[] = [];
     const role = (env.PHONE_FARM_ROLE ?? 'standalone') as DoctorReport['role'];
@@ -80,23 +88,27 @@ export function collectDoctorReport(
         ? { id: 'node', status: 'pass', summary: `Node ${nodeVersion}` }
         : { id: 'node', status: 'fail', summary: `Node ${nodeVersion}`, detail: 'Node 22 or newer is required.' });
 
+    const appleWorker = role !== 'control-plane' && platform === 'darwin';
+    const androidOnlyWorker = role === 'device-worker' && platform !== 'darwin';
     let fullXcode = false;
     if (role !== 'control-plane') {
-        const xcodeSelect = command(runner, 'xcode-select', ['-p']);
-        const developerDir = xcodeSelect.stdout.trim();
-        fullXcode = xcodeSelect.status === 0 && /Xcode\.app\/Contents\/Developer$/.test(developerDir);
-        if (!fullXcode) {
-            checks.push({
-                id: 'xcode', status: 'fail', summary: 'Full Xcode is not selected',
-                detail: developerDir
-                    ? `xcode-select points to ${developerDir}; select /Applications/Xcode.app/Contents/Developer.`
-                    : (xcodeSelect.stderr.trim() || 'Install and select full Xcode.'),
-            });
-        } else {
-            const xcodebuild = command(runner, 'xcodebuild', ['-version']);
-            checks.push(xcodebuild.status === 0
-                ? { id: 'xcode', status: 'pass', summary: xcodebuild.stdout.trim().replace(/\n/g, ' · ') }
-                : { id: 'xcode', status: 'fail', summary: 'xcodebuild is unavailable', detail: xcodebuild.stderr.trim() });
+        if (appleWorker) {
+            const xcodeSelect = command(runner, 'xcode-select', ['-p']);
+            const developerDir = xcodeSelect.stdout.trim();
+            fullXcode = xcodeSelect.status === 0 && /Xcode\.app\/Contents\/Developer$/.test(developerDir);
+            if (!fullXcode) {
+                checks.push({
+                    id: 'xcode', status: 'fail', summary: 'Full Xcode is not selected',
+                    detail: developerDir
+                        ? `xcode-select points to ${developerDir}; select /Applications/Xcode.app/Contents/Developer.`
+                        : (xcodeSelect.stderr.trim() || 'Install and select full Xcode.'),
+                });
+            } else {
+                const xcodebuild = command(runner, 'xcodebuild', ['-version']);
+                checks.push(xcodebuild.status === 0
+                    ? { id: 'xcode', status: 'pass', summary: xcodebuild.stdout.trim().replace(/\n/g, ' · ') }
+                    : { id: 'xcode', status: 'fail', summary: 'xcodebuild is unavailable', detail: xcodebuild.stderr.trim() });
+            }
         }
 
         const appiumPath = path.resolve(cwd, 'node_modules/appium/index.js');
@@ -107,17 +119,40 @@ export function collectDoctorReport(
         const appiumRuntimePath = path.resolve(cwd, 'node_modules/appium-runtime/index.js');
         checks.push(existsSync(appiumRuntimePath)
             ? { id: 'appium-runtime', status: 'pass', summary: 'Modern Appium runtime sidecar is installed' }
-            : { id: 'appium-runtime', status: 'warn', summary: 'Modern Appium runtime sidecar is missing', detail: 'Run npm ci to enable iOS Simulator runtimes.' });
+            : { id: 'appium-runtime', status: 'warn', summary: 'Modern Appium runtime sidecar is missing', detail: 'Run npm ci to enable iOS Simulator and Android runtimes.' });
 
         const runtimeXcuitest = path.resolve(cwd, '.appium-runtime/node_modules/appium-xcuitest-driver');
-        checks.push(existsSync(runtimeXcuitest)
-            ? { id: 'xcuitest-runtime', status: 'pass', summary: 'Modern XCUITest runtime driver is installed' }
-            : { id: 'xcuitest-runtime', status: 'warn', summary: 'Modern XCUITest runtime driver is not prepared', detail: 'Run npm run appium:runtime:install-ios.' });
+        const runtimeAndroid = path.resolve(cwd, '.appium-runtime/node_modules/appium-uiautomator2-driver');
+        if (appleWorker) {
+            checks.push(existsSync(runtimeXcuitest)
+                ? { id: 'xcuitest-runtime', status: 'pass', summary: 'Modern XCUITest runtime driver is installed' }
+                : { id: 'xcuitest-runtime', status: 'warn', summary: 'Modern XCUITest runtime driver is not prepared', detail: 'Run npm run appium:runtime:install-ios.' });
+        }
+        checks.push(existsSync(runtimeAndroid)
+            ? { id: 'uiautomator2', status: 'pass', summary: 'UiAutomator2 runtime driver is installed' }
+            : {
+                id: 'uiautomator2',
+                status: androidOnlyWorker ? 'fail' : 'warn',
+                summary: 'UiAutomator2 runtime driver is not prepared',
+                detail: 'Run npm run appium:runtime:install-android.',
+            });
 
-        const xcuitestPath = path.resolve(cwd, '.appium2/node_modules/appium-xcuitest-driver');
-        checks.push(existsSync(xcuitestPath)
-            ? { id: 'xcuitest', status: 'pass', summary: 'Pinned XCUITest driver is installed' }
-            : { id: 'xcuitest', status: 'warn', summary: 'XCUITest driver is not prepared', detail: 'Run npm run appium:install-driver.' });
+        if (appleWorker) {
+            const xcuitestPath = path.resolve(cwd, '.appium2/node_modules/appium-xcuitest-driver');
+            checks.push(existsSync(xcuitestPath)
+                ? { id: 'xcuitest', status: 'pass', summary: 'Pinned XCUITest driver is installed' }
+                : { id: 'xcuitest', status: 'warn', summary: 'XCUITest driver is not prepared', detail: 'Run npm run appium:install-driver.' });
+        }
+
+        const adb = command(runner, 'adb', ['version']);
+        checks.push(adb.status === 0
+            ? { id: 'adb', status: 'pass', summary: adb.stdout.trim().split(/\r?\n/)[0] || 'ADB is available' }
+            : {
+                id: 'adb',
+                status: androidOnlyWorker ? 'fail' : 'warn',
+                summary: 'ADB is unavailable',
+                detail: androidOnlyWorker ? 'Install Android platform-tools for this Android worker.' : 'Install Android platform-tools to enable Android devices.',
+            });
     }
 
     const insideControlPlaneContainer = role === 'control-plane' && env.PHONE_FARM_CONTAINER === 'true';
@@ -169,22 +204,22 @@ export function collectDoctorReport(
             : { id: 'configuration', status: 'warn', summary: '.env is not configured', detail: 'Copy the role-appropriate env example before a live run.' });
     }
 
-    if (role !== 'control-plane' && !physicalIosEnabled) {
+    if (appleWorker && !physicalIosEnabled) {
         checks.push({
             id: 'iphone', status: 'warn', summary: 'Physical iPhone lane is disabled',
             detail: 'Set PHONE_FARM_ENABLE_PHYSICAL_IOS=true after configuring Apple Development signing.',
         });
-    } else if (role !== 'control-plane' && fullXcode) {
+    } else if (appleWorker && fullXcode) {
         const devices = command(runner, 'xcrun', ['xctrace', 'list', 'devices']);
         const physical = devices.status === 0 ? physicalDeviceLines(devices.stdout) : [];
         checks.push(physical.length
             ? { id: 'iphone', status: 'pass', summary: `${physical.length} physical iOS device${physical.length === 1 ? '' : 's'} visible`, detail: physical.join(' · ') }
             : { id: 'iphone', status: 'fail', summary: 'No physical iPhone is visible', detail: devices.stderr.trim() || 'Connect, unlock, trust, and enable Developer Mode on an iPhone.' });
-    } else if (role !== 'control-plane') {
+    } else if (appleWorker) {
         checks.push({ id: 'iphone', status: 'fail', summary: 'iPhone discovery is blocked by the Xcode prerequisite' });
     }
 
-    if (role !== 'control-plane' && physicalIosEnabled) {
+    if (appleWorker && physicalIosEnabled) {
         const teamId = env.XCODE_ORG_ID?.trim();
         const bundleId = env.WDA_BUNDLE_ID?.trim();
         const configured = Boolean(teamId && !teamId.includes('replace-')
@@ -199,17 +234,33 @@ export function collectDoctorReport(
                     ? 'Configure XCODE_ORG_ID and a unique WDA_BUNDLE_ID.'
                     : 'Add a valid Apple Development signing identity in Xcode.',
             });
-    } else if (role !== 'control-plane') {
+    } else if (appleWorker) {
         checks.push({ id: 'signing', status: 'warn', summary: 'Physical-iPhone signing is disabled with the physical lane' });
+    }
+
+    if (androidOnlyWorker) {
+        const devices = command(runner, 'adb', ['devices', '-l']);
+        const physical = devices.status === 0
+            ? androidDeviceLines(devices.stdout).filter((line) => !line.startsWith('emulator-'))
+            : [];
+        checks.push(physical.length
+            ? { id: 'android-device', status: 'pass', summary: `${physical.length} physical Android device${physical.length === 1 ? '' : 's'} visible`, detail: physical.join(' · ') }
+            : { id: 'android-device', status: 'warn', summary: 'No physical Android device is attached', detail: 'Emulators can still be used; connect an authorized ADB device for real-device acceptance.' });
     }
 
     const sourceRequired = role === 'control-plane' ? ['node'] : ['node', 'appium'];
     const runtimeRequired = role === 'control-plane'
         ? ['node', 'database-runtime', 'database-url', ...(env.PHONE_FARM_DEVICE_WORKERS?.trim() ? ['worker-token', 'internal-token'] : [])]
         : role === 'device-worker'
-            ? ['node', 'appium', 'xcode', 'control-database']
+            ? androidOnlyWorker
+                ? ['node', 'appium', 'uiautomator2', 'adb', 'control-database']
+                : ['node', 'appium', 'xcode', 'control-database']
             : ['node', 'appium', 'xcode', 'iphone'];
-    const realDeviceRequired = role === 'control-plane' ? [] : ['node', 'appium', 'xcode', 'iphone', 'signing'];
+    const realDeviceRequired = role === 'control-plane'
+        ? []
+        : androidOnlyWorker
+            ? ['node', 'appium', 'uiautomator2', 'adb', 'android-device']
+            : ['node', 'appium', 'xcode', 'iphone', 'signing'];
     const failed = (ids: string[]) => checks.some((check) => ids.includes(check.id) && check.status === 'fail');
     return {
         role,
@@ -218,7 +269,11 @@ export function collectDoctorReport(
         runtimeReady: !failed(runtimeRequired),
         // A control-plane host never owns a physical iPhone itself; consumers
         // should use runtimeReady plus fleet/device health for that role.
-        realDeviceReady: role === 'control-plane' ? false : physicalIosEnabled && !failed(realDeviceRequired),
+        realDeviceReady: role === 'control-plane'
+            ? false
+            : androidOnlyWorker
+                ? !failed(realDeviceRequired) && checks.find(({ id }) => id === 'android-device')?.status === 'pass'
+                : physicalIosEnabled && !failed(realDeviceRequired),
         checks,
     };
 }

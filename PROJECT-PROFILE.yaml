@@ -1,27 +1,28 @@
-project: farming-control-plane
-repository: domenicomassafra/Kevs-IOS-Agents
-upstream: kevinbadi/Kevs-IOS-Agents
-base_lineage: Git-Agni/prod-FARM-IOS-Core
-status: active-build
-primary_host: macOS
-primary_device: physical-iPhone
+project: dfarming
+repository: domenicomassafra/dFarming
+lineage:
+  ios: domenicomassafra/Kevs-IOS-Agents
+  upstream_kevs: kevinbadi/Kevs-IOS-Agents
+status: active
+authority:
+  control_plane: minipc
+  branch: main
 runtime:
   node: ">=22"
   database: PostgreSQL
-  ios_control: WebDriverAgent/Appium-XCUITest
   scheduler: pg-boss
+  ios_physical: WebDriverAgent
+  ios_simulator: Appium-XCUITest
+  android_physical: ADB-Appium-UiAutomator2
+  android_emulator: Android-Emulator-Appium-UiAutomator2
 principles:
   - donor-first
-  - deterministic-workflows-before-LLM
-  - agent-layer-is-an-adapter-not-the-core
-  - one-device-one-serialized-queue
-  - owner-controlled-accounts-only
-  - explicit-high-impact-actions
-  - local-first
+  - one-control-plane
+  - one-scheduler
+  - deterministic-workflows-before-agentic-fallbacks
+  - platform-transports-behind-adapters
+  - account-and-session-isolation
   - evidence-before-runtime-claims
+  - owner-controlled-devices-and-accounts-only
 source_gate: npm run check
-real_device_gate: npm run doctor && live acceptance matrix
-current_host_blockers:
-  - full Xcode is not selected; xcode-select points to CommandLineTools
-  - Docker is unavailable; external PostgreSQL remains an option
-  - no physical iPhone can be proven reachable on this host yet
+production_gate: exact-main-sha plus MiniPC health plus reachable-runtime acceptance

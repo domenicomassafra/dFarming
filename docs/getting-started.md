@@ -1,20 +1,23 @@
 # Getting started
 
-Phone Farm iOS uses one Linux MiniPC control plane plus one or more macOS
-execution workers. The MiniPC owns the dashboard/API, PostgreSQL, schedules and
-canonical fleet state. A Mac owns Apple-specific transport for physical iPhones
-and iOS Simulators. TikTok, Instagram and Portable Flow tasks all pass through
-the same scheduler and evidence path.
+dFarming uses one Linux MiniPC control plane plus one or more execution
+workers. The MiniPC owns the dashboard/API, PostgreSQL, schedules and canonical
+fleet state. macOS workers own Apple-specific transport for physical iPhones
+and iOS Simulators; Linux or macOS workers with Android platform-tools can own
+physical Android and Android Emulator runtimes. Every lane passes through the
+same scheduler and evidence path.
 
 ## Requirements
 
 | Requirement | Notes |
 | --- | --- |
 | Linux MiniPC + Docker | Production control-plane authority. `deploy/setup-minipc.sh` installs the Compose stack and PostgreSQL. |
-| macOS + full Xcode | Required on each execution worker. `xcode-select -p` must point at an Xcode install, not Command Line Tools. |
-| Node.js 22+ | Required for source validation and macOS worker processes. |
+| macOS + full Xcode | Required on workers that expose iOS runtimes. `xcode-select -p` must point at an Xcode install, not Command Line Tools. |
+| Android platform-tools | Required on workers that expose physical Android or Android Emulator runtimes. |
+| Node.js 22+ | Required for source validation and device-worker processes. |
 | iOS Simulator | Optional execution lane through the isolated Appium/XCUITest runtime. |
 | Physical iPhone + Apple Developer team | Optional physical lane. Required only when `PHONE_FARM_ENABLE_PHYSICAL_IOS=true`. |
+| Android Emulator / AVD | Optional virtual Android lane. Linux hosts should have hardware virtualization enabled. |
 
 ## 1. Prepare a macOS execution worker
 
@@ -58,8 +61,8 @@ xcrun xctrace list devices      # your iPhone must be under "Devices", not "Devi
 ## 2. Install the canonical checkout
 
 ```sh
-git clone <this-repo> Kevs-IOS-Agents
-cd Kevs-IOS-Agents
+git clone <this-repo> dFarming
+cd dFarming
 npm ci
 npm run check
 ```
@@ -100,10 +103,24 @@ Set `PHONE_FARM_ENABLE_PHYSICAL_IOS=false` for a simulator-only worker. That
 setting suppresses physical-iPhone discovery, WDA/legacy-Appium launch agents,
 and direct physical-device control while keeping the Appium Simulator lane.
 
-The worker setup installs the required Appium runtimes, runs migrations against
-the MiniPC database, runs `doctor:device-worker`, installs the selected launchd
-services, and fails closed unless the gateway and Appium runtime pass local
-health checks. Inspect the final launchd state with `npm run service -- status`.
+The worker setup installs the required Appium runtimes, runs
+`doctor:device-worker`, installs the selected launchd services, and fails
+closed unless the gateway and Appium runtime pass local health checks. Database
+migrations remain a MiniPC/control-plane responsibility. Inspect the final
+launchd state with `npm run service -- status`.
+
+## 4b. Configure a Linux Android worker
+
+```sh
+cp .env.linux-android-worker.example .env
+# point DATABASE_URL and PHONE_FARM_CONTROL_PLANE_URL at the MiniPC
+# copy the shared worker/internal tokens
+./deploy/setup-linux-android-worker.sh
+```
+
+The Linux installer prepares UiAutomator2 and installs three systemd-user
+services: Appium runtime, scheduler execution worker and authenticated device
+gateway. It does not install a web server or a second PostgreSQL/control plane.
 
 ## 5. Prepare WebDriverAgent (physical lane only)
 
