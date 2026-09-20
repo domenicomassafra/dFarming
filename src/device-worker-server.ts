@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import { Readable } from 'node:stream';
 
 import Fastify from 'fastify';
@@ -18,16 +17,7 @@ import { changeVirtualRuntimeState, listVirtualRuntimes, type VirtualRuntimePlat
 import { DEVICE_WORKER_PROTOCOL_VERSION } from './device-workers.js';
 import { physicalIosLaneEnabled } from './runtime-options.js';
 import { isEntrypoint } from './entrypoint.js';
-
-function safeEqual(left: string, right: string): boolean {
-    const a = Buffer.from(left);
-    const b = Buffer.from(right);
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-
-function bearer(value: string | undefined): string | undefined {
-    return value?.startsWith('Bearer ') ? value.slice('Bearer '.length) : undefined;
-}
+import { bearerMatches } from './security/bearer.js';
 
 async function localConnectionStatus(udid: string): Promise<DeviceConnectionStatus> {
     try {
@@ -152,8 +142,9 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
     const remote = new RegistryWdaRemoteControl();
     app.addHook('onRequest', async (request, reply) => {
         if (!token) return;
-        const supplied = bearer(request.headers.authorization);
-        if (!supplied || !safeEqual(supplied, token)) return reply.code(401).send({ error: 'Device worker authentication required' });
+        if (!bearerMatches(request.headers.authorization, token)) {
+            return reply.code(401).send({ error: 'Device worker authentication required' });
+        }
     });
 
     app.get('/health', async () => {

@@ -40,6 +40,7 @@ import type { RuntimeDevice } from '../devices/runtime-discovery.js';
 import type { VirtualRuntime, VirtualRuntimePlatform } from '../devices/virtual-runtime.js';
 import { exportMaestroFlow, importMaestroFlow } from '../flows/maestro.js';
 import type { PortableFlowPayload } from '../flow-plugin.js';
+import { installAuthentication, installCsrfGuard, internalWorkerAuthorized } from './http-security.js';
 
 export interface CreateAppOptions {
     plugins: PluginRegistry;
@@ -93,24 +94,6 @@ function errorMessage(error: unknown): string {
 /** Thrown inside route bodies / registry mutations; mapped to its status by setErrorHandler. */
 function httpError(statusCode: number, message: string): Error & { statusCode: number } {
     return Object.assign(new Error(message), { statusCode });
-}
-
-function csrfBlocked(reply: FastifyReply): FastifyReply {
-    return reply.code(403).send({
-        error: 'Cross-origin write blocked. Send an Authorization: Bearer token for API clients, '
-            + 'or add the origin to PHONE_FARM_TRUSTED_ORIGINS.',
-    });
-}
-
-function internalWorkerAuthorized(request: FastifyRequest): boolean {
-    const expected = process.env.PHONE_FARM_INTERNAL_TOKEN;
-    if (!expected) return false;
-    const header = request.headers.authorization;
-    if (!header?.startsWith('Bearer ')) return false;
-    const supplied = header.slice('Bearer '.length);
-    const a = Buffer.from(expected);
-    const b = Buffer.from(supplied);
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 /** Farm-facing label stored in devices.json — independent of the iOS device name. */
@@ -204,43 +187,11 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
         }
     });
 
-    // CSRF guard — runs for every deployment, auth or not. The default loopback
-    // dashboard is otherwise open to form-encoded POSTs from any page the
-    // operator has open in the same browser (tap the phone, stop executions,
-    // launch tasks). A Bearer token means a real API client, not a browser form.
-    app.addHook('onRequest', async (request, reply) => {
-        if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
-        if (request.headers.authorization?.startsWith('Bearer ')) return;
-        const origin = request.headers.origin;
-        if (!origin) return csrfBlocked(reply);
-        const configured = [process.env.PUBLIC_ORIGIN, ...(process.env.PHONE_FARM_TRUSTED_ORIGINS ?? '').split(',')]
-            .map((value) => value?.trim().replace(/\/+$/, '')).filter((value): value is string => Boolean(value));
-        if (configured.length) {
-            if (!configured.includes(origin.replace(/\/+$/, ''))) return csrfBlocked(reply);
-            return;
-        }
-        // Nothing configured: same-origin only, compared by host (ignoring
-        // scheme) so a TLS-terminating proxy that doesn't forward
-        // x-forwarded-proto still passes. URL normalises default ports, so
-        // compare the Origin's host against the request Host under both schemes.
-        // Set PHONE_FARM_TRUSTED_ORIGINS if the proxy also rewrites Host.
-        let originHost: string;
-        try { originHost = new URL(origin).host; } catch { return csrfBlocked(reply); }
-        const hostMatches = ['http', 'https'].some((scheme) => {
-            try { return new URL(`${scheme}://${request.headers.host}`).host === originHost; } catch { return false; }
-        });
-        if (!hostMatches) return csrfBlocked(reply);
-    });
-
-    if (options.authProvider) {
-        await options.authProvider.registerRoutes(app);
-        app.addHook('onRequest', async (request, reply) => {
-            if (request.url.startsWith('/api/internal/worker/') && internalWorkerAuthorized(request)) return;
-            if (options.authProvider?.isPublicPath(request.url.split('?')[0] ?? request.url)) return;
-            const user = await options.authProvider?.authenticate(request, reply);
-            if (!user && !reply.sent) await reply.code(401).send({ error: 'Authentication required' });
-        });
-    }
+    // The default loopback dashboard is still reachable from pages in the same
+    // browser, so state-changing requests always need same-origin proof or a
+    // non-empty Bearer credential.
+    installCsrfGuard(app);
+    await installAuthentication(app, options.authProvider);
 
     const remote = options.remote ?? new RegistryWdaRemoteControl();
     const discoverDevices = options.discoverDevices ?? discoverConnectedDevices;
