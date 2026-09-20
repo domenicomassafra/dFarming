@@ -34,7 +34,7 @@ test('doctor reports a missing full Xcode as a real-device blocker without block
     const report = collectDoctorReport(runner({
         'xcode-select -p': { stdout: '/Library/Developer/CommandLineTools\n' },
         'docker --version': { status: 127, stderr: 'not found' },
-    }), {}, doctorCwd(context));
+    }), {}, doctorCwd(context), 'darwin');
     assert.equal(report.sourceReady, true);
     assert.equal(report.realDeviceReady, false);
     assert.equal(report.checks.find(({ id }) => id === 'xcode')?.status, 'fail');
@@ -47,7 +47,7 @@ test('doctor recognizes full Xcode and a visible physical device', (context) => 
         'docker --version': { stdout: 'Docker version 28.0.0' },
         'xcrun xctrace list devices': { stdout: '== Devices ==\nDodo iPhone (26.0) (0000-AAAA)\nDodo Mac (26.0) (MAC)\n\n== Simulators ==\niPhone 17 (26.0) (SIM)\n' },
         'security find-identity -v -p codesigning': { stdout: '  1) ABCDEF "Apple Development"\n     1 valid identities found\n' },
-    }), { XCODE_ORG_ID: 'TEAM123', WDA_BUNDLE_ID: 'com.example.owner.WebDriverAgentRunner' }, doctorCwd(context));
+    }), { XCODE_ORG_ID: 'TEAM123', WDA_BUNDLE_ID: 'com.example.owner.WebDriverAgentRunner' }, doctorCwd(context), 'darwin');
     assert.equal(report.realDeviceReady, true);
     assert.match(report.checks.find(({ id }) => id === 'iphone')?.summary ?? '', /1 physical/);
 });
@@ -62,7 +62,7 @@ test('device-worker runtime can be ready without a physical iPhone and does not 
         PHONE_FARM_ROLE: 'device-worker',
         PHONE_FARM_WORKER_ID: 'macstudio',
         DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
-    }, cwd);
+    }, cwd, 'darwin');
     assert.equal(report.checks.find(({ id }) => id === 'iphone')?.status, 'fail');
     assert.equal(report.runtimeReady, true);
     assert.equal(report.realDeviceReady, false);
@@ -78,7 +78,7 @@ test('simulator-only device worker is runtime-ready without physical signing', (
         PHONE_FARM_WORKER_ID: 'macstudio',
         PHONE_FARM_ENABLE_PHYSICAL_IOS: 'false',
         DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
-    }, cwd);
+    }, cwd, 'darwin');
     assert.equal(report.runtimeReady, true);
     assert.equal(report.realDeviceReady, false);
     assert.equal(report.checks.find(({ id }) => id === 'signing')?.status, 'warn');
