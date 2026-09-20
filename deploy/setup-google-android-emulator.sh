@@ -12,7 +12,7 @@ command -v systemctl >/dev/null || { echo "systemd user services are required." 
 [[ -r /dev/kvm && -w /dev/kvm ]] || { echo "/dev/kvm must be readable and writable." >&2; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Docker must be usable without sudo by this user." >&2; exit 1; }
 
-image="${DFARMING_ANDROID_EMULATOR_IMAGE:-us-docker.pkg.dev/android-emulator-268719/images/30-google-x64-no-metrics:30.1.2}"
+image="${DFARMING_ANDROID_EMULATOR_IMAGE:-us-docker.pkg.dev/android-emulator-268719/images/30-google-x64-no-metrics@sha256:e78ac1816acef59e40285e90003acd490ef54bb3242ed088afa31bc982577050}"
 name="${DFARMING_ANDROID_EMULATOR_NAME:-dfarming-android-emulator-api30}"
 adb_port="${DFARMING_ANDROID_EMULATOR_ADB_PORT:-5555}"
 grpc_port="${DFARMING_ANDROID_EMULATOR_GRPC_PORT:-8554}"

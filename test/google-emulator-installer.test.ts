@@ -9,7 +9,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 test('Google emulator packaging is pinned, no-metrics and reconnects ADB persistently', async () => {
     const installer = await readFile(path.join(root, 'deploy', 'setup-google-android-emulator.sh'), 'utf8');
-    assert.match(installer, /30-google-x64-no-metrics:30\.1\.2/);
+    assert.match(installer, /30-google-x64-no-metrics@sha256:e78ac1816acef59e40285e90003acd490ef54bb3242ed088afa31bc982577050/);
     assert.match(installer, /--device \/dev\/kvm/);
     assert.match(installer, /--restart unless-stopped/);
     assert.match(installer, /127\.0\.0\.1:\$\{adb_port\}:5555/);
