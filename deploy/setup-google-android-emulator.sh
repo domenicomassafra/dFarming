@@ -26,9 +26,20 @@ chmod 600 "$adb_key"
 
 docker pull "$image"
 docker rm -f "$name" >/dev/null 2>&1 || true
-docker run -d +  --name "$name" +  --restart unless-stopped +  --label com.dfarming.runtime=android-emulator +  -e "ADBKEY=$(cat "$adb_key")" +  --device /dev/kvm +  -p "127.0.0.1:${grpc_port}:8554/tcp" +  -p "127.0.0.1:${adb_port}:5555/tcp" +  "$image" >/dev/null
+docker_args=(
+  -d
+  --name "$name"
+  --restart unless-stopped
+  --label com.dfarming.runtime=android-emulator
+  -e "ADBKEY=$(cat "$adb_key")"
+  --device /dev/kvm
+  -p "127.0.0.1:${grpc_port}:8554/tcp"
+  -p "127.0.0.1:${adb_port}:5555/tcp"
+)
+docker run "${docker_args[@]}" "$image" >/dev/null
 
 mkdir -p "$HOME/.config/systemd/user"
+adb_bin="$(command -v adb)"
 cat > "$HOME/.config/systemd/user/dfarming-android-emulator-connect.service" <<EOF
 [Unit]
 Description=dFarming Android emulator ADB reconnect
@@ -36,7 +47,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'for i in $(seq 1 30); do adb connect 127.0.0.1:${adb_port} >/dev/null 2>&1 && adb -s 127.0.0.1:${adb_port} wait-for-device >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1'
+ExecStart=$adb_bin connect 127.0.0.1:${adb_port}
 EOF
 
 cat > "$HOME/.config/systemd/user/dfarming-android-emulator-connect.timer" <<EOF
