@@ -20,7 +20,7 @@ import type { RemoteControl } from '../devices/wda-remote.js';
 import type { DeviceConnectionStatus } from '../devices/connection-manager.js';
 import type { AuthProvider, PluginNavLink } from '../plugin.js';
 import type { PluginRegistry } from '../registry.js';
-import type { CreateTaskInput, JsonObject, JsonValue, ScheduleTiming } from '../types.js';
+import type { CreateTaskInput, JsonObject, ScheduleTiming } from '../types.js';
 import { ScheduleTransitionError, type SchedulerRepository } from '../scheduler/repository.js';
 import {
     listFleetAccounts, pluginIdForPlatform, SOCIAL_ACCOUNT_PLATFORMS, withAccountPolicy,
@@ -32,12 +32,11 @@ import { rankAllocationCandidates, type DeviceAllocationSelector } from '../allo
 import type { HostSnapshot } from '../hosts/capabilities.js';
 import type { RuntimeDevice } from '../devices/runtime-discovery.js';
 import type { VirtualRuntime, VirtualRuntimePlatform } from '../devices/virtual-runtime.js';
-import { exportMaestroFlow, importMaestroFlow } from '../flows/maestro.js';
-import type { PortableFlowPayload } from '../flow-plugin.js';
 import { installAuthentication, installCsrfGuard, internalWorkerAuthorized } from './http-security.js';
 import { registerRuntimeRoutes } from './runtime-routes.js';
 import { registerDeviceRegistrationRoutes } from './device-registration-routes.js';
 import { registerRemoteControlRoutes } from './remote-routes.js';
+import { registerFlowRoutes } from './flow-routes.js';
 
 export interface CreateAppOptions {
     plugins: PluginRegistry;
@@ -567,79 +566,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     app.get<{ Querystring: { deviceUdid?: string } }>('/api/schedules', async (request) => ({
         schedules: await options.scheduler.listSchedules(200, request.query.deviceUdid),
     }));
-    const validatedFlowPayload = (value: JsonValue): JsonObject => {
-        const definition = options.plugins.task({
-            pluginId: 'com.phone-farm.flow', taskType: 'flow', taskVersion: 1, payload: {},
-        });
-        return definition.validate(value, { timingKind: 'now', devicePluginData: {} });
-    };
-    app.get('/api/flows', async () => ({ flows: await options.scheduler.listFlowDefinitions(200) }));
-    app.post<{ Body: JsonObject }>('/api/flows', async (request, reply) => {
-        const flow = await options.scheduler.createFlowDefinition(validatedFlowPayload(request.body));
-        return reply.code(201).send({ flow });
-    });
-    app.post<{ Body: { format?: string; flow?: JsonValue } }>('/api/flows/import', async (request, reply) => {
-        if (request.body.format !== 'mobile-farm-flow@1' || !request.body.flow) {
-            return reply.code(400).send({ error: 'Expected a mobile-farm-flow@1 export' });
-        }
-        const flow = await options.scheduler.createFlowDefinition(validatedFlowPayload(request.body.flow));
-        return reply.code(201).send({ flow });
-    });
-    app.post<{ Body: { yaml?: string; name?: string } }>('/api/flows/import/maestro', async (request, reply) => {
-        if (typeof request.body.yaml !== 'string') return reply.code(400).send({ error: 'yaml is required' });
-        if (request.body.name !== undefined && (typeof request.body.name !== 'string' || request.body.name.length > 120)) {
-            return reply.code(400).send({ error: 'name must be at most 120 characters' });
-        }
-        const imported = importMaestroFlow(request.body.yaml, request.body.name);
-        const flow = await options.scheduler.createFlowDefinition(validatedFlowPayload(imported));
-        return reply.code(201).send({ flow });
-    });
-    app.get<{ Params: { id: string }; Querystring: { version?: string } }>('/api/flows/:id', async (request, reply) => {
-        const version = request.query.version === undefined ? undefined : Number(request.query.version);
-        if (version !== undefined && (!Number.isInteger(version) || version < 1)) {
-            return reply.code(400).send({ error: 'version must be a positive integer' });
-        }
-        const flow = await options.scheduler.flowDefinition(request.params.id, version);
-        return flow ? { flow } : reply.code(404).send({ error: 'Flow not found' });
-    });
-    app.put<{ Params: { id: string }; Body: JsonObject }>('/api/flows/:id', async (request, reply) => {
-        const flow = await options.scheduler.saveFlowVersion(request.params.id, validatedFlowPayload(request.body));
-        return flow ? { flow } : reply.code(404).send({ error: 'Flow not found' });
-    });
-    app.post<{ Params: { id: string }; Body: { name?: string } }>('/api/flows/:id/duplicate', async (request, reply) => {
-        if (request.body.name !== undefined && (typeof request.body.name !== 'string' || request.body.name.trim().length > 120)) {
-            return reply.code(400).send({ error: 'name must contain at most 120 characters' });
-        }
-        const flow = await options.scheduler.duplicateFlowDefinition(request.params.id, request.body.name);
-        return flow ? reply.code(201).send({ flow }) : reply.code(404).send({ error: 'Flow not found' });
-    });
-    app.post<{ Params: { id: string }; Body: { version?: number } }>('/api/flows/:id/restore', async (request, reply) => {
-        if (!Number.isInteger(request.body.version) || Number(request.body.version) < 1) {
-            return reply.code(400).send({ error: 'version must be a positive integer' });
-        }
-        const flow = await options.scheduler.restoreFlowVersion(request.params.id, Number(request.body.version));
-        return flow ? { flow } : reply.code(404).send({ error: 'Flow/version not found' });
-    });
-    app.get<{ Params: { id: string } }>('/api/flows/:id/export', async (request, reply) => {
-        const flow = await options.scheduler.flowDefinition(request.params.id);
-        if (!flow) return reply.code(404).send({ error: 'Flow not found' });
-        const safeName = flow.name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'flow';
-        return reply.header('content-disposition', `attachment; filename="${safeName}.mobile-flow.json"`)
-            .send({ format: 'mobile-farm-flow@1', exportedAt: new Date().toISOString(), flow: flow.payload });
-    });
-    app.get<{ Params: { id: string } }>('/api/flows/:id/export/maestro', async (request, reply) => {
-        const flow = await options.scheduler.flowDefinition(request.params.id);
-        if (!flow) return reply.code(404).send({ error: 'Flow not found' });
-        const yaml = exportMaestroFlow(flow.payload as PortableFlowPayload);
-        const safeName = flow.name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'flow';
-        return reply.header('content-disposition', `attachment; filename="${safeName}.maestro.yaml"`)
-            .type('application/yaml; charset=utf-8').send(yaml);
-    });
-    app.delete<{ Params: { id: string } }>('/api/flows/:id', async (request, reply) => (
-        await options.scheduler.deleteFlowDefinition(request.params.id)
-            ? reply.code(204).send()
-            : reply.code(404).send({ error: 'Flow not found' })
-    ));
+    registerFlowRoutes(app, options.scheduler, options.plugins);
     app.get('/api/campaigns', async () => ({ campaigns: await options.scheduler.listCampaigns(200) }));
     app.post<{ Body: CreateCampaignInput }>('/api/campaigns', async (request, reply) => {
         const devices = await loadRegisteredDevices();
