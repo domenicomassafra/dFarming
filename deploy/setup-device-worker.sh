@@ -90,7 +90,8 @@ else
   echo "No physical iPhone detected; installing a simulator-capable worker. Configure XCODE_ORG_ID/WDA_BUNDLE_ID before adding a physical iPhone."
 fi
 
-npm ci
+npm ci --ignore-scripts
+npm rebuild node-native-ocr esbuild sharp --foreground-scripts
 if [[ "$physical_ios_enabled" != "false" ]]; then
   [[ -d .appium2/node_modules/appium-xcuitest-driver ]] || npm run appium:install-driver
 fi

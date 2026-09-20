@@ -39,7 +39,8 @@ require_configured PHONE_FARM_INTERNAL_TOKEN "${PHONE_FARM_INTERNAL_TOKEN:-}"
 require_configured PHONE_FARM_CONTROL_PLANE_URL "${PHONE_FARM_CONTROL_PLANE_URL:-}"
 require_configured DATABASE_URL "${DATABASE_URL:-}"
 
-npm ci
+npm ci --ignore-scripts
+npm rebuild node-native-ocr esbuild sharp --foreground-scripts
 [[ -d .appium-runtime/node_modules/appium-uiautomator2-driver ]] || npm run appium:runtime:install-android
 npm run doctor:device-worker
 
