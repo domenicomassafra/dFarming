@@ -100,21 +100,27 @@ export function parseAdbDevices(stdout: string): Array<{ serial: string; modelHi
         });
 }
 
+export function androidRuntimeKind(serial: string, qemuFlag: string): 'physical' | 'emulator' {
+    return serial.startsWith('emulator-') || qemuFlag.trim() === '1' ? 'emulator' : 'physical';
+}
+
 export async function discoverAndroidDevices(): Promise<RuntimeDevice[]> {
     try {
         const { stdout } = await execFileAsync('adb', ['devices', '-l'], { timeout: 5_000 });
         const serials = parseAdbDevices(stdout);
         return await Promise.all(serials.map(async ({ serial, modelHint }) => {
-            const [model, version] = await Promise.all([
+            const [model, version, qemuFlag] = await Promise.all([
                 modelHint ? Promise.resolve(modelHint) : adbProperty(serial, 'ro.product.model'),
                 adbProperty(serial, 'ro.build.version.release'),
+                adbProperty(serial, 'ro.kernel.qemu'),
             ]);
+            const kind = androidRuntimeKind(serial, qemuFlag);
             return {
-                name: model || (serial.startsWith('emulator-') ? `Android Emulator ${serial}` : `Android ${serial.slice(-6)}`),
+                name: model || (kind === 'emulator' ? `Android Emulator ${serial}` : `Android ${serial.slice(-6)}`),
                 osVersion: version || 'unknown',
                 udid: serial,
                 platform: 'android' as const,
-                kind: serial.startsWith('emulator-') ? 'emulator' as const : 'physical' as const,
+                kind,
                 automationBackend: 'appium' as const,
             };
         }));

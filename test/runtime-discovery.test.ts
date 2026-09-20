@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-    filterRuntimeDevicesForWorker, parseAdbDevices, parseSimctlDevices, workerAllowsOperationalDevice,
+    androidRuntimeKind, filterRuntimeDevicesForWorker, parseAdbDevices, parseSimctlDevices, workerAllowsOperationalDevice,
 } from '../src/devices/runtime-discovery.js';
 
 test('parses available iOS simulators into Appium runtimes', () => {
@@ -43,4 +43,11 @@ test('parses adb real devices and emulators while ignoring unavailable rows', ()
         { serial: 'emulator-5554', modelHint: 'Pixel 9' },
         { serial: 'ABC123', modelHint: 'Galaxy S25' },
     ]);
+});
+
+test('classifies TCP-connected qemu runtimes as emulators', () => {
+    assert.equal(androidRuntimeKind('emulator-5554', ''), 'emulator');
+    assert.equal(androidRuntimeKind('localhost:5555', '1'), 'emulator');
+    assert.equal(androidRuntimeKind('192.0.2.10:5555', '1'), 'emulator');
+    assert.equal(androidRuntimeKind('ABC123', '0'), 'physical');
 });
