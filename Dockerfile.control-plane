@@ -34,6 +34,7 @@ COPY src ./src
 COPY static ./static
 COPY Patches ./Patches
 COPY integrations ./integrations
+COPY deploy ./deploy
 COPY test ./test
 
 RUN npm run check \

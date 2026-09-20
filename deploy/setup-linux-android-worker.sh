@@ -74,8 +74,10 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$repo
+EnvironmentFile=-$repo/.env
+EnvironmentFile=-$repo/.env.devices
 Environment=APPIUM_HOME=$repo/.appium-runtime
-ExecStart=$node_bin --env-file-if-exists=.env node_modules/appium-runtime/index.js --address 127.0.0.1 --base-path / --port $port --log-level info
+ExecStart=$node_bin node_modules/appium-runtime/index.js --address 127.0.0.1 --base-path / --port $port --log-level info
 Restart=on-failure
 RestartSec=2
 
@@ -92,7 +94,9 @@ Requires=dfarming-appium-runtime.service
 [Service]
 Type=simple
 WorkingDirectory=$repo
-ExecStart=$node_bin --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/scheduler/worker.ts
+EnvironmentFile=-$repo/.env
+EnvironmentFile=-$repo/.env.devices
+ExecStart=$node_bin --import tsx src/scheduler/worker.ts
 Restart=on-failure
 RestartSec=2
 
@@ -109,7 +113,9 @@ Requires=dfarming-appium-runtime.service
 [Service]
 Type=simple
 WorkingDirectory=$repo
-ExecStart=$node_bin --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/device-worker-server.ts
+EnvironmentFile=-$repo/.env
+EnvironmentFile=-$repo/.env.devices
+ExecStart=$node_bin --import tsx src/device-worker-server.ts
 Restart=on-failure
 RestartSec=2
 
