@@ -11,8 +11,8 @@ import type { PostManifest } from './post-manifest.js';
 import { type TikTokCoordinates } from './coordinates.js';
 import { coordinateProfile, registeredAccounts } from './runtime-settings.js';
 import { switchTikTokAccount, tapCoordinate, typeText } from './actions.js';
+import { ensureRedCheckboxState, firstDisplayed, importWdaMedia, positiveInteger } from '../social/post-runtime.js';
 import { recentPickerTargets } from './post-layout.js';
-import { isRedCheckboxChecked } from './pixel.js';
 import { matchPickerCellToVideo, filterCellsByDurationBadge } from './post-picker-match.js';
 import { recognizeWords } from './ocr.js';
 
@@ -161,51 +161,6 @@ function pickMediaCells(
     return media.slice(0, want);
 }
 
-function positiveInteger(name: string, fallback: number): number {
-    const raw = process.env[name] ?? String(fallback);
-    const value = Number.parseInt(raw, 10);
-    if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
-    return value;
-}
-
-async function importMedia(manifest: PostManifest): Promise<number> {
-    const wdaUrl = process.env.WDA_URL ?? 'http://127.0.0.1:8100';
-    let assetCount = 0;
-    // Photos Recents is newest-first. Reverse import makes cell 0 the user's first item.
-    for (const [index, file] of [...manifest.files].reverse().entries()) {
-        console.log(`Importing media ${manifest.files.length - index}/${manifest.files.length}: ${file.name}`);
-        const data = await readFile(file.path);
-        // WDA's /wda/import-media takes the whole file base64-encoded in a JSON
-        // body. base64 is 4*ceil(n/3) chars and JSON.stringify allocates a
-        // second copy; Node's max string length (~512 MiB) caps the input near
-        // 384 MiB, so refuse well before that.
-        if (data.length > 350 * 1024 * 1024) {
-            throw new Error(`${file.name} is ${(data.length / 1_048_576).toFixed(0)} MB — the TikTok media import limit is 350 MB`);
-        }
-        const response = await fetch(`${wdaUrl}/wda/import-media`, {
-            method: 'POST', headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ name: file.name, mimeType: file.mimeType, data: data.toString('base64') }),
-        });
-        const result = await response.json() as { value?: { error?: unknown; assetCount?: number } };
-        if (!response.ok || (result.value && typeof result.value === 'object' && 'error' in result.value)) {
-            throw new Error(`WDA could not import ${file.name}: ${JSON.stringify(result)}`);
-        }
-        assetCount = result.value?.assetCount ?? 0;
-    }
-    if (!assetCount) throw new Error('WDA did not return the Photos asset count');
-    // Give Photos a beat to surface the import at the front of Recents.
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    return assetCount;
-}
-
-async function firstDisplayed(driver: Browser, selectors: string[]) {
-    for (const selector of selectors) {
-        const candidate = await driver.$(selector);
-        if (await candidate.isExisting() && await candidate.isDisplayed()) return candidate;
-    }
-    return undefined;
-}
-
 /** Optional UI probes — never block for Appium's default implicit wait. */
 async function firstDisplayedQuick(driver: Browser, selectors: string[], timeoutMs = 600) {
     await driver.setTimeout({ implicit: timeoutMs });
@@ -302,35 +257,6 @@ async function openComposer(
     await driver.pause(2500);
 }
 
-const CHECKBOX_RETRY_ATTEMPTS = 3;
-
-// TikTok's Photos picker checkboxes ("Select multiple", "Use layout") are
-// persistent toggles, not one-time buttons — they can already be in the
-// desired state from a previous picker session. A blind tap assuming a
-// fixed starting state can flip a checkbox the WRONG way (e.g. turning off
-// an already-on "Select multiple", silently dropping into single-select
-// mode). Check the actual on-screen color before deciding whether to tap.
-async function ensureCheckboxState(
-    driver: Browser,
-    remote: WdaRemoteControl,
-    udid: string,
-    point: { x: number; y: number },
-    label: string,
-    desired: boolean,
-): Promise<void> {
-    const { scale } = await remote.getScreenInfo(udid);
-    for (let attempt = 1; attempt <= CHECKBOX_RETRY_ATTEMPTS; attempt += 1) {
-        const checked = await isRedCheckboxChecked(await remote.getScreenshot(udid), point, scale);
-        if (checked === desired) {
-            console.log(`"${label}" confirmed ${desired ? 'on' : 'off'}`);
-            return;
-        }
-        await tapCoordinate(driver, point.x, point.y, `${label} (attempt ${attempt})`);
-        await driver.pause(1000);
-    }
-    throw new Error(`Could not get "${label}" into the ${desired ? 'on' : 'off'} state after ${CHECKBOX_RETRY_ATTEMPTS} attempts`);
-}
-
 async function tapDurationBadge(
     driver: Browser,
     badges: string[],
@@ -370,7 +296,7 @@ async function chooseRecentMedia(
 
     // A leftover "Select multiple" from a prior run changes single-tap behavior.
     if (count === 1) {
-        await ensureCheckboxState(driver, remote, udid, {
+        await ensureRedCheckboxState(driver, remote, udid, {
             x: coordinates.selectMultiple.x,
             y: coordinates.selectMultiple.y,
         }, 'Select multiple', false).catch((error) => {
@@ -521,7 +447,7 @@ async function chooseRecentMedia(
 
     const chosen = pickMediaCells(mediaCells, count, badges);
     if (count > 1) {
-        await ensureCheckboxState(driver, remote, udid, {
+        await ensureRedCheckboxState(driver, remote, udid, {
             x: coordinates.selectMultiple.x,
             y: coordinates.selectMultiple.y,
         }, 'Select multiple', true);
@@ -549,7 +475,7 @@ async function chooseRecentMedia(
                 await driver.pause(600);
             }
         }
-        await ensureCheckboxState(driver, remote, udid, {
+        await ensureRedCheckboxState(driver, remote, udid, {
             x: coordinates.useLayout.x,
             y: coordinates.useLayout.y,
         }, 'Use layout', false);
@@ -719,7 +645,7 @@ const deviceRemote = new WdaRemoteControl({
 console.log('Checking device lock state');
 await deviceRemote.unlock(manifest.device.udid);
 
-const assetCount = await importMedia(manifest);
+const assetCount = await importWdaMedia(manifest, { platformLabel: 'TikTok', settleMs: 1500 });
 
 const bundleId = process.env.TIKTOK_BUNDLE_ID ?? 'com.zhiliaoapp.musically';
 const capabilities: Capabilities = {
