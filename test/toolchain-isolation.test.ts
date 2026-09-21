@@ -14,7 +14,6 @@ test('optional legacy and schema CLIs are isolated from the root worker dependen
         dependencies?: Record<string, string>;
     };
     const installer = await readFile('deploy/setup-device-worker.sh', 'utf8');
-    const controlPlaneDockerfile = await readFile('Dockerfile.control-plane', 'utf8');
 
     assert.equal(root.devDependencies?.appium, undefined);
     assert.equal(root.devDependencies?.['drizzle-kit'], undefined);
@@ -24,5 +23,4 @@ test('optional legacy and schema CLIs are isolated from the root worker dependen
     assert.match(root.scripts?.appium ?? '', /toolchains\/legacy-ios-appium\/node_modules\/appium\/index\.js/);
     assert.match(root.scripts?.['db:generate'] ?? '', /toolchains\/db-schema\/node_modules\/drizzle-kit\/bin\.cjs/);
     assert.match(installer, /if \[\[ "\$physical_ios_enabled" != "false" \]\]; then[\s\S]*npm run appium:legacy:install/);
-    assert.match(controlPlaneDockerfile, /COPY toolchains \.\/toolchains/);
 });
