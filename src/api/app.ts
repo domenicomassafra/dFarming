@@ -26,7 +26,6 @@ import {
     listFleetAccounts, pluginIdForPlatform, SOCIAL_ACCOUNT_PLATFORMS, withAccountPolicy,
     type AccountAutomationPolicy, type SocialAccountPlatform,
 } from '../accounts.js';
-import { planCampaign, type CreateCampaignInput } from '../campaigns.js';
 import { buildFleetHealth } from '../analytics.js';
 import { rankAllocationCandidates, type DeviceAllocationSelector } from '../allocation.js';
 import type { HostSnapshot } from '../hosts/capabilities.js';
@@ -37,6 +36,7 @@ import { registerRuntimeRoutes } from './runtime-routes.js';
 import { registerDeviceRegistrationRoutes } from './device-registration-routes.js';
 import { registerRemoteControlRoutes } from './remote-routes.js';
 import { registerFlowRoutes } from './flow-routes.js';
+import { registerCampaignRoutes } from './campaign-routes.js';
 
 export interface CreateAppOptions {
     plugins: PluginRegistry;
@@ -567,56 +567,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
         schedules: await options.scheduler.listSchedules(200, request.query.deviceUdid),
     }));
     registerFlowRoutes(app, options.scheduler, options.plugins);
-    app.get('/api/campaigns', async () => ({ campaigns: await options.scheduler.listCampaigns(200) }));
-    app.post<{ Body: CreateCampaignInput }>('/api/campaigns', async (request, reply) => {
-        const devices = await loadRegisteredDevices();
-        const pluginDataByDevice = new Map(devices.map((device) => [
-            device.udid, device.pluginData[request.body.task.pluginId] ?? {},
-        ]));
-        const plan = planCampaign(options.plugins, request.body, pluginDataByDevice);
-        if (plan.targets.some((target) => devices.find(({ udid }) => udid === target.deviceUdid)?.disabled)) {
-            return reply.code(409).send({ error: 'Campaign targets include a disabled device' });
-        }
-        const campaign = await options.scheduler.createCampaign(plan);
-        return reply.code(201).send({ campaign, plan: {
-            targetCount: plan.targets.length,
-            requiresFanOutConfirmation: plan.requiresFanOutConfirmation,
-            requiresPublicActionConfirmation: plan.requiresPublicActionConfirmation,
-        } });
-    });
-    app.post<{
-        Params: { id: string };
-        Body: { confirmFanOut?: boolean; confirmPublicActions?: boolean };
-    }>('/api/campaigns/:id/launch', async (request, reply) => {
-        const campaign = await options.scheduler.campaign(request.params.id);
-        if (!campaign) return reply.code(404).send({ error: 'Campaign not found' });
-        const devices = await loadRegisteredDevices();
-        const pluginDataByDevice = new Map(devices.map((device) => [
-            device.udid, device.pluginData[campaign.task.pluginId] ?? {},
-        ]));
-        const plan = planCampaign(options.plugins, {
-            name: campaign.name,
-            task: campaign.task,
-            timing: campaign.timing,
-            runWindowMinutes: campaign.runWindowMinutes,
-            targets: campaign.targets,
-        }, pluginDataByDevice);
-        if (plan.targets.some((target) => devices.find(({ udid }) => udid === target.deviceUdid)?.disabled)) {
-            return reply.code(409).send({ error: 'Campaign targets include a disabled device' });
-        }
-        try {
-            return await options.scheduler.launchCampaign(request.params.id, plan, {
-                fanOut: request.body.confirmFanOut,
-                publicActions: request.body.confirmPublicActions,
-            });
-        } catch (error) {
-            return reply.code(409).send({ error: errorMessage(error) });
-        }
-    });
-    app.post<{ Params: { id: string } }>('/api/campaigns/:id/cancel', async (request, reply) => {
-        const campaign = await options.scheduler.cancelCampaign(request.params.id);
-        return campaign ?? reply.code(404).send({ error: 'Campaign not found' });
-    });
+    registerCampaignRoutes(app, options.scheduler, options.plugins);
     app.get<{ Querystring: { deviceUdid?: string } }>('/api/executions', async (request) => ({
         executions: await options.scheduler.listExecutions(200, request.query.deviceUdid),
     }));
