@@ -1,7 +1,7 @@
 import type { RegisteredDevice } from './registry.js';
 import type { RemoteAction, RemoteControl, ScreenInfo } from './wda-remote.js';
 import { normalizeAppiumPageSource } from '../semantic/appium-source.js';
-import { remoteWithFetch, type Browser } from './appium-driver.js';
+import { isInvalidAppiumSessionError, remoteWithFetch, type Browser } from './appium-driver.js';
 
 function driverBackend(device: RegisteredDevice): { platformName: 'iOS' | 'Android'; automationName: 'XCUITest' | 'UiAutomator2' } {
     if ((device.platform ?? 'ios') === 'android') return { platformName: 'Android', automationName: 'UiAutomator2' };
@@ -23,7 +23,7 @@ export class AppiumRemoteControl implements RemoteControl {
         if (udid !== this.device.udid) throw new Error('Appium remote control is not configured for this device');
     }
 
-    private async driver(): Promise<Browser> {
+    private driver(): Promise<Browser> {
         const selected = driverBackend(this.device);
         this.driverPromise ??= remoteWithFetch({
             hostname: this.appiumHost,
@@ -46,6 +46,18 @@ export class AppiumRemoteControl implements RemoteControl {
         return this.driverPromise;
     }
 
+    private async withDriver<T>(operation: (driver: Browser) => Promise<T>): Promise<T> {
+        const initialPromise = this.driver();
+        const initial = await initialPromise;
+        try {
+            return await operation(initial);
+        } catch (error) {
+            if (!isInvalidAppiumSessionError(error)) throw error;
+            if (this.driverPromise === initialPromise) this.driverPromise = undefined;
+            return operation(await this.driver());
+        }
+    }
+
     forget(): void {
         const current = this.driverPromise;
         this.driverPromise = undefined;
@@ -53,27 +65,27 @@ export class AppiumRemoteControl implements RemoteControl {
     }
 
     async activateApp(appId: string): Promise<void> {
-        await (await this.driver()).activateApp(appId);
+        await this.withDriver((driver) => driver.activateApp(appId));
     }
 
     async terminateApp(appId: string): Promise<void> {
-        await (await this.driver()).terminateApp(appId);
+        await this.withDriver((driver) => driver.terminateApp(appId));
     }
 
     async getScreenInfo(udid: string): Promise<ScreenInfo> {
         this.assertTarget(udid);
-        const size = await (await this.driver()).getWindowSize();
+        const size = await this.withDriver((driver) => driver.getWindowSize());
         return { screenSize: { width: size.width, height: size.height }, scale: 1 };
     }
 
     async getAccessibilityTree(udid: string): Promise<unknown> {
         this.assertTarget(udid);
-        return normalizeAppiumPageSource(await (await this.driver()).getPageSource());
+        return normalizeAppiumPageSource(await this.withDriver((driver) => driver.getPageSource()));
     }
 
     async getScreenshot(udid: string): Promise<Buffer> {
         this.assertTarget(udid);
-        return Buffer.from(await (await this.driver()).takeScreenshot(), 'base64');
+        return Buffer.from(await this.withDriver((driver) => driver.takeScreenshot()), 'base64');
     }
 
     async getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response> {
@@ -108,48 +120,49 @@ export class AppiumRemoteControl implements RemoteControl {
 
     async performAction(udid: string, action: RemoteAction): Promise<void> {
         this.assertTarget(udid);
-        const driver = await this.driver();
-        const platform = this.device.platform ?? 'ios';
-        if (action.type === 'tap' || action.type === 'swipe') {
-            const actions = action.type === 'tap'
-                ? [
-                    { type: 'pointerMove', duration: 0, x: action.x, y: action.y, origin: 'viewport' },
-                    { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 }, { type: 'pointerUp', button: 0 },
-                ]
-                : [
-                    { type: 'pointerMove', duration: 0, x: action.startX, y: action.startY, origin: 'viewport' },
-                    { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 },
-                    { type: 'pointerMove', duration: action.durationMs, x: action.endX, y: action.endY, origin: 'viewport' },
-                    { type: 'pointerUp', button: 0 },
-                ];
-            await driver.performActions([{ type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' }, actions }]);
-            await driver.releaseActions();
-            return;
-        }
-        if (action.type === 'type') {
-            if (!action.text || action.text.length > 4_000) throw new Error('Text input must contain 1 to 4000 characters');
-            await driver.keys(action.text);
-            return;
-        }
-        if (action.type === 'lock') {
-            await driver.lock();
-            return;
-        }
-        if (action.type === 'unlock' || action.type === 'wake') {
-            await driver.unlock();
-            return;
-        }
-        if (platform === 'android') {
-            const keycode = action.type === 'home' ? 3 : action.type === 'volumeUp' ? 24 : 25;
-            await driver.execute('mobile: pressKey', { keycode });
-            return;
-        }
-        const name = action.type === 'home' ? 'home' : action.type === 'volumeUp' ? 'volumeUp' : 'volumeDown';
-        await driver.execute('mobile: pressButton', { name });
+        await this.withDriver(async (driver) => {
+            const platform = this.device.platform ?? 'ios';
+            if (action.type === 'tap' || action.type === 'swipe') {
+                const actions = action.type === 'tap'
+                    ? [
+                        { type: 'pointerMove', duration: 0, x: action.x, y: action.y, origin: 'viewport' },
+                        { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 }, { type: 'pointerUp', button: 0 },
+                    ]
+                    : [
+                        { type: 'pointerMove', duration: 0, x: action.startX, y: action.startY, origin: 'viewport' },
+                        { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 },
+                        { type: 'pointerMove', duration: action.durationMs, x: action.endX, y: action.endY, origin: 'viewport' },
+                        { type: 'pointerUp', button: 0 },
+                    ];
+                await driver.performActions([{ type: 'pointer', id: 'finger1', parameters: { pointerType: 'touch' }, actions }]);
+                await driver.releaseActions();
+                return;
+            }
+            if (action.type === 'type') {
+                if (!action.text || action.text.length > 4_000) throw new Error('Text input must contain 1 to 4000 characters');
+                await driver.keys(action.text);
+                return;
+            }
+            if (action.type === 'lock') {
+                await driver.lock();
+                return;
+            }
+            if (action.type === 'unlock' || action.type === 'wake') {
+                await driver.unlock();
+                return;
+            }
+            if (platform === 'android') {
+                const keycode = action.type === 'home' ? 3 : action.type === 'volumeUp' ? 24 : 25;
+                await driver.execute('mobile: pressKey', { keycode });
+                return;
+            }
+            const name = action.type === 'home' ? 'home' : action.type === 'volumeUp' ? 'volumeUp' : 'volumeDown';
+            await driver.execute('mobile: pressButton', { name });
+        });
     }
 
     async isLocked(udid: string): Promise<boolean> {
         this.assertTarget(udid);
-        return (await this.driver()).isLocked();
+        return this.withDriver((driver) => driver.isLocked());
     }
 }

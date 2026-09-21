@@ -66,6 +66,12 @@ class AppiumProtocolError extends Error {
     }
 }
 
+export function isInvalidAppiumSessionError(error: unknown): boolean {
+    if (!(error instanceof AppiumProtocolError)) return false;
+    if (error.code === 'invalid session id') return true;
+    return error.status === 404 && /(?:invalid|unknown|missing).*session|session.*(?:not found|does not exist)/i.test(error.message);
+}
+
 function retryableSessionError(error: unknown): boolean {
     if (!(error instanceof AppiumProtocolError)) return true;
     return error.status === 408 || error.status === 429 || (error.status !== undefined && error.status >= 500);

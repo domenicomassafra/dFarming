@@ -83,3 +83,33 @@ test('Appium remote retries transient session creation failures within the same 
     assert.deepEqual(await remote.getScreenInfo('SIM-RETRY'), { screenSize: { width: 430, height: 932 }, scale: 1 });
     assert.equal(attempts, 2);
 });
+
+test('Appium remote recreates a stale session after the Appium server restarts', async () => {
+    let sessions = 0;
+    const requests: SeenRequest[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+        const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
+        const method = String(init?.method ?? 'GET').toUpperCase();
+        requests.push({ method, pathname: url.pathname });
+        if (method === 'POST' && url.pathname === '/session') {
+            sessions += 1;
+            return Response.json({ value: { sessionId: `session-${sessions}`, capabilities: {} } });
+        }
+        if (url.pathname === '/session/session-1/screenshot') {
+            return Response.json({
+                value: { error: 'invalid session id', message: 'The session no longer exists' },
+            }, { status: 404 });
+        }
+        if (url.pathname === '/session/session-2/screenshot') {
+            return Response.json({ value: Buffer.from('fresh-png').toString('base64') });
+        }
+        return Response.json({ value: null });
+    };
+    const remote = new AppiumRemoteControl({
+        name: 'Simulator', udid: 'SIM-STALE', platform: 'ios', kind: 'simulator', automationBackend: 'appium', pluginData: {},
+    }, 'appium.test', 4726, fetchImpl);
+
+    assert.equal((await remote.getScreenshot('SIM-STALE')).toString(), 'fresh-png');
+    assert.equal(sessions, 2);
+    assert.equal(requests.filter(({ method, pathname }) => method === 'POST' && pathname === '/session').length, 2);
+});
