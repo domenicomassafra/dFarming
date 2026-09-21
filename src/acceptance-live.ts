@@ -24,6 +24,12 @@ export interface AcceptanceHost {
     error?: string;
 }
 
+export function acceptanceReceiptDirectory(env: NodeJS.ProcessEnv = process.env): string {
+    if (env.PHONE_FARM_ACCEPTANCE_DIR?.trim()) return path.resolve(env.PHONE_FARM_ACCEPTANCE_DIR.trim());
+    if (env.SCHEDULER_DATA_DIR?.trim()) return path.resolve(env.SCHEDULER_DATA_DIR.trim(), 'acceptance');
+    return path.resolve('.runtime/acceptance');
+}
+
 export function acceptancePreflightErrors(
     doctor: DoctorReport,
     device: AcceptanceDevice,
@@ -166,7 +172,7 @@ export async function runLiveAcceptance(): Promise<Record<string, unknown>> {
         inputProof,
         taskProof,
     };
-    const receiptDirectory = path.resolve('.runtime/acceptance');
+    const receiptDirectory = acceptanceReceiptDirectory();
     await mkdir(receiptDirectory, { recursive: true, mode: 0o700 });
     const receiptPath = path.join(receiptDirectory, `${startedAt.toISOString().replace(/[:.]/g, '-')}-${udid.replace(/[^A-Za-z0-9._-]/g, '_')}.json`);
     await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });

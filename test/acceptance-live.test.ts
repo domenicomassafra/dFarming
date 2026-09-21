@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { acceptancePreflightErrors, acceptanceRequestHeaders } from '../src/acceptance-live.js';
+import {
+    acceptancePreflightErrors,
+    acceptanceReceiptDirectory,
+    acceptanceRequestHeaders,
+} from '../src/acceptance-live.js';
 import type { DoctorReport } from '../src/doctor.js';
 
 function doctor(overrides: Partial<DoctorReport> = {}): DoctorReport {
@@ -72,4 +76,18 @@ test('acceptance requests prefer bearer auth when a token is configured', () => 
         if (previous === undefined) delete process.env.PHONE_FARM_TOKEN;
         else process.env.PHONE_FARM_TOKEN = previous;
     }
+});
+
+test('acceptance receipts use the scheduler volume in production and remain overrideable', () => {
+    assert.equal(
+        acceptanceReceiptDirectory({ SCHEDULER_DATA_DIR: '/data/scheduler' }),
+        '/data/scheduler/acceptance',
+    );
+    assert.equal(
+        acceptanceReceiptDirectory({
+            SCHEDULER_DATA_DIR: '/data/scheduler',
+            PHONE_FARM_ACCEPTANCE_DIR: '/receipts/live',
+        }),
+        '/receipts/live',
+    );
 });
