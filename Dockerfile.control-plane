@@ -35,6 +35,7 @@ COPY static ./static
 COPY Patches ./Patches
 COPY integrations ./integrations
 COPY deploy ./deploy
+COPY toolchains ./toolchains
 COPY test ./test
 
 RUN npm run check \
