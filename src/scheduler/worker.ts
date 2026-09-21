@@ -1,14 +1,12 @@
 import type { JobWithMetadata } from 'pg-boss';
 
 import { assertDatabaseReady, createDatabaseConnection } from '../database/client.js';
+import { defaultPlugins } from '../default-plugins.js';
 import { activeDevices, loadRegisteredDevices } from '../devices/registry.js';
-import { configuredPluginModules, loadPlugins } from '../loader.js';
 import { PluginRegistry } from '../registry.js';
 import { executeAutomation } from './executor.js';
 import { createQueue, ensureDeviceQueue, type ExecutionJob } from './queue.js';
 import { SchedulerRepository } from './repository.js';
-import { createTikTokPlugin } from '../tiktok-plugin.js';
-import { createInstagramPlugin } from '../instagram-plugin.js';
 import { isEntrypoint } from '../entrypoint.js';
 
 export interface WorkerRuntime { close(): Promise<void> }
@@ -81,11 +79,7 @@ export async function startWorker(plugins: PluginRegistry): Promise<WorkerRuntim
 }
 
 async function main(): Promise<void> {
-    const plugins = new PluginRegistry([
-        createTikTokPlugin({ bundleId: process.env.TIKTOK_BUNDLE_ID }),
-        createInstagramPlugin({ bundleId: process.env.INSTAGRAM_BUNDLE_ID }),
-        ...await loadPlugins(configuredPluginModules()),
-    ]);
+    const plugins = new PluginRegistry(await defaultPlugins());
     const runtime = await startWorker(plugins);
     const shutdown = async (signal: string) => {
         console.log(`Scheduler worker stopping after ${signal}`);

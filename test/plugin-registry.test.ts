@@ -1,9 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { defaultPlugins } from '../src/default-plugins.js';
 import { examplePlugin } from '../src/example-plugin.js';
 import { PluginRegistry } from '../src/registry.js';
 import { assertSafeBind } from '../src/security.js';
+
+test('control-plane and workers share every built-in executable plugin', async () => {
+    const ids = new Set((await defaultPlugins()).map(({ id }) => id));
+    assert.ok(ids.has('com.phone-farm.flow'));
+    assert.ok(ids.has('com.git-agni.tiktok'));
+    assert.ok(ids.has('com.git-agni.instagram'));
+});
 
 test('registers and validates a versioned plugin task', () => {
     const registry = new PluginRegistry([examplePlugin]);

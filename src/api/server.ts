@@ -1,13 +1,11 @@
 import type { AddressInfo } from 'node:net';
 
 import type { AuthProvider, PhoneFarmPlugin } from '../plugin.js';
-import { configuredPluginModules, loadAuthProvider, loadPlugins } from '../loader.js';
+import { loadAuthProvider } from '../loader.js';
 import { PluginRegistry } from '../registry.js';
 import { createSchedulerRuntime } from '../scheduler/runtime.js';
 import { assertSafeBind, isLoopbackHost } from '../security.js';
-import { createTikTokPlugin } from '../tiktok-plugin.js';
-import { createInstagramPlugin } from '../instagram-plugin.js';
-import { portableFlowPlugin } from '../flow-plugin.js';
+import { defaultPlugins } from '../default-plugins.js';
 import { defaultDashboardTheme } from '../dashboard-theme.js';
 import { DeviceRegistrationService } from '../devices/registration.js';
 import { configuredDeviceWorkers, DeviceWorkerFleet } from '../device-workers.js';
@@ -23,15 +21,6 @@ export interface StartServerOptions {
     host?: string;
     port?: number;
     dashboardTheme?: DashboardTheme;
-}
-
-export async function defaultPlugins(): Promise<PhoneFarmPlugin[]> {
-    return [
-        portableFlowPlugin,
-        createTikTokPlugin({ bundleId: process.env.TIKTOK_BUNDLE_ID }),
-        createInstagramPlugin({ bundleId: process.env.INSTAGRAM_BUNDLE_ID }),
-        ...await loadPlugins(configuredPluginModules()),
-    ];
 }
 
 export async function startServer(options: StartServerOptions = {}) {

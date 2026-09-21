@@ -30,11 +30,12 @@ export default plugin;
 
 ## Built-in social plugins
 
-`defaultPlugins()` in `src/api/server.ts` and `src/scheduler/worker.ts` always
-loads both:
+`defaultPlugins()` in `src/default-plugins.ts` is the single executable plugin
+set shared by `web` and every scheduler worker:
 
 | Plugin id | Package export | Tasks | Bundle env |
 | --- | --- | --- | --- |
+| `com.phone-farm.flow` | built in | `flow@1` | — |
 | `com.git-agni.tiktok` | `@domenicomassafra/dfarming-core/tiktok` | `doomscroll@1`, `post@1` | `TIKTOK_BUNDLE_ID` (default `com.zhiliaoapp.musically`) |
 | `com.git-agni.instagram` | `@domenicomassafra/dfarming-core/instagram` | `doomscroll@1`, `post@1` | `INSTAGRAM_BUNDLE_ID` (default `com.burbn.instagram`) |
 
