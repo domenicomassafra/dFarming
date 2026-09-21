@@ -33,6 +33,7 @@ COPY drizzle ./drizzle
 COPY src ./src
 COPY static ./static
 COPY Patches ./Patches
+COPY donors.lock.json donor-adapters.json ./
 COPY integrations ./integrations
 COPY deploy ./deploy
 COPY toolchains ./toolchains
