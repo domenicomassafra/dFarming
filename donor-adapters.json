@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "adapters": [
+    {
+      "id": "appium-device-farm",
+      "status": "reference-only",
+      "boundary": "session/device-farm architecture",
+      "reason": "dFarming already owns canonical scheduling, device allocation and receipts; importing a second farm authority would create split brain.",
+      "failureMode": "no runtime dependency; Appium 3 workers continue unchanged"
+    },
+    {
+      "id": "stf",
+      "status": "reference-only",
+      "boundary": "Android fleet-wall UX",
+      "reason": "the production Fleet wall already implements the adopted still-preview plus single-focus-stream pattern without delegating registry authority.",
+      "failureMode": "no runtime dependency; built-in Fleet remains authoritative"
+    },
+    {
+      "id": "idb",
+      "status": "held",
+      "boundary": "Apple companion transport",
+      "reason": "simctl plus Appium/XCUITest currently satisfy the proven Simulator seam; an additional companion is not justified without a measured gap.",
+      "failureMode": "no runtime dependency; current Apple transport remains active"
+    },
+    {
+      "id": "pymobiledevice3",
+      "status": "held-external-only",
+      "boundary": "physical Apple lifecycle/tunnel process",
+      "reason": "GPL-3.0 code must remain out of the Apache core and the physical-iPhone lane is still hardware-gated.",
+      "failureMode": "no runtime dependency; future integration must be an optional external process/service"
+    },
+    {
+      "id": "android-emulator-containers",
+      "status": "promoted",
+      "boundary": "Linux Android Emulator capacity",
+      "implementation": "deploy/setup-google-android-emulator.sh",
+      "failureMode": "container/runtime may fail independently; physical Android and other workers remain usable"
+    },
+    {
+      "id": "scrcpy",
+      "status": "promoted",
+      "boundary": "optional Android H.264 video only",
+      "implementation": "src/devices/scrcpy-video.ts",
+      "failureMode": "signed H.264 capability disappears/fails; screenshot/MJPEG and Appium control remain available"
+    },
+    {
+      "id": "maestro",
+      "status": "promoted",
+      "boundary": "bounded portable-flow import/export",
+      "implementation": "src/flows/maestro.ts",
+      "failureMode": "unsupported or lossy commands are rejected; native Portable Flow remains canonical"
+    }
+  ]
+}

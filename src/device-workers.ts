@@ -6,6 +6,7 @@ import type { RemoteAction, RemoteControl, ScreenInfo } from './devices/wda-remo
 import type { HostCapability, HostSnapshot } from './hosts/capabilities.js';
 import type { RuntimeDevice } from './devices/runtime-discovery.js';
 import type { VirtualRuntime, VirtualRuntimePlatform } from './devices/virtual-runtime.js';
+import { normalizeNetworkRouteId, type NetworkRouteAttestation } from './network-routes.js';
 
 export const DEVICE_WORKER_PROTOCOL_VERSION = 1;
 export const DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS = 130_000;
@@ -170,6 +171,19 @@ function sanitizedHostSnapshot(value: unknown, descriptor: DeviceWorkerDescripto
         nonEmptyString(source.error),
         unsupportedCapabilities.length ? `ignored unsupported capabilities: ${unsupportedCapabilities.map(String).join(', ')}` : undefined,
     ].filter(Boolean) as string[];
+    const networkRoutes: NetworkRouteAttestation[] = [];
+    if (Array.isArray(source.networkRoutes)) {
+        for (const candidate of source.networkRoutes.slice(0, 64)) {
+            const route = record(candidate);
+            try {
+                const id = normalizeNetworkRouteId(route?.id);
+                const deviceUdids = Array.isArray(route?.deviceUdids)
+                    ? [...new Set(route.deviceUdids.filter((value): value is string => typeof value === 'string' && Boolean(value.trim())).map((value) => value.trim()).slice(0, 100))]
+                    : undefined;
+                networkRoutes.push({ id, ...(deviceUdids?.length ? { deviceUdids } : {}) });
+            } catch { warnings.push('ignored malformed network route attestation'); }
+        }
+    }
     return {
         id: descriptor.id,
         hostname,
@@ -179,6 +193,7 @@ function sanitizedHostSnapshot(value: unknown, descriptor: DeviceWorkerDescripto
         observedAt: nonEmptyString(source.observedAt) ?? new Date().toISOString(),
         ...(warnings.length ? { error: warnings.join('; ') } : {}),
         capabilities,
+        ...(networkRoutes.length ? { networkRoutes } : {}),
         tools: {
             appium: toolsSource?.appium === true,
             appiumRuntime: toolsSource?.appiumRuntime === true,

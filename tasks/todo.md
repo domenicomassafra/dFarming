@@ -18,7 +18,7 @@ an old branch.
   confirmed bulk operations and exactly one focused live stream.
 - [x] Optional Android scrcpy H.264 video adapter behind signed capabilities.
 - [x] Account-to-device binding, account pause/task policy and execution evidence.
-- [x] Current clean source gate: TypeScript + **176/176 tests** + web build.
+- [x] Current clean source gate: TypeScript + **188/188 tests** + web build.
 - [x] Production dependency audit: **0 vulnerabilities** with `npm audit --omit=dev`.
 - [x] Approved donor forks created and pinned in `donors.lock.json`.
 
@@ -43,24 +43,27 @@ Historical FARM ticket files remain for provenance; they are not active WIP.
 The physical-iPhone WDA regression matrix is also hardware/signing gated. The
 Mac Studio currently runs the simulator-only production profile.
 
-## Feature backlog — not active closure WIP
+## Non-hardware feature implementation
 
-- [ ] DFARM-101 — Named network-route isolation for account/device profiles.
-  Route IDs must resolve on the owning worker, be observable in receipts and
-  support privacy/testing/operational segmentation without bypassing provider
-  enforcement.
-- [ ] DFARM-102 — dCreator bridge. Accept approved asset/job envelopes and emit
-  receipts/results while keeping credentials, cookies, sessions, scheduler and
-  device registry isolated.
-- [ ] DFARM-103 — Donor runtime adapters. Add narrow, versioned adapters where
-  they improve the current native seam: Appium Device Farm, IDB,
-  pymobiledevice3 external service, Google Android emulator containers and
-  optional STF views.
-- [ ] DFARM-104 — Worker packaging for Windows Android hosts, preserving the
-  same authenticated worker protocol and MiniPC authority.
-- [ ] DFARM-105 — Per-account execution-profile constraints (dedicated device,
-  required tags, route ID and explicit profile identity) enforced before
-  schedule persistence.
+- [x] DFARM-101 — Named worker-local network-route attestations, account-profile
+  binding, pre-persistence refusal and execution-time re-check. Live proof of a
+  configured named route remains environment-gated.
+- [x] DFARM-102 — dCreator bridge: internal authenticated asset intake,
+  versioned jobs, DB-backed idempotency and execution receipts. The real
+  dCreator-side caller remains a separate-project integration proof.
+- [x] DFARM-103 — Donor adoption governance and the three justified promoted
+  seams (Google emulator container, scrcpy video-only, bounded Maestro); the
+  other reviewed donors are explicitly held/reference-only rather than dead
+  adapters.
+- [x] DFARM-104 — Windows Android worker packaging using the canonical Appium,
+  scheduler-worker and authenticated gateway processes. Live Windows proof is
+  pending until that host is online.
+- [x] DFARM-105 — Per-account execution-profile constraints (dedicated device,
+  required tags, route ID and explicit profile identity) enforced by the
+  scheduler repository before persistence and snapshotted into receipts.
+
+The open parts of DFARM-101/102/104/105 are live/external integration proofs,
+not unmerged source branches or hidden implementation WIP.
 
 ## Definition of clean
 

@@ -65,6 +65,11 @@ export const schedules = schedulerSchema.table('schedules', {
     id: uuid('id').primaryKey().defaultRandom(),
     campaignId: uuid('campaign_id').references(() => campaigns.id, { onDelete: 'set null' }),
     campaignAccount: text('campaign_account'),
+    executionProfileId: text('execution_profile_id'),
+    networkRouteId: text('network_route_id'),
+    externalSource: text('external_source'),
+    externalId: text('external_id'),
+    externalRequestHash: text('external_request_hash'),
     deviceUdid: text('device_udid').notNull(), ...taskColumns,
     timing: jsonb('timing').$type<ScheduleTiming>().notNull(),
     status: scheduleStatus('status').notNull().default('active'),
@@ -77,6 +82,7 @@ export const schedules = schedulerSchema.table('schedules', {
     index('schedules_device_idx').on(table.deviceUdid, table.createdAt),
     index('schedules_plugin_idx').on(table.pluginId, table.taskType, table.taskVersion),
     index('schedules_campaign_idx').on(table.campaignId),
+    uniqueIndex('schedules_external_identity_idx').on(table.externalSource, table.externalId),
 ]);
 
 export const executions = schedulerSchema.table('executions', {
@@ -84,6 +90,8 @@ export const executions = schedulerSchema.table('executions', {
     scheduleId: uuid('schedule_id').references(() => schedules.id, { onDelete: 'set null' }),
     campaignId: uuid('campaign_id').references(() => campaigns.id, { onDelete: 'set null' }),
     campaignAccount: text('campaign_account'),
+    executionProfileId: text('execution_profile_id'),
+    networkRouteId: text('network_route_id'),
     deviceUdid: text('device_udid').notNull(), ...taskColumns,
     scheduledFor: timestamp('scheduled_for', { withTimezone: true, mode: 'date' }).notNull(),
     deadlineAt: timestamp('deadline_at', { withTimezone: true, mode: 'date' }).notNull(),

@@ -1,5 +1,7 @@
 import type { JsonObject } from './types.js';
 import type { RegisteredDevice } from './devices/registry.js';
+import { normalizeDeviceTags } from './devices/registry.js';
+import { normalizeNetworkRouteId } from './network-routes.js';
 
 export const SOCIAL_ACCOUNT_PLATFORMS = ['tiktok', 'instagram'] as const;
 export type SocialAccountPlatform = (typeof SOCIAL_ACCOUNT_PLATFORMS)[number];
@@ -25,10 +27,53 @@ export interface AccountAutomationPolicy {
     paused?: boolean;
     allowedTaskTypes?: string[];
     note?: string;
+    executionProfile?: AccountExecutionProfile;
+}
+
+export interface AccountExecutionProfile {
+    id: string;
+    dedicatedDeviceUdid?: string;
+    requiredTags?: string[];
+    networkRouteId?: string;
 }
 
 export function pluginIdForPlatform(platform: SocialAccountPlatform): string {
     return PLATFORM_PLUGIN_IDS[platform];
+}
+
+export function socialPlatformForPluginId(pluginId: string): SocialAccountPlatform | undefined {
+    return SOCIAL_ACCOUNT_PLATFORMS.find((platform) => PLATFORM_PLUGIN_IDS[platform] === pluginId);
+}
+
+function parsedExecutionProfile(value: unknown): AccountExecutionProfile | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+    const record = value as Record<string, unknown>;
+    if (typeof record.id !== 'string' || !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(record.id.trim().toLowerCase())) return;
+    const id = record.id.trim().toLowerCase();
+    const dedicatedDeviceUdid = typeof record.dedicatedDeviceUdid === 'string' && record.dedicatedDeviceUdid.trim()
+        ? record.dedicatedDeviceUdid.trim().slice(0, 128) : undefined;
+    let requiredTags: string[] | undefined;
+    try {
+        requiredTags = record.requiredTags === undefined ? undefined : normalizeDeviceTags(record.requiredTags);
+    } catch { return; }
+    let networkRouteId: string | undefined;
+    try {
+        networkRouteId = record.networkRouteId === undefined ? undefined : normalizeNetworkRouteId(record.networkRouteId);
+    } catch { return; }
+    return {
+        id,
+        ...(dedicatedDeviceUdid ? { dedicatedDeviceUdid } : {}),
+        ...(requiredTags?.length ? { requiredTags } : {}),
+        ...(networkRouteId ? { networkRouteId } : {}),
+    };
+}
+
+export function validateAccountExecutionProfile(value: unknown): AccountExecutionProfile {
+    const profile = parsedExecutionProfile(value);
+    if (!profile) {
+        throw new Error('executionProfile must contain a valid id and optional dedicatedDeviceUdid, requiredTags, and networkRouteId');
+    }
+    return profile;
 }
 
 export function normalizeSocialHandle(value: string, platform: SocialAccountPlatform): string {
@@ -83,10 +128,12 @@ export function accountPolicy(
     const allowedTaskTypes = Array.isArray(record.allowedTaskTypes)
         ? record.allowedTaskTypes.filter((value): value is string => typeof value === 'string' && /^[a-z][a-z0-9.-]*$/.test(value))
         : undefined;
+    const profile = parsedExecutionProfile(record.executionProfile);
     return {
         ...(record.paused === true ? { paused: true } : {}),
         ...(allowedTaskTypes?.length ? { allowedTaskTypes: [...new Set(allowedTaskTypes)] } : {}),
         ...(typeof record.note === 'string' && record.note.trim() ? { note: record.note.trim().slice(0, 240) } : {}),
+        ...(profile ? { executionProfile: profile } : {}),
     };
 }
 
@@ -124,6 +171,7 @@ export function withAccountPolicy(
         ...(input.paused === true ? { paused: true } : {}),
         ...(allowedTaskTypes?.length ? { allowedTaskTypes } : {}),
         ...(typeof input.note === 'string' && input.note.trim() ? { note: input.note.trim().slice(0, 240) } : {}),
+        ...(input.executionProfile !== undefined ? { executionProfile: validateAccountExecutionProfile(input.executionProfile) } : {}),
     };
     if (Object.keys(clean).length) policies[normalized] = clean;
     else delete policies[normalized];

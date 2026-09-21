@@ -18,7 +18,7 @@ import type { PluginRegistry } from '../registry.js';
 import type { JsonObject } from '../types.js';
 import type { SchedulerRepository } from '../scheduler/repository.js';
 import {
-    listFleetAccounts, pluginIdForPlatform, SOCIAL_ACCOUNT_PLATFORMS, withAccountPolicy,
+    listFleetAccounts, pluginIdForPlatform, SOCIAL_ACCOUNT_PLATFORMS, validateAccountExecutionProfile, withAccountPolicy,
     type AccountAutomationPolicy, type SocialAccountPlatform,
 } from '../accounts.js';
 import { buildFleetHealth } from '../analytics.js';
@@ -35,6 +35,7 @@ import { registerAllocationRoutes } from './allocation-routes.js';
 import { registerScheduleRoutes } from './schedule-routes.js';
 import { registerAssetRoutes } from './asset-routes.js';
 import { registerDeviceRoutes } from './device-routes.js';
+import { registerDCreatorRoutes } from './dcreator-routes.js';
 
 export interface CreateAppOptions {
     plugins: PluginRegistry;
@@ -331,6 +332,10 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
         if (request.body.note !== undefined && (typeof request.body.note !== 'string' || request.body.note.length > 240)) {
             return reply.code(400).send({ error: 'note must be at most 240 characters' });
         }
+        if (request.body.executionProfile !== undefined) {
+            try { validateAccountExecutionProfile(request.body.executionProfile); }
+            catch (error) { return reply.code(400).send({ error: errorMessage(error) }); }
+        }
         const pluginId = pluginIdForPlatform(platform);
         let updated = false;
         await mutateDevices((devices) => {
@@ -423,6 +428,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
         discoverDevices,
         mutateDevices,
     });
+    registerDCreatorRoutes(app, options.scheduler);
 
     registerRemoteControlRoutes(app, {
         remote,

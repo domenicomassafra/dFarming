@@ -9,11 +9,14 @@ test('fleet health aggregates readiness, queue latency, and account outcomes wit
     const schedules = [{
         id: 's1', campaignId: null, campaignAccount: null, deviceUdid: 'a', pluginId: 'p', taskType: 'post', taskVersion: 1,
         payload: { account: '@alpha' }, timing: { kind: 'now' }, status: 'active', runWindowMinutes: 30,
+        executionProfileId: null, networkRouteId: null,
+        externalSource: null, externalId: null, externalRequestHash: null,
         nextRunAt: base, createdAt: base, updatedAt: base,
     }] as ScheduleRow[];
     const executions = [{
         id: 'e1', scheduleId: 's1', campaignId: null, campaignAccount: '@alpha', deviceUdid: 'a', pluginId: 'p',
         taskType: 'post', taskVersion: 1, payload: { account: '@alpha' }, scheduledFor: base,
+        executionProfileId: null, networkRouteId: null,
         deadlineAt: new Date(base.getTime() + 60_000), status: 'succeeded', queueJobId: 'j',
         startedAt: new Date(base.getTime() + 1_000), finishedAt: new Date(base.getTime() + 2_000),
         exitCode: 0, error: null, stopRequestedAt: null, createdAt: base, updatedAt: base,

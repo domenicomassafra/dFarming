@@ -13,6 +13,7 @@ import type { ExecutionRow } from '../database/schema.js';
 import type { PluginRegistry } from '../registry.js';
 import type { TaskExecutionResult } from '../types.js';
 import type { SchedulerRepository } from './repository.js';
+import { networkRouteAvailable, parseNetworkRouteAttestations } from '../network-routes.js';
 
 async function endpointReady(url: string): Promise<boolean> {
     try {
@@ -182,6 +183,9 @@ export async function executeAutomation(
 ): Promise<TaskExecutionResult> {
     const registered = (await loadRegisteredDevices()).find(({ udid }) => udid === execution.deviceUdid);
     if (!registered) return { exitCode: null, stopped: false, error: 'Device is not registered' };
+    if (execution.networkRouteId && !networkRouteAvailable(parseNetworkRouteAttestations(), execution.networkRouteId, registered.udid)) {
+        return { exitCode: null, stopped: false, error: `Required network route ${execution.networkRouteId} is not attested on this worker for this device` };
+    }
     if (Date.now() > execution.deadlineAt.getTime()) {
         return { exitCode: null, stopped: false, error: 'Execution window expired before the worker claimed the task' };
     }
@@ -210,6 +214,8 @@ export async function executeAutomation(
             IOS_UDID: device.udid,
             WDA_URL: `http://127.0.0.1:${registered.wdaLocalPort ?? Number(process.env.WDA_LOCAL_PORT ?? 8100)}`,
             ...(passcode ? { IOS_PASSCODE: passcode } : {}),
+            ...(execution.executionProfileId ? { PHONE_FARM_EXECUTION_PROFILE_ID: execution.executionProfileId } : {}),
+            ...(execution.networkRouteId ? { PHONE_FARM_NETWORK_ROUTE_ID: execution.networkRouteId } : {}),
         };
         const context: TaskExecutionContext = {
             executionId: execution.id,
@@ -217,6 +223,8 @@ export async function executeAutomation(
             workspaceDirectory,
             device,
             devicePluginData: registered.pluginData[execution.pluginId] ?? {},
+            ...(execution.executionProfileId ? { executionProfileId: execution.executionProfileId } : {}),
+            ...(execution.networkRouteId ? { networkRouteId: execution.networkRouteId } : {}),
             automation: deviceAutomation(registered, passcode),
             assets: await repository.executionAssets(execution),
             signal: controller.signal,

@@ -164,6 +164,7 @@ test('cross-platform control plane quarantines malformed worker devices without 
         if (pathname === '/v1/host') return Response.json({
             id: 'wrong-id', hostname: 'studio', os: 'darwin', arch: 'arm64', online: true,
             observedAt: new Date(0).toISOString(), capabilities: ['ios.physical', 'android.emulator', 'windows.device'],
+            networkRoutes: [{ id: 'Italy.Private', deviceUdids: ['PHONE-1'] }, { id: 'bad route!' }],
             tools: { appium: true, appiumRuntime: true, xcrun: true, adb: true, scrcpyVideo: false },
         });
         throw new Error(`Unexpected request ${pathname}`);
@@ -177,8 +178,10 @@ test('cross-platform control plane quarantines malformed worker devices without 
     assert.equal(host?.id, 'macstudio');
     assert.equal(host?.online, true);
     assert.deepEqual(host?.capabilities, ['ios.physical', 'android.emulator']);
+    assert.deepEqual(host?.networkRoutes, [{ id: 'italy.private', deviceUdids: ['PHONE-1'] }]);
     assert.match(host?.error ?? '', /unsupported device WINDOWS-STALE/);
     assert.match(host?.error ?? '', /unsupported capabilities: windows\.device/);
+    assert.match(host?.error ?? '', /malformed network route/);
 });
 
 test('duplicate UDIDs from two workers are quarantined instead of choosing an arbitrary owner', async (context) => {

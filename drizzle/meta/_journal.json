@@ -43,6 +43,20 @@
       "when": 1789341100521,
       "tag": "0005_broken_invaders",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789992224673,
+      "tag": "0006_bent_nightmare",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789992820871,
+      "tag": "0007_abnormal_scream",
+      "breakpoints": true
     }
   ]
 }

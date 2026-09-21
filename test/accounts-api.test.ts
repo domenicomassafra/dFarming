@@ -51,6 +51,21 @@ test('GET /api/accounts exposes a redacted cross-device account inventory', asyn
         paused: true, allowedTaskTypes: ['post'], note: 'manual review',
     });
 
+    const profile = await inject(app, {
+        method: 'PATCH', url: '/api/devices/udid-a/accounts/tiktok/%40alpha/policy',
+        payload: { executionProfile: { id: 'alpha-primary', dedicatedDeviceUdid: 'udid-a', requiredTags: ['creator'], networkRouteId: 'italy.private' } },
+    });
+    assert.equal(profile.statusCode, 200);
+    assert.deepEqual(profile.json().account.policy.executionProfile, {
+        id: 'alpha-primary', dedicatedDeviceUdid: 'udid-a', requiredTags: ['creator'], networkRouteId: 'italy.private',
+    });
+
+    const invalidProfile = await inject(app, {
+        method: 'PATCH', url: '/api/devices/udid-a/accounts/tiktok/%40alpha/policy',
+        payload: { executionProfile: { id: 'not valid!' } },
+    });
+    assert.equal(invalidProfile.statusCode, 400);
+
     const missing = await inject(app, {
         method: 'PATCH', url: '/api/devices/udid-a/accounts/tiktok/%40missing/policy',
         payload: { paused: true },

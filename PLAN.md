@@ -109,6 +109,31 @@ Runs now centers recent execution state and evidence. Recent runs are primary, s
 
 Fleet is organized around a still-preview device wall with exactly one focused live stream, explicit Online / Offline / Disconnected connectivity, host/platform/kind grouping, Device-List-style search/filter controls and confirmed bulk operations. Production browser re-proof on 2026-09-21 covered the real Mac Studio/iOS Simulator and MateBook Linux/Android Emulator workers: host grouping, Android filtering, single-focus stream switching, confirmed Disable → Disconnected, gateway outage → Offline, and full recovery to 2/2 online. The proof also drove the bounded/cached simulator-discovery fixes in `c8c1df7` and `f078bd6`. Physical-iPhone WDA Add Device remains separately live-gated.
 
+### Wave Y — execution profiles, integrations and fleet packaging
+
+Account policies now support explicit execution-profile identities with
+dedicated-device, required-tag and named network-route constraints. The
+scheduler repository is the final pre-persistence enforcement point, so direct
+API schedules, plugin-owned routes and campaign materialization cannot bypass
+those constraints; profile/route IDs are retained on schedule/execution
+evidence and worker execution fails closed if a required route is no longer
+attested locally.
+
+The optional dCreator bridge uses the internal service token, accepts approved
+multipart asset bytes into dFarming-owned opaque asset IDs, submits a versioned
+job/task envelope and returns scheduler/execution receipts. `(dcreator,
+externalId)` is database-unique and a canonical request hash makes retries
+idempotent while refusing conflicting reuse. Asset attachment and schedule
+creation are atomic. No browser cookies, provider sessions or raw credentials
+cross the product boundary.
+
+Windows Android packaging now uses current-user Task Scheduler to supervise the
+same Appium 3, pg-boss worker and authenticated device gateway processes as the
+other execution hosts; it does not create a Windows control plane. Donor
+governance is machine-readable: only Google emulator capacity, scrcpy video and
+bounded Maestro interoperability are promoted, while duplicate farm/registry
+authorities remain reference-only.
+
 ### Wave M — Control Center UX convergence (source complete, MiniPC live)
 
 The dashboard now presents the farm as one control plane instead of a set of disconnected technical pages. Overview exposes product capabilities, attention state and recent runs; Fleet makes offline/empty/online state explicit; Runs supports cross-platform Portable Flow tasks, search and status filtering; Automation Studio uses a compact workspace switch and staged Target → Author → Schedule flow. Saved pool editing now has explicit names and dirty-state protection so previewed edits cannot accidentally schedule against the stale persisted pool.

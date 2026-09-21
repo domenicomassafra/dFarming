@@ -17,6 +17,17 @@ import { DEFAULT_MIN_SCHEDULE_GAP_MINUTES, estimatedTaskWindow, validateTaskInpu
 import { materializeAssetFile, purgeRemoteAsset } from './asset-cache.js';
 import { PipelineRepository } from './pipeline-repository.js';
 
+export interface ExecutionPolicySnapshot {
+    executionProfileId?: string;
+    networkRouteId?: string;
+}
+export type ExecutionPolicyResolver = (input: CreateTaskInput) => Promise<ExecutionPolicySnapshot> | ExecutionPolicySnapshot;
+export interface CreateTaskMetadata {
+    externalSource?: string;
+    externalId?: string;
+    externalRequestHash?: string;
+}
+
 export interface ExecutionDetail extends ExecutionRow { logs: string[] }
 export interface FlowDefinitionDetail extends FlowDefinitionRow {
     payload: JsonObject;
@@ -48,6 +59,7 @@ function taskEnvelope(row: Pick<ScheduleRow, 'pluginId' | 'taskType' | 'taskVers
 
 export class SchedulerRepository {
     private readonly pipeline: PipelineRepository;
+    private executionPolicyResolver?: ExecutionPolicyResolver;
 
     constructor(
         readonly connection: DatabaseConnection,
@@ -55,6 +67,14 @@ export class SchedulerRepository {
         readonly plugins: PluginRegistry,
     ) {
         this.pipeline = new PipelineRepository(connection, (assetIds) => this.purgeAssetIds(assetIds));
+    }
+
+    setExecutionPolicyResolver(resolver: ExecutionPolicyResolver | undefined): void {
+        this.executionPolicyResolver = resolver;
+    }
+
+    private async executionPolicy(input: CreateTaskInput): Promise<ExecutionPolicySnapshot> {
+        return this.executionPolicyResolver ? await this.executionPolicyResolver(input) : {};
     }
 
     async listDevicePools(limit = 100): Promise<DevicePoolRow[]> {
@@ -166,25 +186,101 @@ export class SchedulerRepository {
         devicePluginData: JsonObject = {},
         now = new Date(),
         assetIds: string[] = [],
+        metadata: CreateTaskMetadata = {},
     ): Promise<ScheduleRow> {
+        const externalSource = metadata.externalSource?.trim() || undefined;
+        const externalId = metadata.externalId?.trim() || undefined;
+        const externalRequestHash = metadata.externalRequestHash?.trim() || undefined;
+        if ((externalSource || externalId || externalRequestHash) && (!externalSource || !externalId || !externalRequestHash)) {
+            throw new Error('External task metadata requires source, id, and request hash together');
+        }
+        if (externalSource && (!/^[a-z][a-z0-9.-]{0,63}$/.test(externalSource) || externalId!.length > 160
+            || !/^[a-f0-9]{64}$/.test(externalRequestHash!))) {
+            throw new Error('External task metadata is invalid');
+        }
+        if (externalSource) {
+            const existing = await this.scheduleByExternal(externalSource, externalId!);
+            if (existing) {
+                if (existing.externalRequestHash !== externalRequestHash) {
+                    throw new Error(`External request ${externalSource}/${externalId} already exists with different content`);
+                }
+                return existing;
+            }
+        }
         const validated = validateTaskInput(this.plugins, input, devicePluginData, now);
+        const executionPolicy = await this.executionPolicy(validated);
         const nextRunAt = initialRunAt(validated.timing, now);
-        await this.assertNoScheduleConflict(validated.deviceUdid, validated.task, nextRunAt);
+        try {
+            await this.assertNoScheduleConflict(validated.deviceUdid, validated.task, nextRunAt);
+        } catch (error) {
+            if (externalSource) {
+                const existing = await this.scheduleByExternal(externalSource, externalId!);
+                if (existing && existing.externalRequestHash === externalRequestHash) return existing;
+            }
+            throw error;
+        }
         await ensureDeviceQueue(this.boss, validated.deviceUdid);
-        const [schedule] = await this.connection.db.insert(schedules).values({
-            deviceUdid: validated.deviceUdid,
-            pluginId: validated.task.pluginId,
-            taskType: validated.task.taskType,
-            taskVersion: validated.task.taskVersion,
-            payload: validated.task.payload,
-            timing: validated.timing,
-            runWindowMinutes: validated.runWindowMinutes ?? Number(process.env.SCHEDULER_RUN_WINDOW_MINUTES ?? 30),
-            nextRunAt,
-        }).returning();
-        if (!schedule) throw new Error('Unable to create schedule');
-        await this.attachAssets(schedule.id, assetIds);
-        if (schedule.nextRunAt && schedule.nextRunAt <= now) await this.materializeDue(now, schedule.id);
+        const uniqueAssetIds = [...new Set(assetIds)];
+        if (uniqueAssetIds.length !== assetIds.length) throw new Error('assetIds must not contain duplicates');
+        let schedule!: ScheduleRow;
+        let created = false;
+        await this.connection.db.transaction(async (tx) => {
+            const values = {
+                deviceUdid: validated.deviceUdid,
+                pluginId: validated.task.pluginId,
+                taskType: validated.task.taskType,
+                taskVersion: validated.task.taskVersion,
+                payload: validated.task.payload,
+                executionProfileId: executionPolicy.executionProfileId ?? null,
+                networkRouteId: executionPolicy.networkRouteId ?? null,
+                ...(externalSource ? {
+                    externalSource, externalId: externalId!, externalRequestHash: externalRequestHash!,
+                } : {}),
+                timing: validated.timing,
+                runWindowMinutes: validated.runWindowMinutes ?? Number(process.env.SCHEDULER_RUN_WINDOW_MINUTES ?? 30),
+                nextRunAt,
+            };
+            const [inserted] = externalSource
+                ? await tx.insert(schedules).values(values).onConflictDoNothing().returning()
+                : await tx.insert(schedules).values(values).returning();
+            if (!inserted) {
+                const [existing] = await tx.select().from(schedules).where(and(
+                    eq(schedules.externalSource, externalSource!), eq(schedules.externalId, externalId!),
+                )).limit(1);
+                if (!existing) throw new Error('Unable to create schedule');
+                if (existing.externalRequestHash !== externalRequestHash) {
+                    throw new Error(`External request ${externalSource}/${externalId} already exists with different content`);
+                }
+                schedule = existing;
+                return;
+            }
+            schedule = inserted;
+            created = true;
+            if (uniqueAssetIds.length) {
+                const attached = await tx.update(assets).set({ scheduleId: schedule.id }).where(and(
+                    inArray(assets.id, uniqueAssetIds),
+                    isNull(assets.scheduleId), isNull(assets.executionId), isNull(assets.campaignId),
+                )).returning({ id: assets.id });
+                if (attached.length !== uniqueAssetIds.length) {
+                    throw new Error('One or more schedule assets are missing or already attached');
+                }
+            }
+        });
+        if (created && schedule.nextRunAt && schedule.nextRunAt <= now) await this.materializeDue(now, schedule.id);
         return schedule;
+    }
+
+    async scheduleByExternal(source: string, externalId: string): Promise<ScheduleRow | null> {
+        const [row] = await this.connection.db.select().from(schedules).where(and(
+            eq(schedules.externalSource, source), eq(schedules.externalId, externalId),
+        )).limit(1);
+        return row ?? null;
+    }
+
+    async latestExecutionForSchedule(scheduleId: string): Promise<ExecutionRow | null> {
+        const [row] = await this.connection.db.select().from(executions).where(eq(executions.scheduleId, scheduleId))
+            .orderBy(desc(executions.createdAt)).limit(1);
+        return row ?? null;
     }
 
     async createCampaign(plan: PlannedCampaign, now = new Date()): Promise<CampaignRow> {
@@ -246,6 +342,7 @@ export class SchedulerRepository {
         }
 
         let created: ScheduleRow[] = [];
+        const executionPolicies = await Promise.all(plan.tasks.map((task) => this.executionPolicy(task)));
         let launched: CampaignRow | undefined;
         await this.connection.db.transaction(async (tx) => {
             const [locked] = await tx.update(campaigns).set({
@@ -257,6 +354,8 @@ export class SchedulerRepository {
             const rows = plan.tasks.map((task, index) => ({
                 campaignId: id,
                 campaignAccount: plan.targets[index]?.account ?? null,
+                executionProfileId: executionPolicies[index]?.executionProfileId ?? null,
+                networkRouteId: executionPolicies[index]?.networkRouteId ?? null,
                 deviceUdid: task.deviceUdid,
                 pluginId: task.task.pluginId,
                 taskType: task.task.taskType,
@@ -311,10 +410,6 @@ export class SchedulerRepository {
         if (!files.length) return [];
         const rows = await this.connection.db.insert(assets).values(files).returning();
         return rows.map((asset) => ({ id: asset.id, name: asset.originalName, mimeType: asset.mimeType }));
-    }
-
-    async attachAssets(scheduleId: string, assetIds: string[]): Promise<void> {
-        if (assetIds.length) await this.connection.db.update(assets).set({ scheduleId }).where(inArray(assets.id, assetIds));
     }
 
     async deleteAssets(assetIds: string[]): Promise<void> { await this.purgeAssetIds(assetIds); }
@@ -396,11 +491,14 @@ export class SchedulerRepository {
             timing: changes.timing ?? current.timing,
             runWindowMinutes: changes.runWindowMinutes ?? current.runWindowMinutes,
         }, devicePluginData, now);
+        const executionPolicy = await this.executionPolicy(input);
         const nextRunAt = changes.timing ? initialRunAt(input.timing, now) : current.nextRunAt;
         if (nextRunAt) await this.assertNoScheduleConflict(input.deviceUdid, input.task, nextRunAt, id);
         const [updated] = await this.connection.db.update(schedules).set({
             pluginId: input.task.pluginId, taskType: input.task.taskType, taskVersion: input.task.taskVersion,
             payload: input.task.payload, timing: input.timing, runWindowMinutes: input.runWindowMinutes,
+            executionProfileId: executionPolicy.executionProfileId ?? null,
+            networkRouteId: executionPolicy.networkRouteId ?? null,
             nextRunAt, updatedAt: now,
         }).where(eq(schedules.id, id)).returning();
         return updated ?? null;
@@ -412,8 +510,19 @@ export class SchedulerRepository {
         if (!scheduleTransitionAllowed(current.status, status)) {
             throw new ScheduleTransitionError(`Cannot change a ${current.status} schedule to ${status}`);
         }
+        const executionPolicy = status === 'active'
+            ? await this.executionPolicy({
+                deviceUdid: current.deviceUdid,
+                task: taskEnvelope(current),
+                timing: current.timing,
+                runWindowMinutes: current.runWindowMinutes,
+            })
+            : { executionProfileId: current.executionProfileId ?? undefined, networkRouteId: current.networkRouteId ?? undefined };
         const [updated] = await this.connection.db.update(schedules).set({
-            status, nextRunAt: status === 'active' ? initialRunAt(current.timing, now) : current.nextRunAt, updatedAt: now,
+            status, nextRunAt: status === 'active' ? initialRunAt(current.timing, now) : current.nextRunAt,
+            executionProfileId: executionPolicy.executionProfileId ?? null,
+            networkRouteId: executionPolicy.networkRouteId ?? null,
+            updatedAt: now,
         }).where(eq(schedules.id, id)).returning();
         if (status === 'cancelled') {
             const queued = await this.connection.db.select().from(executions).where(and(
@@ -437,8 +546,9 @@ export class SchedulerRepository {
                 id: string; device_udid: string; plugin_id: string; task_type: string; task_version: number;
                 payload: JsonObject; timing: ScheduleTiming; run_window_minutes: number; next_run_at: Date;
                 campaign_id: string | null; campaign_account: string | null;
+                execution_profile_id: string | null; network_route_id: string | null;
             }
-            const result = await tx.execute(sql`select id, campaign_id, campaign_account, device_udid, plugin_id, task_type, task_version, payload,
+            const result = await tx.execute(sql`select id, campaign_id, campaign_account, execution_profile_id, network_route_id, device_udid, plugin_id, task_type, task_version, payload,
                 timing, run_window_minutes, next_run_at from scheduler.schedules where ${conditions}
                 order by next_run_at for update skip locked limit 100`);
             for (const row of result.rows as unknown as DueRow[]) {
@@ -451,6 +561,7 @@ export class SchedulerRepository {
                 const policy = definition.retryPolicy(task.payload);
                 const [execution] = await tx.insert(executions).values({
                     scheduleId: row.id, campaignId: row.campaign_id, campaignAccount: row.campaign_account,
+                    executionProfileId: row.execution_profile_id, networkRouteId: row.network_route_id,
                     deviceUdid: row.device_udid,
                     pluginId: row.plugin_id, taskType: row.task_type, taskVersion: row.task_version, payload: row.payload,
                     scheduledFor: occurrence.scheduledFor,

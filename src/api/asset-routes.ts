@@ -1,30 +1,31 @@
 import crypto from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir, open } from 'node:fs/promises';
+import { mkdir, open, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { loadRegisteredDevices, redactDevice } from '../devices/registry.js';
 import type { SchedulerRepository } from '../scheduler/repository.js';
 import { internalWorkerAuthorized } from './http-security.js';
 
-export function registerAssetRoutes(app: FastifyInstance, scheduler: SchedulerRepository): void {
-    app.post('/api/assets', async (request, reply) => {
-        const dataRoot = path.resolve(process.env.SCHEDULER_DATA_DIR ?? '.scheduler-data');
-        const uploadDirectory = path.join(dataRoot, 'uploads');
-        await mkdir(uploadDirectory, { recursive: true });
-        const created: Array<{
-            relativePath: string;
-            originalName: string;
-            mimeType: string;
-            size: number;
-            sha256: string;
-        }> = [];
+export async function ingestMultipartAssets(request: FastifyRequest, scheduler: SchedulerRepository) {
+    const dataRoot = path.resolve(process.env.SCHEDULER_DATA_DIR ?? '.scheduler-data');
+    const uploadDirectory = path.join(dataRoot, 'uploads');
+    await mkdir(uploadDirectory, { recursive: true });
+    const created: Array<{
+        relativePath: string;
+        originalName: string;
+        mimeType: string;
+        size: number;
+        sha256: string;
+    }> = [];
+    try {
         for await (const part of request.files()) {
             const id = crypto.randomUUID();
             const relativePath = path.join('uploads', id);
-            const handle = await open(path.join(dataRoot, relativePath), 'wx', 0o600);
+            const filePath = path.join(dataRoot, relativePath);
+            const handle = await open(filePath, 'wx', 0o600);
             const hash = crypto.createHash('sha256');
             let size = 0;
             try {
@@ -34,8 +35,11 @@ export function registerAssetRoutes(app: FastifyInstance, scheduler: SchedulerRe
                     hash.update(buffer);
                     await handle.write(buffer);
                 }
+            } catch (error) {
+                await rm(filePath, { force: true }).catch(() => undefined);
+                throw error;
             } finally {
-                await handle.close();
+                await handle.close().catch(() => undefined);
             }
             created.push({
                 relativePath,
@@ -45,7 +49,16 @@ export function registerAssetRoutes(app: FastifyInstance, scheduler: SchedulerRe
                 sha256: hash.digest('hex'),
             });
         }
-        return reply.code(201).send(await scheduler.registerAssets(created));
+        return await scheduler.registerAssets(created);
+    } catch (error) {
+        for (const file of created) await rm(path.join(dataRoot, file.relativePath), { force: true }).catch(() => undefined);
+        throw error;
+    }
+}
+
+export function registerAssetRoutes(app: FastifyInstance, scheduler: SchedulerRepository): void {
+    app.post('/api/assets', async (request, reply) => {
+        return reply.code(201).send(await ingestMultipartAssets(request, scheduler));
     });
 
     app.delete<{ Body: { assetIds: string[] } }>('/api/assets', async (request, reply) => {

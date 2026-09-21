@@ -3,6 +3,7 @@ import path from 'node:path';
 import { access } from 'node:fs/promises';
 
 import { physicalIosLaneEnabled } from '../runtime-options.js';
+import { parseNetworkRouteAttestations, type NetworkRouteAttestation } from '../network-routes.js';
 
 export type HostCapability =
     | 'ios.physical'
@@ -24,6 +25,7 @@ export interface HostSnapshot {
     observedAt: string;
     error?: string;
     capabilities: HostCapability[];
+    networkRoutes?: NetworkRouteAttestation[];
     tools: {
         appium: boolean;
         appiumRuntime: boolean;
@@ -61,6 +63,7 @@ export async function detectHostCapabilities(options: {
     appiumRuntimeEntry?: string;
     physicalIosEnabled?: boolean;
     scrcpyServerJar?: string;
+    networkRoutesValue?: string;
     commandAvailable?: (command: string) => Promise<boolean>;
 } = {}): Promise<HostSnapshot> {
     const platform = options.platform ?? process.platform;
@@ -75,6 +78,7 @@ export async function detectHostCapabilities(options: {
             : Promise.resolve(false),
     ]);
     const capabilities: HostCapability[] = [];
+    const networkRoutes = parseNetworkRouteAttestations(options.networkRoutesValue);
     const physicalIosEnabled = options.physicalIosEnabled ?? physicalIosLaneEnabled();
     if (appium || appiumRuntime) capabilities.push('appium');
     if (xcrun) capabilities.push('simctl');
@@ -94,6 +98,7 @@ export async function detectHostCapabilities(options: {
         online: true,
         observedAt: new Date().toISOString(),
         capabilities,
+        ...(networkRoutes.length ? { networkRoutes } : {}),
         tools: { appium, appiumRuntime, xcrun, adb, scrcpyVideo },
         metrics: {
             uptimeSeconds: Math.max(0, Math.round(os.uptime())),

@@ -180,6 +180,27 @@ The scheduler remains device-addressed, but the API may resolve a target immedia
 
 Automation Studio exposes the same model as **Specific device** vs **Any matching idle device**. Allocation filters can be saved/updated/deleted as named pools and can require operator-defined device tags. A preview endpoint shows the current first candidate before submission. The Semantic Inspector can inspect either that candidate or the selected concrete device and turn the normalized accessibility snapshot into authoring actions; inspection itself is read-only. Execution hosts are also first-class inventory: configured workers remain visible while offline, and online workers publish capabilities plus bounded load/RAM/CPU/uptime telemetry.
 
+### Account execution profiles and named network routes
+
+An account policy may optionally carry an explicit `executionProfile` with a
+stable profile ID plus any combination of a dedicated device UDID, required
+device tags and a named `networkRouteId`. The scheduler resolves that profile
+after plugin validation and **before schedule persistence**, including plugin
+routes and campaigns that call the repository directly. The resolved profile
+ID and route ID are copied to both schedule and execution rows so receipts stay
+auditable without embedding network secrets in task payloads.
+
+Network routes are worker-local attestations. `PHONE_FARM_NETWORK_ROUTES`
+contains only route IDs and optional device scope; the worker may be attached
+to an operator-managed VPN/proxy/network namespace, but credentials/endpoints
+are never returned by `/v1/host` or stored by the MiniPC. If a selected worker
+does not attest the route required by the account profile, schedule creation
+fails closed. The execution worker re-checks the same route attestation before
+touching the device, so a route removed after scheduling causes an explicit
+execution failure rather than silent fallback to another egress path. This
+feature is for privacy, testing and operational segmentation; it does not
+rotate/fallback routes to evade provider enforcement.
+
 `com.phone-farm.flow/flow@1` is the generic iOS automation contract. Its payload
 is an ordered list of portable actions (app launch/terminate, wait, tap, swipe,
 type, system buttons and screenshot), authored in Automation Studio and queued

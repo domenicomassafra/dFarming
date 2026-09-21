@@ -28,6 +28,24 @@ test('account policies can pause a handle or allow-list task types', () => {
     assert.throws(() => validateAccountTaskPolicy('@owner', 'doomscroll', restricted, 'tiktok'), /does not allow doomscroll/);
 });
 
+test('account policies persist a validated execution profile identity and constraints', () => {
+    const configured = withAccountPolicy({ accounts: ['@owner'] }, '@owner', 'tiktok', {
+        executionProfile: {
+            id: 'Owner.Primary', dedicatedDeviceUdid: 'phone-a',
+            requiredTags: ['Creator', 'creator'], networkRouteId: 'Italy.Private',
+        },
+    });
+    assert.deepEqual(accountPolicy(configured, '@owner', 'tiktok'), {
+        executionProfile: {
+            id: 'owner.primary', dedicatedDeviceUdid: 'phone-a',
+            requiredTags: ['creator'], networkRouteId: 'italy.private',
+        },
+    });
+    assert.throws(() => withAccountPolicy({ accounts: ['@owner'] }, '@owner', 'tiktok', {
+        executionProfile: { id: 'bad id' },
+    }), /executionProfile/);
+});
+
 test('task account targets must belong to the device plugin configuration', () => {
     const data = { accounts: ['@owner', '@second'] };
     assert.equal(validateConfiguredAccount('owner', data, 'instagram'), '@owner');

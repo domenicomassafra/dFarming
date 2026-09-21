@@ -46,6 +46,8 @@ export interface TaskExecutionContext {
     workspaceDirectory: string;
     device: DeviceIdentity;
     devicePluginData: JsonObject;
+    executionProfileId?: string;
+    networkRouteId?: string;
     automation: DeviceAutomation;
     assets: StoredAsset[];
     signal: AbortSignal;

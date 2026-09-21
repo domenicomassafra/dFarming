@@ -48,3 +48,14 @@ test('verified scrcpy server advertises optional Android H.264 without replacing
     assert.equal(host.tools.scrcpyVideo, true);
     assert.ok(host.capabilities.includes('adb'));
 });
+
+test('workers advertise only named network route ids and device scope', async () => {
+    const host = await detectHostCapabilities({
+        id: 'linux', platform: 'linux', arch: 'x64', appiumEntry: '/definitely/not/appium',
+        appiumRuntimeEntry: '/definitely/not/appium-runtime', commandAvailable: async () => false,
+        networkRoutesValue: '[{"id":"italy.private","deviceUdids":["phone-a"]},{"id":"testing"}]',
+    });
+    assert.deepEqual(host.networkRoutes, [
+        { id: 'italy.private', deviceUdids: ['phone-a'] }, { id: 'testing' },
+    ]);
+});

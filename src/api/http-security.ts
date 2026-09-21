@@ -63,7 +63,7 @@ export async function installAuthentication(
     if (!authProvider) return;
     await authProvider.registerRoutes(app);
     app.addHook('onRequest', async (request, reply) => {
-        if (request.url.startsWith('/api/internal/worker/') && internalWorkerAuthorized(request)) return;
+        if (request.url.startsWith('/api/internal/') && internalWorkerAuthorized(request)) return;
         if (authProvider.isPublicPath(request.url.split('?')[0] ?? request.url)) return;
         const user = await authProvider.authenticate(request, reply);
         if (!user && !reply.sent) await reply.code(401).send({ error: 'Authentication required' });

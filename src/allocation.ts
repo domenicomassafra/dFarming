@@ -27,6 +27,24 @@ export interface DeviceAllocationCandidate {
 function normalizedPlatform(device: RegisteredDevice): MobilePlatform { return device.platform ?? 'ios'; }
 function normalizedKind(device: RegisteredDevice): MobileDeviceKind { return device.kind ?? 'physical'; }
 
+export function deviceMatchesAllocationSelector(
+    device: RegisteredDevice,
+    selector: DeviceAllocationSelector = {},
+): boolean {
+    const platform = normalizedPlatform(device);
+    const kind = normalizedKind(device);
+    const allowedIds = selector.deviceUdids?.length ? new Set(selector.deviceUdids) : undefined;
+    if (selector.platform && selector.platform !== platform) return false;
+    if (selector.kind && selector.kind !== kind) return false;
+    if (selector.workerId && selector.workerId !== device.workerId) return false;
+    if (allowedIds && !allowedIds.has(device.udid)) return false;
+    if (selector.tags?.length) {
+        const tags = new Set(device.tags ?? []);
+        if (selector.tags.some((tag) => !tags.has(tag))) return false;
+    }
+    return true;
+}
+
 export function rankAllocationCandidates(
     registered: readonly RegisteredDevice[],
     connectedUdids: ReadonlySet<string>,
@@ -34,7 +52,6 @@ export function rankAllocationCandidates(
     schedules: readonly ScheduleRow[],
     selector: DeviceAllocationSelector = {},
 ): DeviceAllocationCandidate[] {
-    const allowedIds = selector.deviceUdids?.length ? new Set(selector.deviceUdids) : undefined;
     const requireIdle = selector.requireIdle !== false;
     const activeExecutionCount = new Map<string, number>();
     const activeScheduleCount = new Map<string, number>();
@@ -52,14 +69,7 @@ export function rankAllocationCandidates(
         const kind = normalizedKind(device);
         const queuedOrRunning = activeExecutionCount.get(device.udid) ?? 0;
         if (device.disabled || !connectedUdids.has(device.udid)) return [];
-        if (selector.platform && selector.platform !== platform) return [];
-        if (selector.kind && selector.kind !== kind) return [];
-        if (selector.workerId && selector.workerId !== device.workerId) return [];
-        if (allowedIds && !allowedIds.has(device.udid)) return [];
-        if (selector.tags?.length) {
-            const tags = new Set(device.tags ?? []);
-            if (selector.tags.some((tag) => !tags.has(tag))) return [];
-        }
+        if (!deviceMatchesAllocationSelector(device, selector)) return [];
         if (requireIdle && queuedOrRunning > 0) return [];
         const activeSchedules = activeScheduleCount.get(device.udid) ?? 0;
         return [{

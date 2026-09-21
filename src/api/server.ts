@@ -14,6 +14,8 @@ import { detectHostCapabilities } from '../hosts/capabilities.js';
 import { discoverRuntimeDevices, registerRuntimeDevice } from '../devices/runtime-discovery.js';
 import { changeVirtualRuntimeState, listVirtualRuntimes } from '../devices/virtual-runtime.js';
 import { isEntrypoint } from '../entrypoint.js';
+import { loadRegisteredDevices } from '../devices/registry.js';
+import { resolveTaskExecutionPolicy } from '../execution-policy.js';
 
 export interface StartServerOptions {
     plugins?: readonly PhoneFarmPlugin[];
@@ -41,6 +43,11 @@ export async function startServer(options: StartServerOptions = {}) {
     await registrations?.start();
     const workerFleet = role === 'control-plane' ? new DeviceWorkerFleet(configuredDeviceWorkers()) : undefined;
     if (workerFleet) await workerFleet.refresh();
+    scheduler.repository.setExecutionPolicyResolver(async (input) => resolveTaskExecutionPolicy(
+        input,
+        await loadRegisteredDevices(),
+        workerFleet ? workerFleet.hosts() : [await detectHostCapabilities({ id: process.env.PHONE_FARM_WORKER_ID ?? 'local' })],
+    ));
     const refreshMs = Math.max(2_000, Number(process.env.PHONE_FARM_WORKER_REFRESH_MS ?? 10_000));
     const workerRefreshTimer = workerFleet
         ? setInterval(() => void workerFleet.refresh().catch((error) => console.error('Device worker refresh failed:', error)), refreshMs)
