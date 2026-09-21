@@ -1,10 +1,16 @@
 # dFarming cross-platform closure — 2026-09-21
 
-## Functional revision
+## Functional revisions
 
-`9b6a558` (`fix(dfarming): share executable plugin registry`) is the functional
-revision that closed the scheduler regression found during this acceptance run.
-The later closure commit only updates task and deployment evidence.
+The closure produced three functional fixes before the final evidence-only
+commit:
+
+- `9b6a558` — share the executable plugin registry between control plane and
+  scheduler workers;
+- `c8c1df7` — bound worker runtime discovery and remove redundant per-device
+  rediscovery;
+- `f078bd6` — stabilize iOS Simulator discovery with boot-state filtering and a
+  short last-known-good grace on transient probe failure.
 
 ## Production topology proved
 
@@ -14,8 +20,9 @@ The later closure commit only updates task and deployment evidence.
   Appium 3/XCUITest serves the booted iPhone 17 Simulator.
 - MateBook Linux is the Android execution worker. ADB + Appium 3/UiAutomator2
   serve the Google Android Emulator API 30 lane.
-- Both workers and the control plane were on `9b6a558` before the live
-  acceptance below.
+- Both workers and the control plane were on `9b6a558` for the Portable Flow
+  acceptance receipts below. The later Fleet browser re-proof exercised the
+  worker-discovery fixes through `f078bd6`.
 
 ## Acceptance receipts
 
@@ -47,6 +54,30 @@ a different default plugin registry and omitted that executable plugin.
 processes. A regression test asserts that Flow, TikTok and Instagram are
 present. Source verification is 176/176 tests, TypeScript clean, web build clean
 and root `npm audit` clean.
+
+## Fleet browser re-proof and worker-discovery hardening
+
+The production Fleet wall was then exercised with a real headless Chromium
+session against the MiniPC tailnet endpoint, without mock devices:
+
+- initial state: 2 devices, 2 online, grouped by `macstudio` and
+  `matebooklinux`;
+- Android filter: 1 shown / 2 total;
+- focus Android → iPhone 17 Simulator: exactly one focused tile at a time, with
+  the iOS tile obtaining the signed live-stream URL;
+- confirmed Android bulk Disable: 1 online / 1 disconnected;
+- restore: 2 online / 0 disconnected;
+- MateBook gateway-only stop: 1 online / 1 offline while scheduler + Appium
+  remained active;
+- gateway restart: 2 online / 0 offline.
+
+During that proof, Mac `/v1/devices` occasionally stalled and made the control
+plane transiently mark the Simulator offline. `c8c1df7` removes redundant
+runtime rediscovery from the per-device status path and bounds `simctl`.
+`f078bd6` adds a 30-second last-known-good grace for transient Simulator probe
+failures and only treats `Booted` Simulator definitions as connected. After
+restart, ten consecutive `/v1/devices` probes completed in roughly 0.19–0.45 s
+and all returned the iPhone 17 Simulator connected.
 
 ## Intentionally open hardware gates
 

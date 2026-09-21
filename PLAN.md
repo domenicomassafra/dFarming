@@ -105,9 +105,9 @@ The Open-device workspace now follows device status → live/still screen → ac
 
 Runs now centers recent execution state and evidence. Recent runs are primary, schedules are secondary, filters are explicit for device/flow/status, live refresh and manual refresh state are visible, and run details expose device/flow context, timestamps, exit code, errors and evidence logs without changing scheduler behavior. Production browser acceptance also removed the lingering “Details complete.” success noise from dialog-opening actions. Physical-iPhone WDA Add Device remains separately live-gated.
 
-### Wave X — Fleet wall hierarchy (source complete; production browser re-proof pending)
+### Wave X — Fleet wall hierarchy (source complete, MiniPC/browser live)
 
-Fleet is being reorganized around a still-preview device wall with exactly one focused live stream, explicit Online / Offline / Disconnected connectivity, host/platform/kind grouping, Device-List-style search/filter controls and confirmed bulk operations. Physical-iPhone WDA Add Device remains separately live-gated.
+Fleet is organized around a still-preview device wall with exactly one focused live stream, explicit Online / Offline / Disconnected connectivity, host/platform/kind grouping, Device-List-style search/filter controls and confirmed bulk operations. Production browser re-proof on 2026-09-21 covered the real Mac Studio/iOS Simulator and MateBook Linux/Android Emulator workers: host grouping, Android filtering, single-focus stream switching, confirmed Disable → Disconnected, gateway outage → Offline, and full recovery to 2/2 online. The proof also drove the bounded/cached simulator-discovery fixes in `c8c1df7` and `f078bd6`. Physical-iPhone WDA Add Device remains separately live-gated.
 
 ### Wave M — Control Center UX convergence (source complete, MiniPC live)
 
