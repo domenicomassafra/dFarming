@@ -1,10 +1,22 @@
-import { recognize } from 'node-native-ocr';
+import { createRequire } from 'node:module';
 
 // node-native-ocr@0.4.18 ships a stale .d.ts declaring an `output` option,
 // while the installed runtime reads `format`. Keep the compatibility shim in
 // one place so every social surface uses the same OCR contract.
 type RealRecognizeOptions = { lang?: string; format?: 'txt' | 'tsv' };
-const recognizeRaw = recognize as unknown as (image: Buffer, options?: RealRecognizeOptions) => Promise<string>;
+type Recognize = (image: Buffer, options?: RealRecognizeOptions) => Promise<string>;
+const require = createRequire(import.meta.url);
+let recognizeRaw: Recognize | undefined;
+
+function recognizer(): Recognize {
+    if (recognizeRaw) return recognizeRaw;
+    // OCR is an execution-worker capability, not a control-plane dependency.
+    // Resolve it lazily so MiniPC production images do not need the native OCR
+    // package merely to load plugin metadata and pure validation helpers.
+    const module = require('node-native-ocr') as { recognize: unknown };
+    recognizeRaw = module.recognize as Recognize;
+    return recognizeRaw;
+}
 
 export interface OcrWord {
     text: string;
@@ -39,7 +51,7 @@ export function parseTsv(tsv: string): OcrWord[] {
 }
 
 export async function recognizeWords(image: Buffer): Promise<OcrWord[]> {
-    const tsv = await recognizeRaw(image, { format: 'tsv' });
+    const tsv = await recognizer()(image, { format: 'tsv' });
     return parseTsv(tsv);
 }
 
