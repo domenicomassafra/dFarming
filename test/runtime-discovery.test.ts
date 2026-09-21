@@ -10,6 +10,7 @@ test('parses available iOS simulators into Appium runtimes', () => {
         devices: {
             'com.apple.CoreSimulator.SimRuntime.iOS-26-0': [
                 { name: 'iPhone 17', udid: 'SIM-1', state: 'Booted', isAvailable: true },
+                { name: 'iPhone 17 Pro', udid: 'SIM-SHUTDOWN', state: 'Shutdown', isAvailable: true },
                 { name: 'Unavailable', udid: 'SIM-2', isAvailable: false },
             ],
         },

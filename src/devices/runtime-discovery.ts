@@ -5,6 +5,9 @@ import { discoverConnectedDevices, type Device } from './discovery.js';
 import { mutateRegisteredDevices, type RegisteredDevice } from './registry.js';
 
 const execFileAsync = promisify(execFile);
+const IOS_SIMULATOR_DISCOVERY_GRACE_MS = 30_000;
+let lastIosSimulatorSnapshot: RuntimeDevice[] = [];
+let lastIosSimulatorSuccessAt = 0;
 
 export interface RuntimeDevice extends Device {
     platform: 'ios' | 'android';
@@ -43,7 +46,7 @@ function iosRuntimeVersion(runtime: string): string {
 export function parseSimctlDevices(stdout: string): RuntimeDevice[] {
     const body = JSON.parse(stdout) as { devices?: Record<string, Array<{ name?: string; udid?: string; state?: string; isAvailable?: boolean }>> };
     return Object.entries(body.devices ?? {}).flatMap(([runtime, devices]) => devices.flatMap((device) => {
-        if (!device.udid || device.isAvailable === false) return [];
+        if (!device.udid || device.isAvailable === false || device.state !== 'Booted') return [];
         return [{
             name: device.name ?? `iOS Simulator ${device.udid.slice(-6)}`,
             osVersion: iosRuntimeVersion(runtime),
@@ -60,10 +63,15 @@ export async function discoverIosSimulators(): Promise<RuntimeDevice[]> {
     try {
         const { stdout } = await execFileAsync('xcrun', ['simctl', 'list', 'devices', 'available', '--json'], {
             maxBuffer: 8 * 1024 * 1024,
-            timeout: 5_000,
+            timeout: 10_000,
         });
-        return parseSimctlDevices(stdout);
+        lastIosSimulatorSnapshot = parseSimctlDevices(stdout);
+        lastIosSimulatorSuccessAt = Date.now();
+        return lastIosSimulatorSnapshot.map((device) => ({ ...device }));
     } catch {
+        if (Date.now() - lastIosSimulatorSuccessAt <= IOS_SIMULATOR_DISCOVERY_GRACE_MS) {
+            return lastIosSimulatorSnapshot.map((device) => ({ ...device }));
+        }
         return [];
     }
 }
