@@ -82,8 +82,8 @@ Persistent WebDriverAgent supervisor, controlled over a Unix socket
 - Single‑supervisor by design; a lock prevents duplicates.
 
 ### macOS `appium` legacy physical lane — `:4725`
-The existing Appium 2 + pinned XCUITest/WDA stack is isolated in
-`APPIUM_HOME=.appium2`. Physical-iPhone social recipes still depend on custom
+The existing Appium 2 binary lives in `toolchains/legacy-ios-appium`, while its
+pinned XCUITest/WDA driver state is isolated in `APPIUM_HOME=.appium2`. Physical-iPhone social recipes still depend on custom
 WDA endpoints, so this lane is deliberately retained for physical-device social
 recipes. It is omitted completely when `PHONE_FARM_ENABLE_PHYSICAL_IOS=false`.
 

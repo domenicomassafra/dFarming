@@ -10,12 +10,16 @@ The MiniPC control-plane release installs production dependencies only. Use
 `npm audit --omit=dev` as the production dependency gate and treat any non-zero
 result as a release blocker.
 
-macOS execution workers intentionally install the repository's Appium tooling as
-well. The optional physical-iPhone lane still depends on the legacy Appium 2
-toolchain for compatibility with its WDA recipes, while the Simulator lane uses
-the isolated Appium 3 runtime. Do **not** apply `npm audit fix --force` merely to
-silence legacy-tooling advisories: npm currently resolves those findings by a
-breaking Appium major upgrade. Upgrade that lane only with physical-device WDA
-compatibility tests and the normal worker readiness gates. A simulator-only
-worker should keep `PHONE_FARM_ENABLE_PHYSICAL_IOS=false`, which prevents the
-legacy Appium/WDA services from being installed or started.
+Execution workers install the root dependency graph, which contains the modern
+Appium 3 runtime but not the legacy physical-iPhone server. The optional
+physical-iPhone lane keeps Appium 2 in `toolchains/legacy-ios-appium`; it is
+installed only when `PHONE_FARM_ENABLE_PHYSICAL_IOS=true`. Its advisories are
+audited separately with `npm run audit:legacy-ios` and must not be silenced
+with `npm audit fix --force`: upgrading that lane requires real physical-device
+WDA compatibility proof.
+
+Likewise, `drizzle-kit` is a schema-generation CLI rather than a runtime
+dependency. It lives in `toolchains/db-schema` and is audited separately with
+`npm run audit:db-schema`. The ordinary root `npm audit --audit-level=high`
+gate covers what normal workers install, while `npm audit --omit=dev` remains
+the stricter MiniPC production-release gate.

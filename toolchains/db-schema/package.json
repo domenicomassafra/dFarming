@@ -1,0 +1,9 @@
+{
+  "name": "@domenicomassafra/dfarming-db-schema-toolchain",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated Drizzle schema generation CLI for dFarming",
+  "dependencies": {
+    "drizzle-kit": "0.31.10"
+  }
+}

@@ -17,7 +17,7 @@ The two iOS lanes are deliberately isolated:
 :4726  Appium 3 + XCUITest      iOS Simulator lane
 ```
 
-`./deploy/setup-device-worker.sh` prepares the iOS driver homes and launchd services.
+`./deploy/setup-device-worker.sh` prepares the modern runtime for every Mac worker. The Appium 2 package is installed from `toolchains/legacy-ios-appium` only when the physical-iPhone lane is enabled, so simulator-only workers do not carry that legacy dependency graph.
 
 ## 2. Connect physical iPhones
 

@@ -44,7 +44,7 @@
     "wda:prepare": "node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/devices/wda/prepare.ts",
     "wda:service": "node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/devices/wda-service.ts",
     "db:up": "docker compose up -d --wait postgres",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "npm run db:toolchain:install --silent && node toolchains/db-schema/node_modules/drizzle-kit/bin.cjs generate --config=drizzle.config.ts",
     "db:migrate": "node --env-file-if-exists=.env --import tsx src/database/migrate.ts",
     "db:setup": "node --env-file-if-exists=.env --import tsx src/database/setup.ts",
     "worker": "node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/scheduler/worker.ts",
@@ -57,7 +57,9 @@
     "test": "node --import tsx --test test/*.test.ts",
     "check": "npm run typecheck && npm test",
     "appium:legacy:install": "npm ci --prefix toolchains/legacy-ios-appium --ignore-scripts",
-    "audit:legacy-ios": "npm audit --prefix toolchains/legacy-ios-appium --audit-level=high"
+    "audit:legacy-ios": "npm audit --prefix toolchains/legacy-ios-appium --audit-level=high",
+    "db:toolchain:install": "npm ci --prefix toolchains/db-schema --ignore-scripts",
+    "audit:db-schema": "npm audit --prefix toolchains/db-schema --audit-level=high"
   },
   "engines": {
     "node": ">=22"
@@ -89,7 +91,6 @@
     "@types/node": "^26.2.0",
     "@types/pg": "^8.23.1",
     "appium-runtime": "npm:appium@^3.7.0",
-    "drizzle-kit": "^0.31.10",
     "typescript": "^7.0.2"
   },
   "allowScripts": {
@@ -101,5 +102,8 @@
     "edgedriver": false,
     "geckodriver": false,
     "fsevents": false
+  },
+  "overrides": {
+    "morgan": "1.12.1"
   }
 }
