@@ -3,8 +3,7 @@ import formbody from '@fastify/formbody';
 import multipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import crypto from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { mkdir, open, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
@@ -30,7 +29,7 @@ import { buildFleetHealth } from '../analytics.js';
 import type { HostSnapshot } from '../hosts/capabilities.js';
 import type { RuntimeDevice } from '../devices/runtime-discovery.js';
 import type { VirtualRuntime, VirtualRuntimePlatform } from '../devices/virtual-runtime.js';
-import { installAuthentication, installCsrfGuard, internalWorkerAuthorized } from './http-security.js';
+import { installAuthentication, installCsrfGuard } from './http-security.js';
 import { registerRuntimeRoutes } from './runtime-routes.js';
 import { registerDeviceRegistrationRoutes } from './device-registration-routes.js';
 import { registerRemoteControlRoutes } from './remote-routes.js';
@@ -38,6 +37,7 @@ import { registerFlowRoutes } from './flow-routes.js';
 import { registerCampaignRoutes } from './campaign-routes.js';
 import { registerAllocationRoutes } from './allocation-routes.js';
 import { registerScheduleRoutes } from './schedule-routes.js';
+import { registerAssetRoutes } from './asset-routes.js';
 
 export interface CreateAppOptions {
     plugins: PluginRegistry;
@@ -568,55 +568,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     registerCampaignRoutes(app, options.scheduler, options.plugins);
     registerAllocationRoutes(app, { scheduler: options.scheduler, discoverDevices });
     registerScheduleRoutes(app, { scheduler: options.scheduler, renderActivity });
-    app.post('/api/assets', async (request, reply) => {
-        const dataRoot = path.resolve(process.env.SCHEDULER_DATA_DIR ?? '.scheduler-data');
-        const uploadDirectory = path.join(dataRoot, 'uploads');
-        await mkdir(uploadDirectory, { recursive: true });
-        const created: Array<{ relativePath: string; originalName: string; mimeType: string; size: number; sha256: string }> = [];
-        for await (const part of request.files()) {
-            const id = crypto.randomUUID();
-            const relativePath = path.join('uploads', id);
-            const handle = await open(path.join(dataRoot, relativePath), 'wx', 0o600);
-            const hash = crypto.createHash('sha256');
-            let size = 0;
-            try {
-                for await (const chunk of part.file) {
-                    const buffer = Buffer.from(chunk);
-                    size += buffer.length;
-                    hash.update(buffer);
-                    await handle.write(buffer);
-                }
-            } finally {
-                await handle.close();
-            }
-            created.push({ relativePath, originalName: part.filename, mimeType: part.mimetype, size, sha256: hash.digest('hex') });
-        }
-        return reply.code(201).send(await options.scheduler.registerAssets(created));
-    });
-    app.delete<{ Body: { assetIds: string[] } }>('/api/assets', async (request, reply) => {
-        await options.scheduler.deleteAssets(request.body.assetIds ?? []);
-        return reply.code(204).send();
-    });
-
-    app.get<{ Params: { udid: string } }>('/api/internal/worker/devices/:udid', async (request, reply) => {
-        if (!internalWorkerAuthorized(request)) return reply.code(401).send({ error: 'Internal worker token required' });
-        const device = (await loadRegisteredDevices()).find(({ udid }) => udid === request.params.udid);
-        return device ? redactDevice(device) : reply.code(404).send({ error: 'Device not found' });
-    });
-    app.get<{ Params: { id: string } }>('/api/internal/worker/assets/:id', async (request, reply) => {
-        if (!internalWorkerAuthorized(request)) return reply.code(401).send({ error: 'Internal worker token required' });
-        const asset = await options.scheduler.assetFile(request.params.id);
-        if (!asset) return reply.code(404).send({ error: 'Asset not found' });
-        reply.header('content-length', String(asset.size));
-        reply.header('x-content-sha256', asset.sha256);
-        reply.header('cache-control', 'private, no-store');
-        return reply.type(asset.mimeType).send(createReadStream(asset.path));
-    });
-    app.delete<{ Params: { id: string } }>('/api/internal/worker/assets/:id', async (request, reply) => {
-        if (!internalWorkerAuthorized(request)) return reply.code(401).send({ error: 'Internal worker token required' });
-        await options.scheduler.deleteAssets([request.params.id]);
-        return reply.code(204).send();
-    });
+    registerAssetRoutes(app, options.scheduler);
 
     for (const plugin of options.plugins.list()) {
         if (plugin.registerRoutes) await plugin.registerRoutes({

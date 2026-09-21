@@ -1,0 +1,83 @@
+import crypto from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { mkdir, open } from 'node:fs/promises';
+import path from 'node:path';
+
+import type { FastifyInstance } from 'fastify';
+
+import { loadRegisteredDevices, redactDevice } from '../devices/registry.js';
+import type { SchedulerRepository } from '../scheduler/repository.js';
+import { internalWorkerAuthorized } from './http-security.js';
+
+export function registerAssetRoutes(app: FastifyInstance, scheduler: SchedulerRepository): void {
+    app.post('/api/assets', async (request, reply) => {
+        const dataRoot = path.resolve(process.env.SCHEDULER_DATA_DIR ?? '.scheduler-data');
+        const uploadDirectory = path.join(dataRoot, 'uploads');
+        await mkdir(uploadDirectory, { recursive: true });
+        const created: Array<{
+            relativePath: string;
+            originalName: string;
+            mimeType: string;
+            size: number;
+            sha256: string;
+        }> = [];
+        for await (const part of request.files()) {
+            const id = crypto.randomUUID();
+            const relativePath = path.join('uploads', id);
+            const handle = await open(path.join(dataRoot, relativePath), 'wx', 0o600);
+            const hash = crypto.createHash('sha256');
+            let size = 0;
+            try {
+                for await (const chunk of part.file) {
+                    const buffer = Buffer.from(chunk);
+                    size += buffer.length;
+                    hash.update(buffer);
+                    await handle.write(buffer);
+                }
+            } finally {
+                await handle.close();
+            }
+            created.push({
+                relativePath,
+                originalName: part.filename,
+                mimeType: part.mimetype,
+                size,
+                sha256: hash.digest('hex'),
+            });
+        }
+        return reply.code(201).send(await scheduler.registerAssets(created));
+    });
+
+    app.delete<{ Body: { assetIds: string[] } }>('/api/assets', async (request, reply) => {
+        await scheduler.deleteAssets(request.body.assetIds ?? []);
+        return reply.code(204).send();
+    });
+
+    app.get<{ Params: { udid: string } }>('/api/internal/worker/devices/:udid', async (request, reply) => {
+        if (!internalWorkerAuthorized(request)) {
+            return reply.code(401).send({ error: 'Internal worker token required' });
+        }
+        const device = (await loadRegisteredDevices()).find(({ udid }) => udid === request.params.udid);
+        return device ? redactDevice(device) : reply.code(404).send({ error: 'Device not found' });
+    });
+
+    app.get<{ Params: { id: string } }>('/api/internal/worker/assets/:id', async (request, reply) => {
+        if (!internalWorkerAuthorized(request)) {
+            return reply.code(401).send({ error: 'Internal worker token required' });
+        }
+        const asset = await scheduler.assetFile(request.params.id);
+        if (!asset) return reply.code(404).send({ error: 'Asset not found' });
+        reply.header('content-length', String(asset.size));
+        reply.header('x-content-sha256', asset.sha256);
+        reply.header('cache-control', 'private, no-store');
+        return reply.type(asset.mimeType).send(createReadStream(asset.path));
+    });
+
+    app.delete<{ Params: { id: string } }>('/api/internal/worker/assets/:id', async (request, reply) => {
+        if (!internalWorkerAuthorized(request)) {
+            return reply.code(401).send({ error: 'Internal worker token required' });
+        }
+        await scheduler.deleteAssets([request.params.id]);
+        return reply.code(204).send();
+    });
+}
