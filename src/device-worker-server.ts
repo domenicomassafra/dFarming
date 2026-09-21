@@ -19,7 +19,10 @@ import { physicalIosLaneEnabled } from './runtime-options.js';
 import { isEntrypoint } from './entrypoint.js';
 import { bearerMatches } from './security/bearer.js';
 
-async function localConnectionStatus(udid: string): Promise<DeviceConnectionStatus> {
+async function localConnectionStatus(
+    udid: string,
+    known?: { registered: RegisteredDevice; connected: boolean },
+): Promise<DeviceConnectionStatus> {
     try {
         const response = await requestWdaService('/devices', { timeoutMs: 2_000 });
         if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -27,8 +30,8 @@ async function localConnectionStatus(udid: string): Promise<DeviceConnectionStat
             if (status) return status;
         }
     } catch { /* fall through to direct probes */ }
-    const registered = await requireWorkerDevice(udid);
-    const connected = (await discoverWorkerRuntimeDevices()).some((device) => device.udid === udid);
+    const registered = known?.registered ?? await requireWorkerDevice(udid);
+    const connected = known?.connected ?? (await discoverWorkerRuntimeDevices()).some((device) => device.udid === udid);
     const backend = registered.automationBackend
         ?? ((registered.platform ?? 'ios') === 'ios' && (registered.kind ?? 'physical') === 'physical' ? 'wda' : 'appium');
     const appiumHost = backend === 'appium'
@@ -184,7 +187,12 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
         const registered = allRegistered.filter((device) => workerAllowsRuntimeDevice(device, physicalIosLaneEnabled()));
         const online = new Map(connected.map((device) => [device.udid, device]));
         const statuses = await Promise.all(registered.map(async (device) => {
-            try { return await localConnectionStatus(device.udid); } catch { return undefined; }
+            try {
+                return await localConnectionStatus(device.udid, {
+                    registered: device,
+                    connected: !device.disabled && online.has(device.udid),
+                });
+            } catch { return undefined; }
         }));
         return {
             workerId,

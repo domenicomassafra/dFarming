@@ -58,7 +58,10 @@ export function parseSimctlDevices(stdout: string): RuntimeDevice[] {
 export async function discoverIosSimulators(): Promise<RuntimeDevice[]> {
     if (process.platform !== 'darwin') return [];
     try {
-        const { stdout } = await execFileAsync('xcrun', ['simctl', 'list', 'devices', 'available', '--json'], { maxBuffer: 8 * 1024 * 1024 });
+        const { stdout } = await execFileAsync('xcrun', ['simctl', 'list', 'devices', 'available', '--json'], {
+            maxBuffer: 8 * 1024 * 1024,
+            timeout: 5_000,
+        });
         return parseSimctlDevices(stdout);
     } catch {
         return [];
