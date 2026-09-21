@@ -44,7 +44,7 @@ export function serviceSpecs(root = process.cwd(), node = process.execPath): Rec
     return {
         appium: {
             label: 'com.phone-farm.appium',
-            args: [node, fromRoot('node_modules', 'appium', 'index.js'), '--address', '127.0.0.1', '--base-path', '/', '--port', '4725', '--log-level', 'info'],
+            args: [node, fromRoot('toolchains', 'legacy-ios-appium', 'node_modules', 'appium', 'index.js'), '--address', '127.0.0.1', '--base-path', '/', '--port', '4725', '--log-level', 'info'],
             env: { APPIUM_HOME: path.join(root, '.appium2') },
         },
         'appium-runtime': {

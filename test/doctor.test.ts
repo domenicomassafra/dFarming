@@ -17,13 +17,18 @@ function runner(fixtures: Record<string, { status?: number; stdout?: string; std
 function doctorCwd(context: test.TestContext): string {
     const cwd = mkdtempSync(path.join(os.tmpdir(), 'phone-farm-doctor-'));
     context.after(() => rmSync(cwd, { recursive: true, force: true }));
-    const appium = path.join(cwd, 'node_modules', 'appium');
     const appiumRuntime = path.join(cwd, 'node_modules', 'appium-runtime');
-    mkdirSync(appium, { recursive: true });
     mkdirSync(appiumRuntime, { recursive: true });
-    writeFileSync(path.join(appium, 'index.js'), '');
     writeFileSync(path.join(appiumRuntime, 'index.js'), '');
     return cwd;
+}
+
+function addLegacyIosRuntime(cwd: string): void {
+    const appium = path.join(cwd, 'toolchains', 'legacy-ios-appium', 'node_modules', 'appium');
+    const xcuitest = path.join(cwd, '.appium2', 'node_modules', 'appium-xcuitest-driver');
+    mkdirSync(appium, { recursive: true });
+    mkdirSync(xcuitest, { recursive: true });
+    writeFileSync(path.join(appium, 'index.js'), '');
 }
 
 function addAndroidRuntime(cwd: string): void {
@@ -51,13 +56,15 @@ test('doctor reports a missing full Xcode as a real-device blocker without block
 });
 
 test('doctor recognizes full Xcode and a visible physical device', (context) => {
+    const cwd = doctorCwd(context);
+    addLegacyIosRuntime(cwd);
     const report = collectDoctorReport(runner({
         'xcode-select -p': { stdout: '/Applications/Xcode.app/Contents/Developer\n' },
         'xcodebuild -version': { stdout: 'Xcode 26.1\nBuild version 17B55' },
         'docker --version': { stdout: 'Docker version 28.0.0' },
         'xcrun xctrace list devices': { stdout: '== Devices ==\nDodo iPhone (26.0) (0000-AAAA)\nDodo Mac (26.0) (MAC)\n\n== Simulators ==\niPhone 17 (26.0) (SIM)\n' },
         'security find-identity -v -p codesigning': { stdout: '  1) ABCDEF "Apple Development"\n     1 valid identities found\n' },
-    }), { XCODE_ORG_ID: 'TEAM123', WDA_BUNDLE_ID: 'com.example.owner.WebDriverAgentRunner' }, doctorCwd(context), 'darwin');
+    }), { XCODE_ORG_ID: 'TEAM123', WDA_BUNDLE_ID: 'com.example.owner.WebDriverAgentRunner' }, cwd, 'darwin');
     assert.equal(report.realDeviceReady, true);
     assert.match(report.checks.find(({ id }) => id === 'iphone')?.summary ?? '', /1 physical/);
 });

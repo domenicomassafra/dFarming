@@ -68,7 +68,7 @@ export async function detectHostCapabilities(options: {
     const [xcrun, adb, appium, appiumRuntime, scrcpyVideo] = await Promise.all([
         probe('xcrun'),
         probe('adb'),
-        exists(options.appiumEntry ?? path.resolve('node_modules/appium/index.js')),
+        exists(options.appiumEntry ?? path.resolve('toolchains/legacy-ios-appium/node_modules/appium/index.js')),
         exists(options.appiumRuntimeEntry ?? path.resolve('node_modules/appium-runtime/index.js')),
         options.scrcpyServerJar || process.env.PHONE_FARM_SCRCPY_SERVER_JAR
             ? exists(options.scrcpyServerJar ?? process.env.PHONE_FARM_SCRCPY_SERVER_JAR!)

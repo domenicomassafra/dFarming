@@ -35,8 +35,8 @@
     "service": "node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/service.ts",
     "acceptance:live": "node --import tsx src/acceptance-live.ts",
     "benchmark:video": "node --import tsx src/video-benchmark.ts",
-    "appium": "APPIUM_HOME=.appium2 node node_modules/appium/index.js --address 127.0.0.1 --base-path / --port 4725 --log-level info",
-    "appium:install-driver": "APPIUM_HOME=.appium2 appium driver install xcuitest@7.26.3",
+    "appium": "APPIUM_HOME=.appium2 node toolchains/legacy-ios-appium/node_modules/appium/index.js --address 127.0.0.1 --base-path / --port 4725 --log-level info",
+    "appium:install-driver": "APPIUM_HOME=.appium2 node toolchains/legacy-ios-appium/node_modules/appium/index.js driver install xcuitest@7.26.3",
     "appium:runtime": "APPIUM_HOME=.appium-runtime node node_modules/appium-runtime/index.js --address 127.0.0.1 --base-path / --port 4726 --log-level info",
     "appium:runtime:install-ios": "APPIUM_HOME=.appium-runtime node node_modules/appium-runtime/index.js driver install xcuitest@12.12.3",
     "appium:runtime:install-android": "APPIUM_HOME=.appium-runtime node node_modules/appium-runtime/index.js driver install uiautomator2@8.6.4",
@@ -55,7 +55,9 @@
     "preweb": "npm run build:web",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "appium:legacy:install": "npm ci --prefix toolchains/legacy-ios-appium --ignore-scripts",
+    "audit:legacy-ios": "npm audit --prefix toolchains/legacy-ios-appium --audit-level=high"
   },
   "engines": {
     "node": ">=22"
@@ -86,7 +88,6 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "@types/pg": "^8.23.1",
-    "appium": "^2.19.0",
     "appium-runtime": "npm:appium@^3.7.0",
     "drizzle-kit": "^0.31.10",
     "typescript": "^7.0.2"
@@ -96,7 +97,6 @@
     "esbuild@0.18.20": true,
     "esbuild@0.25.12": true,
     "esbuild@0.28.2": true,
-    "appium": false,
     "core-js": false,
     "edgedriver": false,
     "geckodriver": false,

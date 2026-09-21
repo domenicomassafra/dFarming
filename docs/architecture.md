@@ -4,7 +4,10 @@ Mobile Farm is one Linux MiniPC control plane plus macOS execution-host runtimes
 over one PostgreSQL database and a few worker-local state files. There is no
 client framework: the dashboard is server-rendered HTML with HTMX. Physical
 iPhones keep their specialized WDA video/control path, while iOS Simulators use
-the isolated modern Appium lane. Both are exposed to the MiniPC through the
+the isolated modern Appium lane. The legacy Appium 2 server required by the
+physical-iPhone WDA stack is not part of the root dependency graph: it lives in
+`toolchains/legacy-ios-appium` and is installed only when
+`PHONE_FARM_ENABLE_PHYSICAL_IOS=true`. Both are exposed to the MiniPC through the
 authenticated device-worker gateway.
 
 ```
@@ -22,8 +25,8 @@ authenticated device-worker gateway.
 │ macOS execution worker        │
 │ device gateway + job worker   │
 ├───────────────────────────────┤
-│ Appium legacy + WDA           │──▶ physical iPhone (optional)
-│ Appium runtime + XCUITest     │──▶ iOS Simulator
+│ isolated Appium 2 + WDA      │──▶ physical iPhone (optional)
+│ Appium 3 runtime + XCUITest   │──▶ iOS Simulator
 └───────────────────────────────┘
 ```
 

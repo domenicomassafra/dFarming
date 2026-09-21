@@ -125,15 +125,24 @@ export function collectDoctorReport(
             }
         }
 
-        const appiumPath = path.resolve(cwd, 'node_modules/appium/index.js');
-        checks.push(existsSync(appiumPath)
-            ? { id: 'appium', status: 'pass', summary: 'Local Appium package is installed' }
-            : { id: 'appium', status: 'fail', summary: 'Local Appium package is missing', detail: 'Run npm ci.' });
-
         const appiumRuntimePath = path.resolve(cwd, 'node_modules/appium-runtime/index.js');
         checks.push(existsSync(appiumRuntimePath)
             ? { id: 'appium-runtime', status: 'pass', summary: 'Modern Appium runtime sidecar is installed' }
-            : { id: 'appium-runtime', status: 'warn', summary: 'Modern Appium runtime sidecar is missing', detail: 'Run npm ci to enable iOS Simulator and Android runtimes.' });
+            : { id: 'appium-runtime', status: 'fail', summary: 'Modern Appium runtime sidecar is missing', detail: 'Run npm ci to enable iOS Simulator and Android runtimes.' });
+
+        if (appleWorker && physicalIosEnabled) {
+            const legacyAppiumPath = path.resolve(
+                cwd, 'toolchains/legacy-ios-appium/node_modules/appium/index.js',
+            );
+            checks.push(existsSync(legacyAppiumPath)
+                ? { id: 'appium-legacy', status: 'pass', summary: 'Isolated Appium 2 physical-iOS toolchain is installed' }
+                : {
+                    id: 'appium-legacy',
+                    status: 'fail',
+                    summary: 'Physical-iOS Appium 2 toolchain is missing',
+                    detail: 'Run npm run appium:legacy:install or disable PHONE_FARM_ENABLE_PHYSICAL_IOS.',
+                });
+        }
 
         const runtimeXcuitest = path.resolve(cwd, '.appium-runtime/node_modules/appium-xcuitest-driver');
         const runtimeAndroid = path.resolve(cwd, '.appium-runtime/node_modules/appium-uiautomator2-driver');
@@ -151,11 +160,11 @@ export function collectDoctorReport(
                 detail: 'Run npm run appium:runtime:install-android.',
             });
 
-        if (appleWorker) {
+        if (appleWorker && physicalIosEnabled) {
             const xcuitestPath = path.resolve(cwd, '.appium2/node_modules/appium-xcuitest-driver');
             checks.push(existsSync(xcuitestPath)
                 ? { id: 'xcuitest', status: 'pass', summary: 'Pinned XCUITest driver is installed' }
-                : { id: 'xcuitest', status: 'warn', summary: 'XCUITest driver is not prepared', detail: 'Run npm run appium:install-driver.' });
+                : { id: 'xcuitest', status: 'fail', summary: 'XCUITest driver is not prepared', detail: 'Run npm run appium:install-driver.' });
         }
 
         const adb = command(runner, 'adb', ['version']);
@@ -287,19 +296,19 @@ export function collectDoctorReport(
             : { id: 'android-device', status: 'warn', summary: 'No physical Android device is attached', detail: 'Emulators can still be used; connect an authorized ADB device for real-device acceptance.' });
     }
 
-    const sourceRequired = role === 'control-plane' ? ['node'] : ['node', 'appium'];
+    const sourceRequired = role === 'control-plane' ? ['node'] : ['node', 'appium-runtime'];
     const runtimeRequired = role === 'control-plane'
         ? ['node', 'database-runtime', 'database-url', ...(env.PHONE_FARM_DEVICE_WORKERS?.trim() ? ['worker-token', 'internal-token'] : [])]
         : role === 'device-worker'
             ? androidOnlyWorker
-                ? ['node', 'appium', 'uiautomator2', 'adb', 'android-sdk', 'java', 'control-database']
-                : ['node', 'appium', 'xcode', 'control-database']
-            : ['node', 'appium', 'xcode', 'iphone'];
+                ? ['node', 'appium-runtime', 'uiautomator2', 'adb', 'android-sdk', 'java', 'control-database']
+                : ['node', 'appium-runtime', 'xcode', 'control-database']
+            : ['node', 'appium-runtime', 'xcode', 'iphone'];
     const realDeviceRequired = role === 'control-plane'
         ? []
         : androidOnlyWorker
-            ? ['node', 'appium', 'uiautomator2', 'adb', 'android-sdk', 'java', 'android-device']
-            : ['node', 'appium', 'xcode', 'iphone', 'signing'];
+            ? ['node', 'appium-runtime', 'uiautomator2', 'adb', 'android-sdk', 'java', 'android-device']
+            : ['node', 'appium-legacy', 'xcuitest', 'xcode', 'iphone', 'signing'];
     const failed = (ids: string[]) => checks.some((check) => ids.includes(check.id) && check.status === 'fail');
     return {
         role,

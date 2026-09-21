@@ -93,6 +93,7 @@ fi
 npm ci --ignore-scripts
 npm rebuild node-native-ocr esbuild sharp --foreground-scripts
 if [[ "$physical_ios_enabled" != "false" ]]; then
+  npm run appium:legacy:install
   [[ -d .appium2/node_modules/appium-xcuitest-driver ]] || npm run appium:install-driver
 fi
 [[ -d .appium-runtime/node_modules/appium-xcuitest-driver ]] || npm run appium:runtime:install-ios
