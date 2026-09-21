@@ -8,6 +8,7 @@ import type { RuntimeDevice } from './devices/runtime-discovery.js';
 import type { VirtualRuntime, VirtualRuntimePlatform } from './devices/virtual-runtime.js';
 
 export const DEVICE_WORKER_PROTOCOL_VERSION = 1;
+export const DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS = 130_000;
 
 interface DeviceWorkerHealth {
     ok: true;
@@ -351,34 +352,58 @@ export class DeviceWorkerClient {
     }
 
     async getScreenInfo(udid: string): Promise<ScreenInfo> {
-        return await (await this.request(`/v1/devices/${encodeURIComponent(udid)}/info`)).json() as ScreenInfo;
+        return await (await this.request(
+            `/v1/devices/${encodeURIComponent(udid)}/info`,
+            {},
+            DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
+        )).json() as ScreenInfo;
     }
 
     async getAccessibilityTree(udid: string): Promise<unknown> {
-        return await (await this.request(`/v1/devices/${encodeURIComponent(udid)}/source`, {}, 50_000)).json();
+        return await (await this.request(
+            `/v1/devices/${encodeURIComponent(udid)}/source`,
+            {},
+            DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
+        )).json();
     }
 
     async getScreenshot(udid: string): Promise<Buffer> {
-        const response = await this.request(`/v1/devices/${encodeURIComponent(udid)}/screenshot`);
+        const response = await this.request(
+            `/v1/devices/${encodeURIComponent(udid)}/screenshot`,
+            {},
+            DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
+        );
         return Buffer.from(await response.arrayBuffer());
     }
 
     async getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response> {
-        return this.request(`/v1/devices/${encodeURIComponent(udid)}/stream`, { signal }, 20_000);
+        return this.request(
+            `/v1/devices/${encodeURIComponent(udid)}/stream`,
+            { signal },
+            DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
+        );
     }
 
     async getH264Stream(udid: string, signal?: AbortSignal): Promise<Response> {
-        return this.request(`/v1/devices/${encodeURIComponent(udid)}/h264`, { signal }, 20_000);
+        return this.request(
+            `/v1/devices/${encodeURIComponent(udid)}/h264`,
+            { signal },
+            DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
+        );
     }
 
     async performAction(udid: string, action: RemoteAction): Promise<void> {
         await this.request(`/v1/devices/${encodeURIComponent(udid)}/action`, {
             method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(action),
-        });
+        }, DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS);
     }
 
     async isLocked(udid: string): Promise<boolean> {
-        const body = await (await this.request(`/v1/devices/${encodeURIComponent(udid)}/locked`)).json() as { locked: boolean };
+        const body = await (await this.request(
+            `/v1/devices/${encodeURIComponent(udid)}/locked`,
+            {},
+            DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
+        )).json() as { locked: boolean };
         return body.locked;
     }
 

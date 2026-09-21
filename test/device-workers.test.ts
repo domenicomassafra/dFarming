@@ -4,7 +4,13 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { configuredDeviceWorkers, DEVICE_WORKER_PROTOCOL_VERSION, DeviceWorkerClient, DeviceWorkerFleet } from '../src/device-workers.js';
+import {
+    configuredDeviceWorkers,
+    DEVICE_WORKER_PROTOCOL_VERSION,
+    DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
+    DeviceWorkerClient,
+    DeviceWorkerFleet,
+} from '../src/device-workers.js';
 
 test('device worker descriptors are explicit, unique, and share the configured bearer token', () => {
     const workers = configuredDeviceWorkers(
@@ -15,6 +21,11 @@ test('device worker descriptors are explicit, unique, and share the configured b
     assert.equal(workers[0]?.url.href, 'http://macstudio:3010/');
     assert.equal(workers[1]?.token, 'shared-secret');
     assert.throws(() => configuredDeviceWorkers('same=http://one:1,same=http://two:2'), /Duplicate/);
+});
+
+test('remote worker operations allow enough time for a cold Appium/XCUITest session', () => {
+    assert.equal(DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS, 130_000);
+    assert.ok(DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS > 120_000);
 });
 
 test('device worker client authenticates and proxies screen/action calls without exposing WDA directly', async () => {
