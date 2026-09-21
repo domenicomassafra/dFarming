@@ -324,7 +324,7 @@ export class DeviceRegistrationService implements DeviceRegistrationManager {
         session.checks.host = check('checking', 'Checking local iOS tooling');
         session.checks.connection = check('checking', 'Checking the USB device');
         const driverProject = path.resolve(this.workspaceRoot, process.env.XCUITEST_DRIVER_PATH
-            ?? '.appium2/node_modules/appium-xcuitest-driver', 'node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj');
+            ?? '.appium-runtime/node_modules/appium-xcuitest-driver', 'node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj');
         try {
             await Promise.all([access(driverProject), access(process.env.XCODE_DEVELOPER_DIR ?? '/Applications/Xcode_26.2.app/Contents/Developer')]);
             session.checks.host = check('passed', 'Xcode, XCUITest, and WebDriverAgent are available');

@@ -43,9 +43,9 @@ cp .env.device-worker.example .env
 ./deploy/setup-device-worker.sh
 ```
 
-`PHONE_FARM_ROLE=device-worker` changes launchd packaging to install the pg-boss execution worker, authenticated HTTP device gateway and modern Appium runtime sidecar. With `PHONE_FARM_ENABLE_PHYSICAL_IOS=true` it also installs the physical-iPhone Appium/WDA lane. Set the flag to `false` for a simulator-only Mac; setup removes stale physical-lane launch agents instead of leaving them active. The web dashboard is deliberately omitted on every worker.
+`PHONE_FARM_ROLE=device-worker` changes launchd packaging to install the pg-boss execution worker, authenticated HTTP device gateway and modern Appium runtime. With `PHONE_FARM_ENABLE_PHYSICAL_IOS=true` it also installs the physical-iPhone compatibility listener and WDA supervisor. Set the flag to `false` for a simulator-only Mac; setup removes stale physical-lane launch agents instead of leaving them active. The web dashboard is deliberately omitted on every worker.
 
-The two Appium homes/ports are intentionally independent: `.appium2`/`:4725` preserves the custom physical-iPhone WDA contract, while `.appium-runtime`/`:4726` uses current XCUITest for iOS Simulator. This keeps simulator runtime upgrades isolated from the physical-iPhone WDA lane.
+The two Appium **ports** are intentionally separate but no longer have separate dependency trees. Both `:4725` (physical compatibility) and `:4726` (generic Simulator/Android runtime) execute Appium 3 against `.appium-runtime`. Before services are installed, setup applies the checksum/version-pinned WDA customization used by the physical lane. This removes the old Appium 2 tree while preserving the established port contract.
 
 The local `devices.json` remains the authority for secrets and physical endpoint details such as the unlock passcode and local WDA/MJPEG ports. The MiniPC mirror never receives the passcode.
 

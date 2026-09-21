@@ -10,14 +10,18 @@ Configure the execution Mac from `.env.device-worker.example` using the same pri
 PHONE_FARM_DEVICE_WORKERS=macstudio=http://macstudio:3010,air=http://macbook-air:3010
 ```
 
-The two iOS lanes are deliberately isolated:
+The two iOS listener ports are deliberately isolated while sharing one modern
+driver toolchain:
 
 ```text
-:4725  Appium 2 + custom WDA    physical iPhone lane
-:4726  Appium 3 + XCUITest      iOS Simulator lane
+:4725  Appium 3 + custom WDA    physical iPhone compatibility lane
+:4726  Appium 3 + XCUITest      iOS Simulator / Android runtime lane
 ```
 
-`./deploy/setup-device-worker.sh` prepares the modern runtime for every Mac worker. The Appium 2 package is installed from `toolchains/legacy-ios-appium` only when the physical-iPhone lane is enabled, so simulator-only workers do not carry that legacy dependency graph.
+`./deploy/setup-device-worker.sh` prepares the pinned modern runtime for every
+Mac worker and verifies/applies the reviewed WDA patch. There is no separate
+Appium 2 package. Simulator-only workers simply omit the `:4725` listener and
+WDA supervisor when `PHONE_FARM_ENABLE_PHYSICAL_IOS=false`.
 
 ## 2. Connect physical iPhones
 

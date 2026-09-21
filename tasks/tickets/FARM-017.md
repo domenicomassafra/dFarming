@@ -1,6 +1,6 @@
 # FARM-017 — Dependency vulnerability remediation without Appium regressions
 
-- Status: **blocked-live**
+- Status: **source-complete / physical-regression-pending**
 - Date: 2026-09-13
 
 ## Objective
@@ -27,7 +27,21 @@ No `--force` remediation was applied. Close this ticket only after the modern WD
 ## Re-triage — 2026-09-21
 
 - Root runtime tree: `npm audit` and `npm audit --omit=dev` both report **0 vulnerabilities**.
-- The legacy physical-iPhone Appium-2 toolchain is isolated under `toolchains/legacy-ios-appium`; its separate audit reports 26 findings (2 low, 12 moderate, 9 high, 3 critical). It is not loaded on the current Mac Studio simulator-only production profile.
-- The Appium-3 runtime is live-proven for both iOS Simulator and Android Emulator, including distributed scheduler execution through the MiniPC.
-- The schema-generation-only Drizzle CLI remains isolated from production; its audit currently reports four moderate findings in the old nested esbuild compatibility chain. A forced breaking CLI change is not used to silence a toolchain-only advisory.
-- This ticket therefore remains `blocked-live` only on replacing and regression-testing the physical-iPhone legacy lane with a compatible modern path on attached, signed hardware.
+- The custom physical WDA behavior has been ported to XCUITest 12.12.3 / WDA
+  16.12.8, pinned by exact versions and patch SHA, and successfully compiled on
+  Xcode 27 / iOS 27 Simulator.
+- Appium 2 and the old WDA 8.9.1 patches are removed. Both the physical
+  compatibility listener (`:4725`) and generic runtime (`:4726`) now use Appium
+  3 and `.appium-runtime`.
+- The Appium-3 runtime is live-proven for both iOS Simulator and Android
+  Emulator, including distributed scheduler execution through the MiniPC.
+- The schema-generation-only Drizzle CLI remains isolated from production; the
+  obsolete nested esbuild is bounded to reviewed 0.25.12 and its audit is now
+  **0 vulnerabilities** without changing generated schema.
+- The generated Appium driver home is hardened after driver installation while
+  keeping XCUITest 12.12.3 and UiAutomator2 8.6.4 unchanged; bundled `morgan`
+  is reconciled to 1.12.1 and `npm audit --prefix .appium-runtime` reports
+  **0 vulnerabilities**.
+- This ticket remains live-gated only for the signed physical-iPhone regression
+  matrix. Simulator compilation proves source compatibility, not real-device
+  trust/signing/Photos/touch behavior.

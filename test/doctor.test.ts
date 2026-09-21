@@ -23,12 +23,9 @@ function doctorCwd(context: test.TestContext): string {
     return cwd;
 }
 
-function addLegacyIosRuntime(cwd: string): void {
-    const appium = path.join(cwd, 'toolchains', 'legacy-ios-appium', 'node_modules', 'appium');
-    const xcuitest = path.join(cwd, '.appium2', 'node_modules', 'appium-xcuitest-driver');
-    mkdirSync(appium, { recursive: true });
+function addIosRuntime(cwd: string): void {
+    const xcuitest = path.join(cwd, '.appium-runtime', 'node_modules', 'appium-xcuitest-driver');
     mkdirSync(xcuitest, { recursive: true });
-    writeFileSync(path.join(appium, 'index.js'), '');
 }
 
 function addAndroidRuntime(cwd: string): void {
@@ -57,7 +54,7 @@ test('doctor reports a missing full Xcode as a real-device blocker without block
 
 test('doctor recognizes full Xcode and a visible physical device', (context) => {
     const cwd = doctorCwd(context);
-    addLegacyIosRuntime(cwd);
+    addIosRuntime(cwd);
     const report = collectDoctorReport(runner({
         'xcode-select -p': { stdout: '/Applications/Xcode.app/Contents/Developer\n' },
         'xcodebuild -version': { stdout: 'Xcode 26.1\nBuild version 17B55' },

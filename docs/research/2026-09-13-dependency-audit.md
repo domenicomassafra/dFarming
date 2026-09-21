@@ -22,3 +22,21 @@ The broader modernization lane remains Appium 3 + a current XCUITest driver/WDA.
 2. Run source tests/typecheck.
 3. Run physical-device registration, input, media import and social workflow smoke tests.
 4. Re-run `npm audit` and record the residual tree rather than hiding advisories with overrides.
+
+## Source modernization closure — 2026-09-21
+
+- The custom WDA endpoints were ported to XCUITest 12.12.3 / WebDriverAgent
+  16.12.8 and pinned by upstream-version + patch-SHA manifest.
+- The modern patched WDA completed `xcodebuild build-for-testing` successfully
+  with Xcode 27 against the booted iOS 27 Simulator before repository cutover.
+- The Appium 2 toolchain and obsolete WDA 8.9.1 patches were removed. Both
+  `:4725` and `:4726` now execute the root Appium 3 runtime against
+  `.appium-runtime`; the separate ports preserve behavior without a second
+  vulnerable dependency tree.
+- The isolated Drizzle generator retains 0.31.10 compatibility while overriding
+  the obsolete nested esbuild to reviewed 0.25.12; its audit is now clean and
+  schema generation reports no migration drift.
+- Root/source regression remains green. The only unfinished item from this
+  historical ticket is the real signed-iPhone regression (registration, touch,
+  media import and social smoke) because that proof cannot be substituted with
+  Simulator evidence.

@@ -1,9 +1,0 @@
-{
-  "name": "@domenicomassafra/dfarming-legacy-ios-appium",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Isolated Appium 2 toolchain retained only for the optional physical-iPhone WDA lane",
-  "dependencies": {
-    "appium": "2.19.0"
-  }
-}

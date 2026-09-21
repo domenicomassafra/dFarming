@@ -6,6 +6,7 @@ import path from 'node:path';
 import { diagnoseWdaLaunchFailure, wdaUnavailableTooLong } from './diagnostics.js';
 import { resolveDeveloperDir } from './xcode-env.js';
 import { resolveTargetUdid } from './target-device.js';
+import { defaultXcuitestDriverPath, ensureWdaCustomizations } from './patch.js';
 
 function required(name: string): string {
     const value = process.env[name];
@@ -32,7 +33,8 @@ const udid = await resolveTargetUdid();
 const teamId = required('XCODE_ORG_ID');
 const developerDir = resolveDeveloperDir();
 const driverPath = path.resolve(process.env.XCUITEST_DRIVER_PATH
-    ?? '.appium2/node_modules/appium-xcuitest-driver');
+    ?? defaultXcuitestDriverPath());
+await ensureWdaCustomizations({ driverPath });
 const projectPath = path.resolve(process.env.WDA_PROJECT_PATH ?? path.join(
     driverPath,
     'node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj',

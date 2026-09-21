@@ -9,7 +9,9 @@ import { renderLaunchAgent, renderLaunchAgents, serviceSpecs, servicesForRole } 
 test('launchd supervision uses one process per farm responsibility and no shell wrapper', () => {
     const specs = serviceSpecs('/tmp/phone-farm', '/usr/local/bin/node');
     assert.equal(Object.keys(specs).length, 6);
-    assert.match(specs.appium.args.join(' '), /toolchains\/legacy-ios-appium\/node_modules\/appium\/index\.js/);
+    assert.match(specs.appium.args.join(' '), /node_modules\/appium-runtime\/index\.js/);
+    assert.match(specs.appium.args.join(' '), /4725/);
+    assert.equal(specs.appium.env?.APPIUM_HOME, '/tmp/phone-farm/.appium-runtime');
     assert.match(specs['appium-runtime'].args.join(' '), /node_modules\/appium-runtime\/index\.js/);
     assert.match(specs['appium-runtime'].args.join(' '), /4726/);
     assert.match(specs.wda.args.join(' '), /wda-service\.ts/);

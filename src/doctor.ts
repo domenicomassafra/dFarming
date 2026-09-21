@@ -130,26 +130,15 @@ export function collectDoctorReport(
             ? { id: 'appium-runtime', status: 'pass', summary: 'Modern Appium runtime sidecar is installed' }
             : { id: 'appium-runtime', status: 'fail', summary: 'Modern Appium runtime sidecar is missing', detail: 'Run npm ci to enable iOS Simulator and Android runtimes.' });
 
-        if (appleWorker && physicalIosEnabled) {
-            const legacyAppiumPath = path.resolve(
-                cwd, 'toolchains/legacy-ios-appium/node_modules/appium/index.js',
-            );
-            checks.push(existsSync(legacyAppiumPath)
-                ? { id: 'appium-legacy', status: 'pass', summary: 'Isolated Appium 2 physical-iOS toolchain is installed' }
-                : {
-                    id: 'appium-legacy',
-                    status: 'fail',
-                    summary: 'Physical-iOS Appium 2 toolchain is missing',
-                    detail: 'Run npm run appium:legacy:install or disable PHONE_FARM_ENABLE_PHYSICAL_IOS.',
-                });
-        }
-
         const runtimeXcuitest = path.resolve(cwd, '.appium-runtime/node_modules/appium-xcuitest-driver');
         const runtimeAndroid = path.resolve(cwd, '.appium-runtime/node_modules/appium-uiautomator2-driver');
         if (appleWorker) {
             checks.push(existsSync(runtimeXcuitest)
                 ? { id: 'xcuitest-runtime', status: 'pass', summary: 'Modern XCUITest runtime driver is installed' }
-                : { id: 'xcuitest-runtime', status: 'warn', summary: 'Modern XCUITest runtime driver is not prepared', detail: 'Run npm run appium:runtime:install-ios.' });
+                : {
+                    id: 'xcuitest-runtime', status: physicalIosEnabled ? 'fail' : 'warn',
+                    summary: 'Modern XCUITest runtime driver is not prepared', detail: 'Run npm run appium:runtime:install-ios.',
+                });
         }
         checks.push(existsSync(runtimeAndroid)
             ? { id: 'uiautomator2', status: 'pass', summary: 'UiAutomator2 runtime driver is installed' }
@@ -159,13 +148,6 @@ export function collectDoctorReport(
                 summary: 'UiAutomator2 runtime driver is not prepared',
                 detail: 'Run npm run appium:runtime:install-android.',
             });
-
-        if (appleWorker && physicalIosEnabled) {
-            const xcuitestPath = path.resolve(cwd, '.appium2/node_modules/appium-xcuitest-driver');
-            checks.push(existsSync(xcuitestPath)
-                ? { id: 'xcuitest', status: 'pass', summary: 'Pinned XCUITest driver is installed' }
-                : { id: 'xcuitest', status: 'fail', summary: 'XCUITest driver is not prepared', detail: 'Run npm run appium:install-driver.' });
-        }
 
         const adb = command(runner, 'adb', ['version']);
         checks.push(adb.status === 0
@@ -308,7 +290,7 @@ export function collectDoctorReport(
         ? []
         : androidOnlyWorker
             ? ['node', 'appium-runtime', 'uiautomator2', 'adb', 'android-sdk', 'java', 'android-device']
-            : ['node', 'appium-legacy', 'xcuitest', 'xcode', 'iphone', 'signing'];
+            : ['node', 'appium-runtime', 'xcuitest-runtime', 'xcode', 'iphone', 'signing'];
     const failed = (ids: string[]) => checks.some((check) => ids.includes(check.id) && check.status === 'fail');
     return {
         role,

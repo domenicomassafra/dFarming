@@ -4,11 +4,10 @@ Mobile Farm is one Linux MiniPC control plane plus macOS execution-host runtimes
 over one PostgreSQL database and a few worker-local state files. There is no
 client framework: the dashboard is server-rendered HTML with HTMX. Physical
 iPhones keep their specialized WDA video/control path, while iOS Simulators use
-the isolated modern Appium lane. The legacy Appium 2 server required by the
-physical-iPhone WDA stack is not part of the root dependency graph: it lives in
-`toolchains/legacy-ios-appium` and is installed only when
-`PHONE_FARM_ENABLE_PHYSICAL_IOS=true`. Both are exposed to the MiniPC through the
-authenticated device-worker gateway.
+generic Appium/XCUITest control. Both lanes now use the same pinned Appium 3 /
+XCUITest runtime; the physical lane retains a compatibility Appium listener on
+`:4725` only because existing social recipes use that port. Both are exposed to
+the MiniPC through the authenticated device-worker gateway.
 
 ```
  browser / Hermes / MCP
@@ -25,8 +24,8 @@ authenticated device-worker gateway.
 │ macOS execution worker        │
 │ device gateway + job worker   │
 ├───────────────────────────────┤
-│ isolated Appium 2 + WDA      │──▶ physical iPhone (optional)
-│ Appium 3 runtime + XCUITest   │──▶ iOS Simulator
+│ Appium 3 :4725 + custom WDA  │──▶ physical iPhone (optional)
+│ Appium 3 :4726 + XCUITest    │──▶ iOS Simulator / Android
 └───────────────────────────────┘
 ```
 
@@ -81,15 +80,18 @@ Persistent WebDriverAgent supervisor, controlled over a Unix socket
   message }`. States: `ready`, `unlock-required`, `error`, …
 - Single‑supervisor by design; a lock prevents duplicates.
 
-### macOS `appium` legacy physical lane — `:4725`
-The existing Appium 2 binary lives in `toolchains/legacy-ios-appium`, while its
-pinned XCUITest/WDA driver state is isolated in `APPIUM_HOME=.appium2`. Physical-iPhone social recipes still depend on custom
-WDA endpoints, so this lane is deliberately retained for physical-device social
-recipes. It is omitted completely when `PHONE_FARM_ENABLE_PHYSICAL_IOS=false`.
+### macOS `appium` physical compatibility lane — `:4725`
+This is an Appium 3 process using `APPIUM_HOME=.appium-runtime`. It exists to
+preserve the existing physical-iPhone social-recipe port contract. The pinned
+XCUITest 12.12.3 / WDA 16.12.8 source is extended by the reviewed
+`appium-webdriveragent-16.12.8-dfarming.patch` for sessionless absolute touch,
+Photos import and device buttons. `wda:patch` checks exact upstream versions
+and the patch checksum before modifying the installed WDA source. The listener
+is omitted when `PHONE_FARM_ENABLE_PHYSICAL_IOS=false`.
 
-### macOS `appium-runtime` Simulator lane — `:4726`
-Appium 3 lives side-by-side under `APPIUM_HOME=.appium-runtime`, with modern
-XCUITest for iOS Simulator. `AppiumRemoteControl`
+### macOS `appium-runtime` cross-platform lane — `:4726`
+The second Appium 3 listener uses the same pinned `.appium-runtime` driver home
+for iOS Simulator and Android. `AppiumRemoteControl`
 provides screen info, screenshots, input, app lifecycle and a bounded
 screenshot stream. Its XML page source is normalized into the same semantic
 snapshot/ref model used by WDA, so Hermes/MCP do not need a second selector API.
@@ -141,8 +143,7 @@ without the UI, for scripted or bulk (`--all`) setup.
 | `.env` | Configuration and secrets (DB URL, signing IDs, auth keys). Git‑ignored. Device passcodes live in `devices.json`, not here. |
 | `.scheduler-data/assets/` | Uploaded media for `post`‑style tasks, content‑addressed. |
 | `.wda/` | wda-service socket and locks. |
-| `.appium2/` | Isolated Appium home with the pinned XCUITest driver. |
-| `.appium-runtime/` | Isolated Appium 3 home with the modern XCUITest driver. |
+| `.appium-runtime/` | Shared pinned Appium 3 driver home: XCUITest + UiAutomator2, with reviewed physical-WDA patch. |
 
 ## The task model
 

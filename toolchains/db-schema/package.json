@@ -5,5 +5,8 @@
   "description": "Isolated Drizzle schema generation CLI for dFarming",
   "dependencies": {
     "drizzle-kit": "0.31.10"
+  },
+  "overrides": {
+    "esbuild": "0.25.12"
   }
 }
