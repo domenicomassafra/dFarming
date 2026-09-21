@@ -4,10 +4,56 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { FarmAgentClient } from './agent/client.js';
-import { collectDoctorReport } from './doctor.js';
+import { collectDoctorReport, type DoctorReport } from './doctor.js';
 import type { CreateTaskInput } from './types.js';
 
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'skipped', 'stopped']);
+
+export interface AcceptanceDevice {
+    udid: string;
+    name: string;
+    kind?: 'physical' | 'simulator' | 'emulator';
+    workerId?: string;
+    disabled?: boolean;
+    connected?: unknown;
+}
+
+export interface AcceptanceHost {
+    id: string;
+    online?: boolean;
+    error?: string;
+}
+
+export function acceptancePreflightErrors(
+    doctor: DoctorReport,
+    device: AcceptanceDevice,
+    host?: AcceptanceHost,
+): string[] {
+    const errors: string[] = [];
+    const virtual = device.kind === 'simulator' || device.kind === 'emulator';
+
+    if (!doctor.runtimeReady) {
+        const failures = doctor.checks
+            .filter(({ status }) => status === 'fail')
+            .map(({ summary, detail }) => `${summary}${detail ? `: ${detail}` : ''}`)
+            .join('; ');
+        errors.push(`Runtime preflight is blocked${failures ? `: ${failures}` : ''}`);
+    }
+    if (!virtual && doctor.role !== 'control-plane' && !doctor.realDeviceReady) {
+        const failures = doctor.checks
+            .filter(({ status }) => status === 'fail')
+            .map(({ summary, detail }) => `${summary}${detail ? `: ${detail}` : ''}`)
+            .join('; ');
+        errors.push(`Real-device preflight is blocked${failures ? `: ${failures}` : ''}`);
+    }
+    if (!device.connected) errors.push(`Device ${device.udid} is not connected`);
+    if (device.workerId && doctor.role === 'control-plane') {
+        if (!host) errors.push(`Owning worker ${device.workerId} is not present in fleet health`);
+        else if (host.online === false) errors.push(`Owning worker ${device.workerId} is offline`);
+        else if (host.error) errors.push(`Owning worker ${device.workerId} is degraded: ${host.error}`);
+    }
+    return errors;
+}
 
 function arg(name: string): string | undefined {
     const index = process.argv.indexOf(name);
@@ -35,20 +81,25 @@ function isPublicAction(input: CreateTaskInput): boolean {
 export async function runLiveAcceptance(): Promise<Record<string, unknown>> {
     const udid = arg('--udid');
     if (!udid) throw new Error('--udid is required');
-    const doctor = collectDoctorReport();
-    if (!doctor.realDeviceReady) {
-        throw new Error(`Real-device preflight is blocked:\n${doctor.checks.filter(({ status }) => status === 'fail').map(({ summary, detail }) => `- ${summary}${detail ? `: ${detail}` : ''}`).join('\n')}`);
-    }
 
+    const doctor = collectDoctorReport();
     const client = new FarmAgentClient();
     const base = client.baseUrl;
     const startedAt = new Date();
     const health = await client.health();
     const accounts = await client.accounts();
-    const devices = await (await api(base, 'GET', '/api/devices')).json() as Array<{ udid: string; name: string; disabled?: boolean }>;
+    const devices = await (await api(base, 'GET', '/api/devices')).json() as AcceptanceDevice[];
     const device = devices.find((candidate) => candidate.udid === udid);
     if (!device) throw new Error(`Device ${udid} is not registered in dFarming`);
     if (device.disabled) throw new Error(`Device ${udid} is disabled`);
+
+    let host: AcceptanceHost | undefined;
+    if (device.workerId && doctor.role === 'control-plane') {
+        const fleet = await (await api(base, 'GET', '/api/hosts')).json() as { hosts: AcceptanceHost[] };
+        host = fleet.hosts.find(({ id }) => id === device.workerId);
+    }
+    const preflightErrors = acceptancePreflightErrors(doctor, device, host);
+    if (preflightErrors.length) throw new Error(preflightErrors.join('\n'));
 
     const screenshot = await api(base, 'GET', `/api/devices/${encodeURIComponent(udid)}/remote/screenshot`);
     const screenshotBytes = Buffer.from(await screenshot.arrayBuffer());
