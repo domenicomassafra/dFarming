@@ -211,7 +211,7 @@ Registered devices live in `devices.json` (git‑ignored):
 | Simulator is missing | Check `npm run doctor:device-worker`, `xcrun simctl list devices available`, and the `appium-runtime` launchd service. |
 | worker is shown offline on MiniPC | Verify the private worker URL/token and `npm run service -- status` on the Mac. |
 | web returns 401 everywhere | An auth provider is configured — sign in, or unset `PHONE_FARM_AUTH_PLUGIN` on loopback. |
-| `sh: appium: command not found` in an agent | Invoke via `node node_modules/appium/index.js …` if npm did not link the bin. |
+| `sh: appium: command not found` in the optional physical-iOS lane | Use `npm run appium` after `npm run appium:legacy:install`; the isolated Appium 2 binary lives under `toolchains/legacy-ios-appium`. |
 
 `GET /health` on the MiniPC lists the loaded plugins and versions. Physical
 workers also expose per-device WDA state through their local supervisor; do not
