@@ -62,10 +62,16 @@ function arg(name: string): string | undefined {
 
 function has(name: string): boolean { return process.argv.includes(name); }
 
-async function api(base: URL, method: string, pathname: string, body?: unknown): Promise<Response> {
+export function acceptanceRequestHeaders(base: URL, body?: unknown): Headers {
     const headers = new Headers({ accept: 'application/json' });
     if (body !== undefined) headers.set('content-type', 'application/json');
     if (process.env.PHONE_FARM_TOKEN) headers.set('authorization', `Bearer ${process.env.PHONE_FARM_TOKEN}`);
+    else headers.set('origin', base.origin);
+    return headers;
+}
+
+async function api(base: URL, method: string, pathname: string, body?: unknown): Promise<Response> {
+    const headers = acceptanceRequestHeaders(base, body);
     const response = await fetch(new URL(pathname, base), {
         method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(35_000),
     });

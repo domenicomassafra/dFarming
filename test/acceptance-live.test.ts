@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { acceptancePreflightErrors } from '../src/acceptance-live.js';
+import { acceptancePreflightErrors, acceptanceRequestHeaders } from '../src/acceptance-live.js';
 import type { DoctorReport } from '../src/doctor.js';
 
 function doctor(overrides: Partial<DoctorReport> = {}): DoctorReport {
@@ -45,4 +45,31 @@ test('all acceptance targets require a connected device', () => {
         { udid: 'sim-1', name: 'Simulator', kind: 'simulator', workerId: 'studio' },
         { id: 'studio', online: true },
     ).join('\n'), /not connected/);
+});
+
+test('acceptance requests prove same-origin when no bearer token is configured', () => {
+    const previous = process.env.PHONE_FARM_TOKEN;
+    try {
+        delete process.env.PHONE_FARM_TOKEN;
+        const headers = acceptanceRequestHeaders(new URL('http://127.0.0.1:4050'), {});
+        assert.equal(headers.get('origin'), 'http://127.0.0.1:4050');
+        assert.equal(headers.get('authorization'), null);
+        assert.equal(headers.get('content-type'), 'application/json');
+    } finally {
+        if (previous === undefined) delete process.env.PHONE_FARM_TOKEN;
+        else process.env.PHONE_FARM_TOKEN = previous;
+    }
+});
+
+test('acceptance requests prefer bearer auth when a token is configured', () => {
+    const previous = process.env.PHONE_FARM_TOKEN;
+    try {
+        process.env.PHONE_FARM_TOKEN = 'test-token';
+        const headers = acceptanceRequestHeaders(new URL('http://127.0.0.1:4050'));
+        assert.equal(headers.get('authorization'), 'Bearer test-token');
+        assert.equal(headers.get('origin'), null);
+    } finally {
+        if (previous === undefined) delete process.env.PHONE_FARM_TOKEN;
+        else process.env.PHONE_FARM_TOKEN = previous;
+    }
 });
