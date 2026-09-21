@@ -18,7 +18,7 @@ an old branch.
   confirmed bulk operations and exactly one focused live stream.
 - [x] Optional Android scrcpy H.264 video adapter behind signed capabilities.
 - [x] Account-to-device binding, account pause/task policy and execution evidence.
-- [x] Current clean source gate: TypeScript + **147/147 tests** + web build.
+- [x] Current clean source gate: TypeScript + **176/176 tests** + web build.
 - [x] Production dependency audit: **0 vulnerabilities** with `npm audit --omit=dev`.
 - [x] Approved donor forks created and pinned in `donors.lock.json`.
 
@@ -26,19 +26,24 @@ Historical FARM ticket files remain for provenance; they are not active WIP.
 
 ## Live acceptance — environment dependent
 
-- [ ] DFARM-LIVE-01 — Cut dFarming over on the MiniPC while preserving the
-  existing `kevs-ios-agents_phone-farm-postgres` volume; prove exact main SHA,
-  Compose health, migrations and rollback seam.
-- [ ] DFARM-LIVE-02 — Reinstall/prove the Mac Studio worker from
-  `~/Code/dFarming`; prove simulator lane and, when attached, physical
-  iPhone/WDA read-only acceptance.
-- [ ] DFARM-LIVE-03 — Deploy at least one Linux Android worker and prove ADB,
-  UiAutomator2, physical Android, Android Emulator, stream/screenshot and a
-  harmless Portable Flow.
+- [x] DFARM-LIVE-01 — dFarming is cut over on the MiniPC while preserving the
+  existing `kevs-ios-agents_phone-farm-postgres` volume; exact release SHA,
+  Compose health, migrations and the persistent data seam are live-proven.
+- [x] DFARM-LIVE-02 — The Mac Studio worker runs from `~/Code/dFarming`; the
+  iPhone 17 Simulator is proven end to end through the MiniPC, including
+  screenshot, semantic snapshot, MJPEG stream and a harmless Portable Flow.
+- [x] DFARM-LIVE-03A — The MateBook Linux Android worker is deployed with ADB,
+  UiAutomator2 and the Google Android emulator lane; screenshot, semantic
+  snapshot, MJPEG stream and a harmless Portable Flow are live-proven.
+- [ ] DFARM-LIVE-03B — Repeat the matrix on an attached physical Android
+  device. This is hardware-gated, not source WIP.
 - [ ] DFARM-LIVE-04 — Run the cross-platform video benchmark on real hardware;
   keep scrcpy optional until measurements justify a default.
 
-## New feature tickets
+The physical-iPhone WDA regression matrix is also hardware/signing gated. The
+Mac Studio currently runs the simulator-only production profile.
+
+## Feature backlog — not active closure WIP
 
 - [ ] DFARM-101 — Named network-route isolation for account/device profiles.
   Route IDs must resolve on the owning worker, be observable in receipts and

@@ -56,13 +56,13 @@ Done criteria: account pause/allow-list policy, campaign records, targeting, app
 
 `npm run acceptance:live -- --udid <UDID>` now produces a receipt for health → screenshot → semantic tree → stream → optional input → optional scheduled task. launchd render/install/uninstall/status support also exists. The remaining proof requires full Xcode selected, Apple signing ready, PostgreSQL available and a physical iPhone attached; services must not be installed merely to create a crash loop on an unready host.
 
-### Wave G — distributed MiniPC production runtime (MiniPC deployed, device-worker proof pending)
+### Wave G — distributed MiniPC production runtime (virtual workers live-proven; physical iPhone pending)
 
-`docker-compose.production.yml` packages the Linux control plane and PostgreSQL with persistent storage and restart policies. The actual `minipc-ubuntu` control plane is deployed and proven healthy over tailnet HTTPS with the canonical PostgreSQL service and migrations. `PHONE_FARM_ROLE=device-worker` packages macOS launchd with Appium, WDA supervision, queue execution and the authenticated device gateway but deliberately omits the web server. Remote screenshots, semantic trees, MJPEG and input are proxied through the gateway; canonical media is fetched from the MiniPC on demand with size/SHA-256 verification. Final physical closure still requires the production Mac worker + signed WDA/iPhone acceptance receipt.
+`docker-compose.production.yml` packages the Linux control plane and PostgreSQL with persistent storage and restart policies. The actual `minipc-ubuntu` control plane is deployed and proven healthy over tailnet HTTPS with the canonical PostgreSQL service and migrations. `PHONE_FARM_ROLE=device-worker` packages macOS launchd with Appium, WDA supervision, queue execution and the authenticated device gateway but deliberately omits the web server. Remote screenshots, semantic trees, MJPEG and input are proxied through the gateway; canonical media is fetched from the MiniPC on demand with size/SHA-256 verification. Mac Studio/iOS Simulator and MateBook Linux/Android Emulator are both proven through the distributed scheduler and transport gateway. Final physical-iPhone closure still requires attached signed hardware.
 
-### Wave H — cross-platform lab + semantic Studio (source complete, live matrix pending)
+### Wave H — cross-platform lab + semantic Studio (virtual matrix live; physical hardware pending)
 
-The worker model now supports physical iPhone, iOS Simulator, physical Android and Android Emulator. A modern Appium 3 sidecar owns XCUITest/UiAutomator2 runtimes while the physical-iPhone WDA lane remains isolated. Execution hosts advertise capabilities and virtual-runtime definitions; the dashboard can boot/shutdown supported simulators/AVDs. Portable Flow v1.1 adds semantic `tapText`, `waitVisible`, `assertVisible`, `waitGone` and targeted `inputText` with bounded auto-waits across the normalized accessibility tree. `/fleet` is now a real low-contention device wall with grouping, multi-selection and safe bulk operational actions; still previews cover the fleet and only one focused live stream runs at a time. Hardware/runtime matrix proof remains live-gated.
+The worker model now supports physical iPhone, iOS Simulator, physical Android and Android Emulator. A modern Appium 3 sidecar owns XCUITest/UiAutomator2 runtimes while the physical-iPhone WDA lane remains isolated. Execution hosts advertise capabilities and virtual-runtime definitions; the dashboard can boot/shutdown supported simulators/AVDs. Portable Flow v1.1 adds semantic `tapText`, `waitVisible`, `assertVisible`, `waitGone` and targeted `inputText` with bounded auto-waits across the normalized accessibility tree. `/fleet` is now a real low-contention device wall with grouping, multi-selection and safe bulk operational actions; still previews cover the fleet and only one focused live stream runs at a time. On 2026-09-21 both the iPhone 17 Simulator/XCUITest lane and Google Android Emulator/UiAutomator2 lane passed distributed MiniPC acceptance including a harmless scheduled Portable Flow. Physical Android and signed physical-iPhone matrix rows remain hardware-gated.
 
 ### Wave I — reusable automation library (source complete)
 
@@ -105,7 +105,7 @@ The Open-device workspace now follows device status → live/still screen → ac
 
 Runs now centers recent execution state and evidence. Recent runs are primary, schedules are secondary, filters are explicit for device/flow/status, live refresh and manual refresh state are visible, and run details expose device/flow context, timestamps, exit code, errors and evidence logs without changing scheduler behavior. Production browser acceptance also removed the lingering “Details complete.” success noise from dialog-opening actions. Physical-iPhone WDA Add Device remains separately live-gated.
 
-### Wave X — Fleet wall hierarchy (in progress)
+### Wave X — Fleet wall hierarchy (source complete; production browser re-proof pending)
 
 Fleet is being reorganized around a still-preview device wall with exactly one focused live stream, explicit Online / Offline / Disconnected connectivity, host/platform/kind grouping, Device-List-style search/filter controls and confirmed bulk operations. Physical-iPhone WDA Add Device remains separately live-gated.
 
