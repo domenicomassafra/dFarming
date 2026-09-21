@@ -8,11 +8,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 
 import { discoverConnectedDevices, type Device } from '../devices/discovery.js';
-import { loadRegisteredDevices, mutateRegisteredDevices, normalizeDeviceTags, saveRegisteredDevices, redactDevice, PASSCODE_PATTERN, type RegisteredDevice } from '../devices/registry.js';
-import {
-    CALIBRATABLE_POINTS, labelsForApp, coordinatesForProfile, resolveDeviceCoordinates,
-    validateCoordinateOverrides, parseSocialApp,
-} from '../devices/coordinates.js';
+import { loadRegisteredDevices, mutateRegisteredDevices, saveRegisteredDevices, redactDevice, type RegisteredDevice } from '../devices/registry.js';
 import { RegistryWdaRemoteControl } from '../devices/registry-remote.js';
 import type { DeviceRegistrationManager } from '../devices/registration.js';
 import type { RemoteControl } from '../devices/wda-remote.js';
@@ -38,6 +34,7 @@ import { registerCampaignRoutes } from './campaign-routes.js';
 import { registerAllocationRoutes } from './allocation-routes.js';
 import { registerScheduleRoutes } from './schedule-routes.js';
 import { registerAssetRoutes } from './asset-routes.js';
+import { registerDeviceRoutes } from './device-routes.js';
 
 export interface CreateAppOptions {
     plugins: PluginRegistry;
@@ -91,14 +88,6 @@ function errorMessage(error: unknown): string {
 /** Thrown inside route bodies / registry mutations; mapped to its status by setErrorHandler. */
 function httpError(statusCode: number, message: string): Error & { statusCode: number } {
     return Object.assign(new Error(message), { statusCode });
-}
-
-/** Farm-facing label stored in devices.json — independent of the iOS device name. */
-function normalizeDeviceName(value: unknown): string {
-    if (typeof value !== 'string') throw httpError(400, 'Device name must be a string');
-    const name = value.replace(/\s+/g, ' ').trim().slice(0, 100);
-    if (!name) throw httpError(400, 'Device name cannot be empty');
-    return name;
 }
 
 function escapeHtml(value: unknown): string {
@@ -427,130 +416,12 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     });
     registerRuntimeRoutes(app, options);
     registerDeviceRegistrationRoutes(app, options.registrations);
-    app.post<{ Body: { name?: string; udid?: string; tags?: string[]; wdaLocalPort?: number; mjpegLocalPort?: number; passcode?: string; coordinateProfile?: string; pluginData?: Record<string, JsonObject> } }>(
-        '/api/devices', async (request, reply) => {
-            const { name, udid, tags, wdaLocalPort, mjpegLocalPort, passcode, coordinateProfile, pluginData } = request.body;
-            if (!udid) return reply.code(400).send({ error: 'A device UDID is required' });
-            if (passcode !== undefined && !PASSCODE_PATTERN.test(passcode)) {
-                return reply.code(400).send({ error: 'Device passcode must contain at least four digits' });
-            }
-            const created = await mutateDevices((devices) => {
-                if (devices.some((device) => device.udid === udid)) throw httpError(409, 'A device with this UDID is already registered');
-                // Explicit whitelist — never mass-assign arbitrary body keys into devices.json.
-                const device: RegisteredDevice = {
-                    name: name ?? udid, udid, pluginData: pluginData ?? {},
-                    ...(tags !== undefined && normalizeDeviceTags(tags).length ? { tags: normalizeDeviceTags(tags) } : {}),
-                    ...(wdaLocalPort !== undefined ? { wdaLocalPort } : {}),
-                    ...(mjpegLocalPort !== undefined ? { mjpegLocalPort } : {}),
-                    ...(coordinateProfile !== undefined ? { coordinateProfile: coordinateProfile as RegisteredDevice['coordinateProfile'] } : {}),
-                    ...(passcode !== undefined ? { passcode } : {}),
-                };
-                devices.push(device);
-                return device;
-            });
-            return reply.code(201).send(redactDevice(created));
-        },
-    );
-    app.patch<{ Params: { udid: string }; Body: { name?: string; tags?: string[]; wdaLocalPort?: number; mjpegLocalPort?: number; passcode?: string; coordinates?: unknown; instagramCoordinates?: unknown; disabled?: boolean; coordinateProfile?: string; pluginData?: Record<string, JsonObject> } }>(
-        '/api/devices/:udid', async (request, reply) => {
-            const { passcode, coordinates, instagramCoordinates, name, tags, wdaLocalPort, mjpegLocalPort, disabled, coordinateProfile, pluginData } = request.body ?? {};
-            if (passcode !== undefined && passcode !== '' && !PASSCODE_PATTERN.test(passcode)) {
-                return reply.code(400).send({ error: 'Device passcode must contain at least four digits' });
-            }
-            if (disabled === true && await options.scheduler.activeExecution(request.params.udid)) {
-                return reply.code(409).send({ error: 'Stop the running automation before disconnecting this device' });
-            }
-            const updated = await mutateDevices((devices) => {
-                const device = devices.find((entry) => entry.udid === request.params.udid);
-                if (!device) throw httpError(404, 'Device not found');
-                if (name !== undefined) device.name = normalizeDeviceName(name);
-                if (tags !== undefined) {
-                    const normalized = normalizeDeviceTags(tags);
-                    if (normalized.length) device.tags = normalized;
-                    else delete device.tags;
-                }
-                if (wdaLocalPort !== undefined) device.wdaLocalPort = wdaLocalPort;
-                if (mjpegLocalPort !== undefined) device.mjpegLocalPort = mjpegLocalPort;
-                if (coordinateProfile !== undefined) device.coordinateProfile = coordinateProfile as RegisteredDevice['coordinateProfile'];
-                if (pluginData !== undefined) device.pluginData = pluginData;
-                if (disabled === true) device.disabled = true;
-                else if (disabled === false) delete device.disabled;
-                // passcode: a value sets it, '' clears it, omitting it leaves it
-                if (passcode === '') delete device.passcode;
-                else if (passcode !== undefined) device.passcode = passcode;
-                // coordinates / instagramCoordinates: merge into the existing
-                // override map so a TikTok save never clobbers Instagram (and
-                // vice versa). Send {} to clear that app's overrides.
-                if (coordinates !== undefined) {
-                    const incoming = validateCoordinateOverrides(coordinates, device.coordinateProfile);
-                    if (Object.keys(coordinates as object).length === 0) {
-                        delete device.coordinates;
-                    } else {
-                        device.coordinates = { ...device.coordinates, ...incoming };
-                    }
-                }
-                if (instagramCoordinates !== undefined) {
-                    const incoming = validateCoordinateOverrides(instagramCoordinates, device.coordinateProfile);
-                    if (Object.keys(instagramCoordinates as object).length === 0) {
-                        delete device.instagramCoordinates;
-                    } else {
-                        device.instagramCoordinates = { ...device.instagramCoordinates, ...incoming };
-                    }
-                }
-                return device;
-            });
-            remote.forget?.(request.params.udid);
-            return redactDevice(updated);
-        },
-    );
-    app.get<{ Params: { udid: string }; Querystring: { app?: string } }>('/api/devices/:udid/coordinates', async (request, reply) => {
-        const device = (await loadRegisteredDevices()).find(({ udid }) => udid === request.params.udid);
-        if (!device) return reply.code(404).send({ error: 'Device not found' });
-        const app = parseSocialApp(request.query.app);
-        const overrides = app === 'instagram' ? device.instagramCoordinates : device.coordinates;
-        const base = coordinatesForProfile(device.coordinateProfile)[app];
-        const effective = resolveDeviceCoordinates(device.coordinateProfile, overrides, app)[app];
-        const labels = labelsForApp(app);
-        return {
-            app,
-            profile: device.coordinateProfile ?? 'iphone8',
-            screenSize: coordinatesForProfile(device.coordinateProfile).screenSize,
-            points: CALIBRATABLE_POINTS.map((name) => ({
-                name, label: labels[name],
-                default: base[name], current: effective[name],
-                overridden: Boolean(overrides?.[name]),
-            })),
-        };
-    });
-    app.delete<{ Params: { udid: string } }>('/api/devices/:udid', async (request, reply) => {
-        const exists = (await loadRegisteredDevices()).some(({ udid }) => udid === request.params.udid);
-        if (!exists) return reply.code(404).send({ error: 'Device not found' });
-        if (await options.scheduler.activeExecution(request.params.udid)) {
-            return reply.code(409).send({ error: 'Stop the running automation before removing this device' });
-        }
-        for (const schedule of await options.scheduler.listSchedules(500, request.params.udid)) {
-            if (!['cancelled', 'completed'].includes(schedule.status)) {
-                await options.scheduler.setScheduleStatus(schedule.id, 'cancelled');
-            }
-        }
-        await mutateDevices((devices) => {
-            const index = devices.findIndex(({ udid }) => udid === request.params.udid);
-            if (index >= 0) devices.splice(index, 1);
-        });
-        remote.forget?.(request.params.udid);
-        return reply.code(204).send();
-    });
-    app.post<{ Params: { udid: string } }>('/api/devices/:udid/checks', async (request, reply) => {
-        const device = (await loadRegisteredDevices()).find(({ udid }) => udid === request.params.udid);
-        if (!device) return reply.code(404).send({ error: 'Device not found' });
-        const identity = (await discoverDevices()).find(({ udid }) => udid === device.udid) ?? device;
-        const results = [];
-        for (const plugin of options.plugins.list()) {
-            for (const check of plugin.registrationChecks ?? []) {
-                results.push({ pluginId: plugin.id, checkId: check.id, ...(await check.run(identity, device.pluginData[plugin.id] ?? {})) });
-            }
-        }
-        return results;
+    registerDeviceRoutes(app, {
+        scheduler: options.scheduler,
+        plugins: options.plugins,
+        remote,
+        discoverDevices,
+        mutateDevices,
     });
 
     registerRemoteControlRoutes(app, {
