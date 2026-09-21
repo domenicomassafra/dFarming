@@ -15,6 +15,7 @@ import { ensureDeviceQueue, queueNameForDevice } from './queue.js';
 import { initialRunAt, latestDueOccurrence } from './recurrence.js';
 import { DEFAULT_MIN_SCHEDULE_GAP_MINUTES, estimatedTaskWindow, validateTaskInput, windowsTooClose } from './validation.js';
 import { materializeAssetFile, purgeRemoteAsset } from './asset-cache.js';
+import { PipelineRepository } from './pipeline-repository.js';
 
 export interface ExecutionDetail extends ExecutionRow { logs: string[] }
 export interface FlowDefinitionDetail extends FlowDefinitionRow {
@@ -46,11 +47,15 @@ function taskEnvelope(row: Pick<ScheduleRow, 'pluginId' | 'taskType' | 'taskVers
 }
 
 export class SchedulerRepository {
+    private readonly pipeline: PipelineRepository;
+
     constructor(
         readonly connection: DatabaseConnection,
         readonly boss: PgBoss,
         readonly plugins: PluginRegistry,
-    ) {}
+    ) {
+        this.pipeline = new PipelineRepository(connection, (assetIds) => this.purgeAssetIds(assetIds));
+    }
 
     async listDevicePools(limit = 100): Promise<DevicePoolRow[]> {
         return this.connection.db.select().from(devicePools)
@@ -797,98 +802,30 @@ export class SchedulerRepository {
         assetId: string;
         caption?: string;
     }): Promise<PipelineItemRow> {
-        const [row] = await this.connection.db.insert(pipelineItems).values({
-            deviceUdid: input.deviceUdid,
-            assetId: input.assetId,
-            caption: input.caption?.trim() || null,
-            status: 'ready',
-        }).returning();
-        if (!row) throw new Error('Unable to enqueue pipeline item');
-        return row;
+        return this.pipeline.enqueue(input);
     }
 
-    async listPipelineItems(deviceUdid: string, limit = 50): Promise<Array<PipelineItemRow & { assetName: string | null; mimeType: string | null }>> {
-        const rows = await this.connection.db.select({
-            item: pipelineItems,
-            assetName: assets.originalName,
-            mimeType: assets.mimeType,
-        }).from(pipelineItems)
-            .leftJoin(assets, eq(pipelineItems.assetId, assets.id))
-            .where(eq(pipelineItems.deviceUdid, deviceUdid))
-            .orderBy(desc(pipelineItems.createdAt))
-            .limit(limit);
-        return rows.map(({ item, assetName, mimeType }) => ({ ...item, assetName, mimeType }));
+    async listPipelineItems(
+        deviceUdid: string,
+        limit = 50,
+    ): Promise<Array<PipelineItemRow & { assetName: string | null; mimeType: string | null }>> {
+        return this.pipeline.list(deviceUdid, limit);
     }
 
     async cancelPipelineItem(id: string, deviceUdid: string): Promise<PipelineItemRow | null> {
-        const [row] = await this.connection.db.select().from(pipelineItems).where(and(
-            eq(pipelineItems.id, id),
-            eq(pipelineItems.deviceUdid, deviceUdid),
-            inArray(pipelineItems.status, ['ready', 'failed']),
-        )).limit(1);
-        if (!row) return null;
-        const assetId = row.assetId;
-        await this.connection.db.delete(pipelineItems).where(eq(pipelineItems.id, id));
-        if (assetId) await this.purgeAssetIds([assetId]);
-        return { ...row, status: 'cancelled', updatedAt: new Date() };
+        return this.pipeline.cancel(id, deviceUdid);
     }
 
     async claimNextPipelineItem(deviceUdid: string, executionId: string): Promise<PipelineClaim | null> {
-        const claimed = await this.connection.db.transaction(async (tx) => {
-            const result = await tx.execute(sql`
-                update scheduler.pipeline_items
-                set status = 'publishing', execution_id = ${executionId}::uuid, updated_at = now(), error = null
-                where id = (
-                    select id from scheduler.pipeline_items
-                    where device_udid = ${deviceUdid} and status = 'ready' and asset_id is not null
-                    order by created_at asc
-                    for update skip locked
-                    limit 1
-                )
-                returning id, caption, asset_id
-            `);
-            const row = (result.rows as Array<{ id: string; caption: string | null; asset_id: string | null }>)[0];
-            if (!row?.asset_id) return null;
-            await tx.update(assets).set({ executionId }).where(eq(assets.id, row.asset_id));
-            return row as { id: string; caption: string | null; asset_id: string };
-        });
-        if (!claimed) return null;
-        const [assetRow] = await this.connection.db.select().from(assets).where(eq(assets.id, claimed.asset_id)).limit(1);
-        if (!assetRow) {
-            await this.failPipelineItem(claimed.id, `Pipeline media asset ${claimed.asset_id} is missing`);
-            return null;
-        }
-        try {
-            const filePath = await materializeAssetFile(assetRow);
-            return {
-                id: claimed.id,
-                caption: claimed.caption,
-                asset: {
-                    id: assetRow.id,
-                    path: filePath,
-                    name: assetRow.originalName,
-                    mimeType: assetRow.mimeType,
-                    size: assetRow.size,
-                    sha256: assetRow.sha256,
-                },
-            };
-        } catch {
-            await this.failPipelineItem(claimed.id, `Pipeline media file is missing on disk (${assetRow.originalName})`);
-            return null;
-        }
+        return this.pipeline.claimNext(deviceUdid, executionId);
     }
 
     async completePipelineItem(id: string): Promise<void> {
-        // Detach media so finishExecution can purge the file without hitting the FK.
-        await this.connection.db.update(pipelineItems).set({
-            status: 'published', publishedAt: new Date(), updatedAt: new Date(), error: null, assetId: null,
-        }).where(eq(pipelineItems.id, id));
+        return this.pipeline.complete(id);
     }
 
     async failPipelineItem(id: string, error: string): Promise<void> {
-        await this.connection.db.update(pipelineItems).set({
-            status: 'failed', error, updatedAt: new Date(),
-        }).where(eq(pipelineItems.id, id));
+        return this.pipeline.fail(id, error);
     }
 
     private async purgeTerminalAssets(executionId: string): Promise<void> {
