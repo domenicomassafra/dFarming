@@ -118,7 +118,11 @@ function createDoomscrollTask(configuration: InstagramPluginConfiguration): Task
         validate: (value, context) => validateDoomscrollPayload(value, context.devicePluginData, 'doomscroll'),
         summarize: (payload) => `Warmup · ${payload.personality} · ${payload.durationMinutes} min`,
         estimateDurationMs: (payload) => payload.durationMinutes * 60_000,
-        retryPolicy: () => ({ retryLimit: 2, retryDelaySeconds: 60, retryBackoff: true }),
+        retryPolicy: (payload) => ({
+            retryLimit: payload.likeEnabled || payload.commentEnabled ? 0 : 2,
+            retryDelaySeconds: 60,
+            retryBackoff: true,
+        }),
         supportsStop: () => true,
         execute: (context, payload) => context.runProcess({
             entrypoint: configuration.doomscrollEntrypoint ?? fileURLToPath(new URL('./instagram/doomscroll.ts', import.meta.url)),
@@ -142,7 +146,11 @@ function createDoomscrollFollowingTask(configuration: InstagramPluginConfigurati
         validate: (value, context) => validateDoomscrollPayload(value, context.devicePluginData, 'doomscroll-following'),
         summarize: (payload) => `Engage following · ${payload.personality} · ${payload.durationMinutes} min`,
         estimateDurationMs: (payload) => payload.durationMinutes * 60_000,
-        retryPolicy: () => ({ retryLimit: 2, retryDelaySeconds: 60, retryBackoff: true }),
+        retryPolicy: (payload) => ({
+            retryLimit: payload.likeEnabled || payload.commentEnabled ? 0 : 2,
+            retryDelaySeconds: 60,
+            retryBackoff: true,
+        }),
         supportsStop: () => true,
         execute: (context, payload) => context.runProcess({
             entrypoint: configuration.doomscrollFollowingEntrypoint

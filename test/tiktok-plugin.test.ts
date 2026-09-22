@@ -19,6 +19,18 @@ test('built-in TikTok plugin validates versioned doomscroll tasks', () => {
     assert.equal(value.task.payload.durationMinutes, 5);
 });
 
+test('TikTok engagement and arbitrary workflows never auto-retry side effects', () => {
+    const doomscroll = plugin.tasks.find((entry) => entry.type === 'doomscroll')!;
+    assert.equal(doomscroll.retryPolicy({
+        durationMinutes: 5, personality: 'casual', likeEnabled: false, saveEnabled: false, commentEnabled: false,
+    }).retryLimit, 2);
+    assert.equal(doomscroll.retryPolicy({
+        durationMinutes: 5, personality: 'casual', likeEnabled: true, saveEnabled: false, commentEnabled: false,
+    }).retryLimit, 0);
+    const workflow = plugin.tasks.find((entry) => entry.type === 'workflow-replay')!;
+    assert.equal(workflow.retryPolicy({ workflowId: 'wf-1', loops: 2 }).retryLimit, 0);
+});
+
 test('TikTok rejects an account target that is not configured on the device', () => {
     const registry = new PluginRegistry([plugin]);
     assert.throws(() => registry.validate({

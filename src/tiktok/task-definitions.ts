@@ -152,7 +152,11 @@ function createDoomscrollTask(configuration: TikTokPluginConfiguration): TaskDef
         },
         summarize: (payload) => `Warmup · ${payload.personality} · ${payload.durationMinutes} min`,
         estimateDurationMs: (payload) => payload.durationMinutes * 60_000,
-        retryPolicy: () => ({ retryLimit: 2, retryDelaySeconds: 60, retryBackoff: true }),
+        retryPolicy: (payload) => ({
+            retryLimit: payload.likeEnabled || payload.saveEnabled || payload.commentEnabled ? 0 : 2,
+            retryDelaySeconds: 60,
+            retryBackoff: true,
+        }),
         supportsStop: () => true,
         execute: (context, payload) => context.runProcess({
             entrypoint: configuration.doomscrollEntrypoint ?? fileURLToPath(new URL('./tiktok/doomscroll.ts', import.meta.url)),
@@ -208,7 +212,11 @@ function createFollowingDoomscrollTask(configuration: TikTokPluginConfiguration)
         },
         summarize: (payload) => `Engagement · ${payload.personality} · ${payload.durationMinutes} min`,
         estimateDurationMs: (payload) => payload.durationMinutes * 60_000,
-        retryPolicy: () => ({ retryLimit: 2, retryDelaySeconds: 60, retryBackoff: true }),
+        retryPolicy: (payload) => ({
+            retryLimit: payload.likeEnabled || payload.saveEnabled || payload.commentEnabled ? 0 : 2,
+            retryDelaySeconds: 60,
+            retryBackoff: true,
+        }),
         supportsStop: () => true,
         execute: (context, payload) => context.runProcess({
             entrypoint: configuration.doomscrollFollowingEntrypoint
@@ -265,7 +273,9 @@ function createWorkflowReplayTask(configuration: TikTokPluginConfiguration): Tas
             ? `Replay · ${payload.durationMinutes} min`
             : `Replay · ${payload.loops} loops`,
         estimateDurationMs: (payload) => (payload.durationMinutes ?? Math.min(payload.loops ?? 1, 30)) * 60_000,
-        retryPolicy: () => ({ retryLimit: 1, retryDelaySeconds: 30, retryBackoff: true }),
+        // A recorded workflow may contain likes, comments or arbitrary raw taps.
+        // Replaying it after a partial failure can double-apply irreversible actions.
+        retryPolicy: () => ({ retryLimit: 0, retryDelaySeconds: 0, retryBackoff: false }),
         supportsStop: () => true,
         execute: (context, payload) => context.runProcess({
             entrypoint: configuration.workflowReplayEntrypoint

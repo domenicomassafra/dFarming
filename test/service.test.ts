@@ -14,6 +14,8 @@ test('launchd supervision uses one process per farm responsibility and no shell 
     assert.equal(specs.appium.env?.APPIUM_HOME, '/tmp/phone-farm/.appium-runtime');
     assert.match(specs['appium-runtime'].args.join(' '), /node_modules\/appium-runtime\/index\.js/);
     assert.match(specs['appium-runtime'].args.join(' '), /4726/);
+    assert.match(specs.appium.args.join(' '), /--log-level warn/);
+    assert.match(specs['appium-runtime'].args.join(' '), /--log-level warn/);
     assert.match(specs.wda.args.join(' '), /wda-service\.ts/);
     assert.match(specs.worker.args.join(' '), /scheduler\/worker\.ts/);
     assert.match(specs['device-worker'].args.join(' '), /device-worker-server\.ts/);

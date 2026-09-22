@@ -1,7 +1,9 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 
 import { loadRegisteredDevices } from '../devices/registry.js';
+import type { PluginRegistry } from '../registry.js';
 import { ScheduleTransitionError, type SchedulerRepository } from '../scheduler/repository.js';
+import type { ExecutionRow } from '../database/schema.js';
 import type { CreateTaskInput, ScheduleTiming } from '../types.js';
 import { appiumTaskCompatibilityError } from './task-compatibility.js';
 
@@ -11,11 +13,25 @@ function errorMessage(error: unknown): string {
 
 export interface ScheduleRouteOptions {
     scheduler: SchedulerRepository;
+    plugins: PluginRegistry;
     renderActivity: (deviceUdid: string, message?: string) => Promise<string>;
 }
 
+export function executionRetryRequiresConfirmation(
+    plugins: PluginRegistry,
+    execution: Pick<ExecutionRow, 'pluginId' | 'taskType' | 'taskVersion' | 'payload'>,
+): boolean {
+    const definition = plugins.task({
+        pluginId: execution.pluginId,
+        taskType: execution.taskType,
+        taskVersion: execution.taskVersion,
+        payload: execution.payload,
+    });
+    return definition.retryPolicy(execution.payload).retryLimit === 0;
+}
+
 export function registerScheduleRoutes(app: FastifyInstance, options: ScheduleRouteOptions): void {
-    const { scheduler, renderActivity } = options;
+    const { scheduler, plugins, renderActivity } = options;
 
     app.get<{ Querystring: { deviceUdid?: string } }>('/api/schedules', async (request) => ({
         schedules: await scheduler.listSchedules(200, request.query.deviceUdid),
@@ -128,7 +144,20 @@ export function registerScheduleRoutes(app: FastifyInstance, options: ScheduleRo
         return result;
     });
 
-    app.post<{ Params: { id: string } }>('/api/executions/:id/retry', async (request, reply) => {
+    app.post<{ Params: { id: string }; Body: { confirmSideEffects?: boolean } }>('/api/executions/:id/retry', async (request, reply) => {
+        const current = await scheduler.execution(request.params.id);
+        if (!current) return reply.code(404).send({ error: 'Execution not found' });
+        let needsConfirmation: boolean;
+        try {
+            needsConfirmation = executionRetryRequiresConfirmation(plugins, current);
+        } catch {
+            return reply.code(409).send({ error: 'Execution plugin is unavailable; retry is blocked' });
+        }
+        if (needsConfirmation && request.body?.confirmSideEffects !== true) {
+            return reply.code(409).send({
+                error: 'Retry requires explicit side-effect confirmation after checking the device state',
+            });
+        }
         const execution = await scheduler.retryExecution(request.params.id);
         return execution ?? reply.code(409).send({ error: 'Execution is not retryable' });
     });

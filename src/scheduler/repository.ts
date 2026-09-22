@@ -53,6 +53,22 @@ export function scheduleTransitionAllowed(from: string, to: 'active' | 'paused' 
     return (allowed[from] ?? []).includes(to);
 }
 
+export function manualRetryIdentity(
+    source: Pick<ExecutionRow, 'executionProfileId' | 'networkRouteId' | 'scheduledFor' | 'deadlineAt'>,
+    now: Date,
+): Pick<ExecutionRow, 'executionProfileId' | 'networkRouteId' | 'scheduledFor' | 'deadlineAt'> {
+    const windowMs = source.deadlineAt.getTime() - source.scheduledFor.getTime();
+    if (!Number.isSafeInteger(windowMs) || windowMs < 60_000 || windowMs > 1_440 * 60_000) {
+        throw new Error('Cannot retry execution with an invalid run window');
+    }
+    return {
+        executionProfileId: source.executionProfileId,
+        networkRouteId: source.networkRouteId,
+        scheduledFor: now,
+        deadlineAt: new Date(now.getTime() + windowMs),
+    };
+}
+
 function taskEnvelope(row: Pick<ScheduleRow, 'pluginId' | 'taskType' | 'taskVersion' | 'payload'>): TaskEnvelope {
     return { pluginId: row.pluginId, taskType: row.taskType, taskVersion: row.taskVersion, payload: row.payload };
 }
@@ -701,9 +717,9 @@ export class SchedulerRepository {
         await this.connection.db.transaction(async (tx) => {
             [created] = await tx.insert(executions).values({
                 scheduleId: source.scheduleId, campaignId: source.campaignId, campaignAccount: source.campaignAccount,
+                ...manualRetryIdentity(source, now),
                 deviceUdid: source.deviceUdid,
                 pluginId: source.pluginId, taskType: source.taskType, taskVersion: source.taskVersion, payload: source.payload,
-                scheduledFor: now, deadlineAt: new Date(now.getTime() + Number(process.env.SCHEDULER_RUN_WINDOW_MINUTES ?? 30) * 60_000),
             }).returning();
             if (!created) throw new Error('Unable to create retry execution');
             const jobId = await this.boss.send(queueNameForDevice(source.deviceUdid), { executionId: created.id }, {

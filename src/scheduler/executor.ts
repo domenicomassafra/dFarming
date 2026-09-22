@@ -4,6 +4,7 @@ import os from 'node:os';
 
 import type { DeviceAutomation, PluginProcessSpecification, TaskExecutionContext } from '../plugin.js';
 import { discoverConnectedDevices, type Device } from '../devices/discovery.js';
+import { discoverRuntimeDevices } from '../devices/runtime-discovery.js';
 import { loadRegisteredDevices, type RegisteredDevice } from '../devices/registry.js';
 import { passcodeForDevice } from '../devices/secrets.js';
 import { WdaRemoteControl } from '../devices/wda-remote.js';
@@ -23,6 +24,29 @@ async function endpointReady(url: string): Promise<boolean> {
     }
 }
 
+export async function executionDeviceAvailable(
+    registered: RegisteredDevice,
+    discoverAppiumDevices: () => Promise<Device[]> = () => discoverRuntimeDevices({ includePhysical: false }),
+    discoverPhysicalDevices: () => Promise<Device[]> = discoverConnectedDevices,
+): Promise<Device | undefined> {
+    const backend = registered.automationBackend
+        ?? ((registered.platform ?? 'ios') === 'ios' && (registered.kind ?? 'physical') === 'physical' ? 'wda' : 'appium');
+    const devices = backend === 'appium' ? await discoverAppiumDevices() : await discoverPhysicalDevices();
+    return devices.find(({ udid }) => udid === registered.udid);
+}
+
+function abortableDelay(milliseconds: number, signal: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+        if (signal.aborted) return reject(signal.reason);
+        const onAbort = () => { clearTimeout(timer); reject(signal.reason); };
+        const timer = setTimeout(() => {
+            signal.removeEventListener('abort', onAbort);
+            resolve();
+        }, milliseconds);
+        signal.addEventListener('abort', onAbort, { once: true });
+    });
+}
+
 async function waitForDevice(execution: ExecutionRow, registered: RegisteredDevice, signal: AbortSignal): Promise<Device> {
     const wdaPort = registered.wdaLocalPort ?? Number(process.env.WDA_LOCAL_PORT ?? 8100);
     const backend = registered.automationBackend
@@ -36,20 +60,13 @@ async function waitForDevice(execution: ExecutionRow, registered: RegisteredDevi
     let lastProblem = 'device is offline';
     while (Date.now() <= execution.deadlineAt.getTime()) {
         if (signal.aborted) throw new Error('Execution stopped while waiting for the device');
-        const device: Device | undefined = backend === 'appium'
-            ? {
-                name: registered.name,
-                udid: registered.udid,
-                osVersion: registered.osVersion ?? '',
-                platform: registered.platform,
-                kind: registered.kind,
-            }
-            : (await discoverConnectedDevices()).find(({ udid }) => udid === execution.deviceUdid);
+        const device = await executionDeviceAvailable(registered);
         if (!device) lastProblem = 'device is offline';
         else if (backend === 'wda' && !await endpointReady(`http://127.0.0.1:${wdaPort}/status`)) lastProblem = `WDA is unavailable on port ${wdaPort}`;
         else if (!await endpointReady(`http://${appiumHost}:${appiumPort}/status`)) lastProblem = `Appium is unavailable on port ${appiumPort}`;
         else return device;
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        const remainingMs = execution.deadlineAt.getTime() - Date.now();
+        if (remainingMs > 0) await abortableDelay(Math.min(5_000, remainingMs), signal);
     }
     throw new Error(`Execution window expired: ${lastProblem}`);
 }
@@ -127,11 +144,12 @@ function deviceAutomation(registered: RegisteredDevice, passcode: string | undef
     };
 }
 
-async function runPluginProcess(
+export async function runPluginProcess(
     specification: PluginProcessSpecification,
     environment: NodeJS.ProcessEnv,
     signal: AbortSignal,
     onLines: (lines: string[]) => Promise<void>,
+    terminationGraceMs = 5_000,
 ): Promise<TaskExecutionResult> {
     const child = spawn(process.execPath, [
         '--env-file-if-exists=.env', '--env-file-if-exists=.env.devices', '--import', 'tsx',
@@ -149,9 +167,15 @@ async function runPluginProcess(
     };
     const timer = setInterval(() => void flush().catch(console.error), 3_000);
     let stopped = false;
+    let forceKillTimer: NodeJS.Timeout | undefined;
     const stop = () => {
         stopped = true;
-        if (child.exitCode === null && !child.killed) child.kill('SIGTERM');
+        if (child.exitCode !== null || child.signalCode !== null) return;
+        child.kill('SIGTERM');
+        forceKillTimer ??= setTimeout(() => {
+            if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+        }, Math.max(1, terminationGraceMs));
+        forceKillTimer.unref();
     };
     signal.addEventListener('abort', stop, { once: true });
     if (signal.aborted) stop();
@@ -170,6 +194,7 @@ async function runPluginProcess(
         return result;
     } finally {
         clearInterval(timer);
+        if (forceKillTimer) clearTimeout(forceKillTimer);
         signal.removeEventListener('abort', stop);
     }
 }
@@ -193,6 +218,10 @@ export async function executeAutomation(
     const forwardAbort = () => controller.abort(signal.reason);
     if (signal.aborted) forwardAbort();
     signal.addEventListener('abort', forwardAbort, { once: true });
+    const deadlineDelayMs = Math.max(0, execution.deadlineAt.getTime() - Date.now());
+    const deadlineTimer = setTimeout(() => {
+        controller.abort(new Error('Execution window expired during automation'));
+    }, deadlineDelayMs);
     const stopPoll = setInterval(() => void repository.stopRequested(execution.id).then((requested) => {
         if (requested) controller.abort(new Error('Stop requested'));
     }).catch(console.error), 1_000);
@@ -201,6 +230,7 @@ export async function executeAutomation(
         device = await waitForDevice(execution, registered, controller.signal);
     } catch (error) {
         clearInterval(stopPoll);
+        clearTimeout(deadlineTimer);
         signal.removeEventListener('abort', forwardAbort);
         return { exitCode: null, stopped: controller.signal.aborted, error: error instanceof Error ? error.message : String(error) };
     }
@@ -239,6 +269,7 @@ export async function executeAutomation(
         return { exitCode: null, stopped: controller.signal.aborted, error: error instanceof Error ? error.message : String(error) };
     } finally {
         clearInterval(stopPoll);
+        clearTimeout(deadlineTimer);
         signal.removeEventListener('abort', forwardAbort);
         await rm(workspaceDirectory, { recursive: true, force: true });
     }

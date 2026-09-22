@@ -293,7 +293,10 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
 }
 
 async function main(): Promise<void> {
-    const app = await startDeviceWorkerServer({ logger: true });
+    // launchd already captures stdout/stderr. Per-request Fastify access logs can
+    // otherwise grow .runtime/logs/device-worker.out.log without bound on a busy
+    // dashboard. Keep them explicitly opt-in for diagnostics.
+    const app = await startDeviceWorkerServer({ logger: process.env.DFARMING_DEVICE_WORKER_ACCESS_LOGS === 'true' });
     const shutdown = async () => { await app.close(); };
     process.once('SIGINT', () => void shutdown());
     process.once('SIGTERM', () => void shutdown());

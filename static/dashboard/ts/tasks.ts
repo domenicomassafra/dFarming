@@ -395,9 +395,13 @@ function renderExecutions(items: Execution[]): void {
         }
         if (execution.status === 'failed' || execution.status === 'stopped') {
             actions.append(button('Retry', async () => {
-                if (execution.taskType === 'post'
-                    && !window.confirm(`The post may already have reached ${pluginLabel(execution.pluginId)}. Retry only after checking the device.`)) return;
-                await request(`/api/executions/${execution.id}/retry`, { method: 'POST' }); await load();
+                if (!window.confirm('This automation may have partially completed. Check the device state before retrying.')) return;
+                await request(`/api/executions/${execution.id}/retry`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ confirmSideEffects: true }),
+                });
+                await load();
             }));
         }
         row.append(copy, state, actions); return row;

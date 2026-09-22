@@ -4,8 +4,11 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { scheduleTransitionAllowed } from '../src/scheduler/repository.js';
+import { manualRetryIdentity, scheduleTransitionAllowed } from '../src/scheduler/repository.js';
 import { mutateRegisteredDevices } from '../src/devices/registry.js';
+import { executionRetryRequiresConfirmation } from '../src/api/schedule-routes.js';
+import { PluginRegistry } from '../src/registry.js';
+import { createTikTokPlugin } from '../src/tiktok-plugin.js';
 
 test('scheduleTransitionAllowed blocks resuming a finished schedule', () => {
     assert.equal(scheduleTransitionAllowed('active', 'paused'), true);
@@ -15,6 +18,48 @@ test('scheduleTransitionAllowed blocks resuming a finished schedule', () => {
     assert.equal(scheduleTransitionAllowed('completed', 'active'), false);
     assert.equal(scheduleTransitionAllowed('cancelled', 'active'), false);
     assert.equal(scheduleTransitionAllowed('cancelled', 'paused'), false);
+});
+
+test('manual retries preserve execution policy identity and the original run window', () => {
+    const scheduledFor = new Date('2026-09-22T12:00:00Z');
+    const deadlineAt = new Date('2026-09-22T12:45:00Z');
+    const now = new Date('2026-09-22T13:00:00Z');
+    assert.deepEqual(manualRetryIdentity({
+        executionProfileId: 'owner-primary',
+        networkRouteId: 'italy.private',
+        scheduledFor,
+        deadlineAt,
+    }, now), {
+        executionProfileId: 'owner-primary',
+        networkRouteId: 'italy.private',
+        scheduledFor: now,
+        deadlineAt: new Date('2026-09-22T13:45:00Z'),
+    });
+    assert.throws(() => manualRetryIdentity({
+        executionProfileId: null,
+        networkRouteId: null,
+        scheduledFor,
+        deadlineAt: scheduledFor,
+    }, now), /invalid run window/);
+});
+
+test('manual retry requires confirmation when automatic retry is disabled for side effects', () => {
+    const plugins = new PluginRegistry([createTikTokPlugin()]);
+    const base = {
+        pluginId: 'com.git-agni.tiktok', taskType: 'doomscroll', taskVersion: 1,
+    };
+    assert.equal(executionRetryRequiresConfirmation(plugins, {
+        ...base,
+        payload: { durationMinutes: 5, personality: 'casual', likeEnabled: false, saveEnabled: false, commentEnabled: false },
+    }), false);
+    assert.equal(executionRetryRequiresConfirmation(plugins, {
+        ...base,
+        payload: { durationMinutes: 5, personality: 'casual', likeEnabled: true, saveEnabled: false, commentEnabled: false },
+    }), true);
+    assert.equal(executionRetryRequiresConfirmation(plugins, {
+        pluginId: 'com.git-agni.tiktok', taskType: 'post', taskVersion: 1,
+        payload: { media: [{ assetId: 'x', name: 'x.mp4', mimeType: 'video/mp4' }], destination: 'publish' },
+    }), true);
 });
 
 test('mutateRegisteredDevices serializes overlapping writes', async () => {

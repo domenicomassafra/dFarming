@@ -44,12 +44,12 @@ export function serviceSpecs(root = process.cwd(), node = process.execPath): Rec
     return {
         appium: {
             label: 'com.phone-farm.appium',
-            args: [node, fromRoot('node_modules', 'appium-runtime', 'index.js'), '--address', '127.0.0.1', '--base-path', '/', '--port', '4725', '--log-level', 'info'],
+            args: [node, fromRoot('node_modules', 'appium-runtime', 'index.js'), '--address', '127.0.0.1', '--base-path', '/', '--port', '4725', '--log-level', 'warn'],
             env: { APPIUM_HOME: path.join(root, '.appium-runtime') },
         },
         'appium-runtime': {
             label: 'com.phone-farm.appium-runtime',
-            args: [node, fromRoot('node_modules', 'appium-runtime', 'index.js'), '--address', '127.0.0.1', '--base-path', '/', '--port', '4726', '--log-level', 'info'],
+            args: [node, fromRoot('node_modules', 'appium-runtime', 'index.js'), '--address', '127.0.0.1', '--base-path', '/', '--port', '4726', '--log-level', 'warn'],
             env: { APPIUM_HOME: path.join(root, '.appium-runtime') },
         },
         wda: { label: 'com.phone-farm.wda', args: [node, ...common, fromRoot('src', 'devices', 'wda-service.ts')] },

@@ -1150,11 +1150,12 @@ function renderDeviceExecutions(executions: DeviceExecution[]): void {
         }
         if (execution.status === 'failed' || execution.status === 'stopped') {
             actions.append(taskActionButton('Retry', async () => {
-                if (execution.taskType === 'post') {
-                    const app = pluginLabel(execution.pluginId);
-                    if (!window.confirm(`The post may already have reached ${app}. Retry only after checking the device.`)) return;
-                }
-                await jsonRequest(`/api/executions/${execution.id}/retry`, { method: 'POST' });
+                if (!window.confirm('This automation may have partially completed. Check the device state before retrying.')) return;
+                await jsonRequest(`/api/executions/${execution.id}/retry`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ confirmSideEffects: true }),
+                });
             }));
         }
         row.append(copy, state, actions);

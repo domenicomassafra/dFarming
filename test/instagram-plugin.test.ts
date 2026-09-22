@@ -22,6 +22,16 @@ test('built-in Instagram plugin validates versioned doomscroll tasks', () => {
     assert.equal(task.summarize(value.task.payload as never), 'Warmup · casual · 5 min');
 });
 
+test('Instagram engagement disables automatic retries while read-only scrolling may retry', () => {
+    const task = plugin.tasks.find((entry) => entry.type === 'doomscroll')!;
+    assert.equal(task.retryPolicy({
+        durationMinutes: 5, personality: 'casual', likeEnabled: false, commentEnabled: false,
+    }).retryLimit, 2);
+    assert.equal(task.retryPolicy({
+        durationMinutes: 5, personality: 'casual', likeEnabled: true, commentEnabled: false,
+    }).retryLimit, 0);
+});
+
 test('Instagram doomscroll requires commentText when commenting', () => {
     const registry = new PluginRegistry([plugin]);
     assert.throws(() => registry.validate({
