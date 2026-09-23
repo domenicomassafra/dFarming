@@ -278,12 +278,16 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
     app.get<{
         Params: { udid: string };
         Querystring: { lines?: string; sinceSeconds?: string };
-    }>('/v1/devices/:udid/logs', async (request) => {
+    }>('/v1/devices/:udid/logs', async (request, reply) => {
         const registered = await requireWorkerDevice(request.params.udid);
-        return collectRecentDeviceLogs(registered, {
-            ...(request.query.lines !== undefined ? { lines: Number(request.query.lines) } : {}),
-            ...(request.query.sinceSeconds !== undefined ? { sinceSeconds: Number(request.query.sinceSeconds) } : {}),
-        });
+        try {
+            return await collectRecentDeviceLogs(registered, {
+                ...(request.query.lines !== undefined ? { lines: Number(request.query.lines) } : {}),
+                ...(request.query.sinceSeconds !== undefined ? { sinceSeconds: Number(request.query.sinceSeconds) } : {}),
+            });
+        } catch (error) {
+            return reply.code(503).send({ error: error instanceof Error ? error.message : String(error) });
+        }
     });
     app.post<{ Params: { udid: string } }>('/v1/devices/:udid/reconnect', async (request, reply) => {
         const registered = await requireWorkerDevice(request.params.udid);

@@ -52,3 +52,21 @@ test('device diagnostics fail closed when the selected transport has no log adap
     assert.equal(response.json().source, 'unavailable');
     await app.close();
 });
+
+test('device diagnostics surface adapter collection failures as service unavailable', async () => {
+    const app = Fastify();
+    const remote: RemoteControl = {
+        async getScreenInfo() { return { screenSize: { width: 100, height: 200 }, scale: 1 }; },
+        async getAccessibilityTree() { return { type: 'Application', children: [] }; },
+        async getScreenshot() { return Buffer.from('png'); },
+        async getMjpegStream() { return new Response(new Uint8Array([1])); },
+        async getRecentLogs() { throw new Error('simctl log collection failed'); },
+        async performAction() {},
+        async isLocked() { return false; },
+    };
+    registerRemoteControlRoutes(app, { remote, scheduler, discoverDevices: async () => [] });
+    const response = await app.inject({ method: 'GET', url: '/api/devices/ios-sim/diagnostics/logs' });
+    assert.equal(response.statusCode, 503);
+    assert.match(response.json().error, /simctl log collection failed/);
+    await app.close();
+});

@@ -47,7 +47,8 @@ Forks are kept in the owner namespace as `dFarming-baguette`, `dFarming-mobile-u
   Appium screenshot path had timed out at 30 s. Control and accessibility stay
   on the canonical Appium/XCUITest path; Baguette runtime/video remains held.
 - Read-only diagnostics are exposed as bounded snapshots instead of shell
-  access: `simctl log show` for iOS Simulator and `adb logcat` for Android,
+  access: app/container-filtered `simctl log show` for iOS Simulator and
+  `adb logcat` for Android,
   capped at 500 lines / 5 minutes with common credential patterns redacted.
   Physical-iPhone log collection remains explicitly unsupported until a
   similarly bounded native transport is proven.

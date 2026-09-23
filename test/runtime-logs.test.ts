@@ -18,7 +18,10 @@ test('iOS Simulator diagnostics use bounded simctl log snapshots', async () => {
     assert.deepEqual(result.lines, ['two', 'three']);
     assert.deepEqual(calls, [{
         executable: 'xcrun',
-        args: ['simctl', 'spawn', 'SIM-1', 'log', 'show', '--last', '12s', '--style', 'compact'],
+        args: [
+            'simctl', 'spawn', 'SIM-1', 'log', 'show', '--last', '12s', '--style', 'compact', '--predicate',
+            'processImagePath CONTAINS[c] "/Containers/Bundle/Application/" OR senderImagePath CONTAINS[c] "/Containers/Bundle/Application/"',
+        ],
     }]);
 });
 

@@ -48,10 +48,13 @@ export async function collectRecentDeviceLogs(
     const kind = device.kind ?? 'physical';
 
     if (platform === 'ios' && kind === 'simulator') {
+        const appLogPredicate = 'processImagePath CONTAINS[c] "/Containers/Bundle/Application/" '
+            + 'OR senderImagePath CONTAINS[c] "/Containers/Bundle/Application/"';
         const { stdout } = await run('xcrun', [
             'simctl', 'spawn', device.udid, 'log', 'show',
             '--last', `${sinceSeconds}s`, '--style', 'compact',
-        ], { timeout: 15_000, maxBuffer: 2 * 1024 * 1024 });
+            '--predicate', appLogPredicate,
+        ], { timeout: 15_000, maxBuffer: 8 * 1024 * 1024 });
         return { supported: true, source: 'simctl', capturedAt, lines: tailLines(String(stdout), lines) };
     }
 

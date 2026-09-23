@@ -67,7 +67,7 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
     app.get<{
         Params: { udid: string };
         Querystring: { lines?: string; sinceSeconds?: string };
-    }>('/api/devices/:udid/diagnostics/logs', async (request) => {
+    }>('/api/devices/:udid/diagnostics/logs', async (request, reply) => {
         if (!remote.getRecentLogs) {
             return {
                 supported: false,
@@ -77,10 +77,14 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
                 warning: 'Recent device logs are not available through this runtime adapter',
             };
         }
-        return remote.getRecentLogs(request.params.udid, {
-            ...(request.query.lines !== undefined ? { lines: Number(request.query.lines) } : {}),
-            ...(request.query.sinceSeconds !== undefined ? { sinceSeconds: Number(request.query.sinceSeconds) } : {}),
-        });
+        try {
+            return await remote.getRecentLogs(request.params.udid, {
+                ...(request.query.lines !== undefined ? { lines: Number(request.query.lines) } : {}),
+                ...(request.query.sinceSeconds !== undefined ? { sinceSeconds: Number(request.query.sinceSeconds) } : {}),
+            });
+        } catch (error) {
+            return reply.code(503).send({ error: errorMessage(error) });
+        }
     });
 
     app.post<{ Params: { udid: string }; Querystring: { scope?: string } }>(
