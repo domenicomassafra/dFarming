@@ -8,6 +8,7 @@ import {
     APPIUM_MORGAN_VERSION,
     hardenAppiumRuntimeHome,
     hardenedAppiumHomePackage,
+    invalidateAppiumExtensionCache,
     pinAppiumRuntimeHome,
     remediateBundledMorgan,
     UIAUTOMATOR2_DRIVER_VERSION,
@@ -60,6 +61,16 @@ test('Appium runtime synchronization can advance a stale declared driver pin bef
     assert.equal(manifest.devDependencies['appium-uiautomator2-driver'], UIAUTOMATOR2_DRIVER_VERSION);
     assert.equal(manifest.devDependencies.morgan, APPIUM_MORGAN_VERSION);
     assert.equal(manifest.devDependencies['appium-xcuitest-driver'], undefined);
+});
+
+test('Appium runtime repair invalidates stale extension metadata after a driver upgrade', async (context) => {
+    const home = await mkdtemp(path.join(os.tmpdir(), 'dfarming-appium-cache-'));
+    context.after(() => rm(home, { recursive: true, force: true }));
+    const cache = path.join(home, 'node_modules', '.cache', 'appium');
+    await mkdir(cache, { recursive: true });
+    await writeFile(path.join(cache, 'extensions.yaml'), 'version: 8.6.4\n');
+    await invalidateAppiumExtensionCache(home);
+    await assert.rejects(() => readFile(path.join(cache, 'extensions.yaml'), 'utf8'), /ENOENT/);
 });
 
 test('Android-only Appium homes are hardened without adding the Apple driver', () => {

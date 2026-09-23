@@ -151,6 +151,12 @@ export async function remediateBundledMorgan(home = path.resolve(process.env.APP
     return remediated;
 }
 
+export async function invalidateAppiumExtensionCache(
+    home = path.resolve(process.env.APPIUM_HOME ?? '.appium-runtime'),
+): Promise<void> {
+    await rm(path.join(home, 'node_modules', '.cache', 'appium'), { recursive: true, force: true });
+}
+
 if (isEntrypoint(import.meta.url)) {
     const action = process.argv[2] ?? 'prepare';
     if (action === 'prepare') {
@@ -161,6 +167,7 @@ if (isEntrypoint(import.meta.url)) {
         console.log(`Prepared Appium runtime driver synchronization with morgan ${APPIUM_MORGAN_VERSION} override`);
     } else if (action === 'repair') {
         const remediated = await remediateBundledMorgan();
+        await invalidateAppiumExtensionCache();
         console.log(`Remediated ${remediated} bundled morgan cop${remediated === 1 ? 'y' : 'ies'} to ${APPIUM_MORGAN_VERSION}`);
     } else {
         throw new Error('Usage: appium-runtime-hardening <prepare|sync|repair>');
