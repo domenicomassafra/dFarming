@@ -5,11 +5,13 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+    APPIUM_CORE_VERSION,
     APPIUM_MORGAN_VERSION,
     hardenAppiumRuntimeHome,
     hardenedAppiumHomePackage,
     invalidateAppiumExtensionCache,
     pinAppiumRuntimeHome,
+    removeBrokenBundledAppiumPeers,
     remediateBundledMorgan,
     UIAUTOMATOR2_DRIVER_VERSION,
     XCUITEST_DRIVER_VERSION,
@@ -24,6 +26,7 @@ test('Appium home hardening pins both drivers and the bounded morgan remediation
         },
     }), {
         devDependencies: {
+            appium: APPIUM_CORE_VERSION,
             other: '1.0.0',
             'appium-uiautomator2-driver': UIAUTOMATOR2_DRIVER_VERSION,
             'appium-xcuitest-driver': XCUITEST_DRIVER_VERSION,
@@ -38,6 +41,7 @@ test('Appium home hardening refuses driver drift before rewriting the manifest',
     context.after(() => rm(home, { recursive: true, force: true }));
     await mkdir(path.join(home, 'node_modules/appium-xcuitest-driver'), { recursive: true });
     await mkdir(path.join(home, 'node_modules/appium-uiautomator2-driver'), { recursive: true });
+    await mkdir(path.join(home, 'node_modules/appium'), { recursive: true });
     await writeFile(path.join(home, 'package.json'), JSON.stringify({
         devDependencies: {
             'appium-uiautomator2-driver': UIAUTOMATOR2_DRIVER_VERSION,
@@ -46,6 +50,7 @@ test('Appium home hardening refuses driver drift before rewriting the manifest',
     }));
     await writeFile(path.join(home, 'node_modules/appium-xcuitest-driver/package.json'), JSON.stringify({ version: '99.0.0' }));
     await writeFile(path.join(home, 'node_modules/appium-uiautomator2-driver/package.json'), JSON.stringify({ version: UIAUTOMATOR2_DRIVER_VERSION }));
+    await writeFile(path.join(home, 'node_modules/appium/package.json'), JSON.stringify({ version: APPIUM_CORE_VERSION }));
     await assert.rejects(() => hardenAppiumRuntimeHome(home), /version drift/);
     assert.doesNotMatch(await readFile(path.join(home, 'package.json'), 'utf8'), /overrides/);
 });
@@ -59,6 +64,7 @@ test('Appium runtime synchronization can advance a stale declared driver pin bef
     await pinAppiumRuntimeHome(home);
     const manifest = JSON.parse(await readFile(path.join(home, 'package.json'), 'utf8'));
     assert.equal(manifest.devDependencies['appium-uiautomator2-driver'], UIAUTOMATOR2_DRIVER_VERSION);
+    assert.equal(manifest.devDependencies.appium, APPIUM_CORE_VERSION);
     assert.equal(manifest.devDependencies.morgan, APPIUM_MORGAN_VERSION);
     assert.equal(manifest.devDependencies['appium-xcuitest-driver'], undefined);
 });
@@ -78,6 +84,7 @@ test('Android-only Appium homes are hardened without adding the Apple driver', (
         devDependencies: { 'appium-uiautomator2-driver': '^8.7.0' },
     }), {
         devDependencies: {
+            appium: APPIUM_CORE_VERSION,
             'appium-uiautomator2-driver': UIAUTOMATOR2_DRIVER_VERSION,
             morgan: APPIUM_MORGAN_VERSION,
         },
@@ -115,4 +122,21 @@ test('bundled Appium base-driver morgan copies are remediated without changing d
     const lock = JSON.parse(await readFile(path.join(home, 'package-lock.json'), 'utf8'));
     assert.equal(lock.packages['node_modules/appium-xcuitest-driver/node_modules/morgan'].version, APPIUM_MORGAN_VERSION);
     assert.equal(lock.packages['node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver'].dependencies.morgan, APPIUM_MORGAN_VERSION);
+});
+
+test('repair removes empty bundled Appium peer placeholders so drivers resolve the pinned root core', async (context) => {
+    const home = await mkdtemp(path.join(os.tmpdir(), 'dfarming-appium-peer-'));
+    context.after(() => rm(home, { recursive: true, force: true }));
+    const placeholder = path.join(home, 'node_modules/appium-uiautomator2-driver/node_modules/appium');
+    await mkdir(placeholder, { recursive: true });
+    await writeFile(path.join(home, 'package-lock.json'), JSON.stringify({
+        lockfileVersion: 3,
+        packages: {
+            'node_modules/appium-uiautomator2-driver/node_modules/appium': { dev: true, inBundle: true, peer: true },
+        },
+    }));
+    assert.equal(await removeBrokenBundledAppiumPeers(home), 1);
+    await assert.rejects(() => readFile(path.join(placeholder, 'package.json'), 'utf8'), /ENOENT/);
+    const lock = JSON.parse(await readFile(path.join(home, 'package-lock.json'), 'utf8'));
+    assert.equal(lock.packages['node_modules/appium-uiautomator2-driver/node_modules/appium'], undefined);
 });

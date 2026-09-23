@@ -109,6 +109,13 @@ closed unless the gateway and Appium runtime pass local health checks. Database
 migrations remain a MiniPC/control-plane responsibility. Inspect the final
 launchd state with `npm run service -- status`.
 
+Keep execution-host disk use bounded with `npm run runtime:storage`. The report
+covers Appium, Simulator/AVD data and WebDriverAgent DerivedData and compares the
+combined footprint with `PHONE_FARM_RUNTIME_DISK_BUDGET_GB` (20 GiB by default).
+Use `npm run runtime:storage:cleanup` for conservative reclamation: it removes
+only unavailable iOS Simulators and rebuildable stale caches, skips running
+Android AVDs, and preserves device registration, userdata and USB trust state.
+
 ## 4b. Configure a Linux Android worker
 
 ```sh

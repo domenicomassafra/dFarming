@@ -1,10 +1,11 @@
-import { cp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { isEntrypoint } from './entrypoint.js';
 
 export const XCUITEST_DRIVER_VERSION = '12.13.1';
 export const UIAUTOMATOR2_DRIVER_VERSION = '8.7.0';
+export const APPIUM_CORE_VERSION = '3.7.0';
 export const APPIUM_MORGAN_VERSION = '1.12.1';
 
 interface AppiumHomePackage {
@@ -15,6 +16,7 @@ interface AppiumHomePackage {
 
 export function hardenedAppiumHomePackage(input: AppiumHomePackage): AppiumHomePackage {
     const dependencies = { ...(input.devDependencies ?? {}) };
+    dependencies.appium = APPIUM_CORE_VERSION;
     if ('appium-uiautomator2-driver' in dependencies) {
         dependencies['appium-uiautomator2-driver'] = UIAUTOMATOR2_DRIVER_VERSION;
     }
@@ -82,6 +84,11 @@ export async function hardenAppiumRuntimeHome(home = path.resolve(process.env.AP
         }));
     }
     if (!checks.length) throw new Error('Appium runtime home contains no managed XCUITest or UiAutomator2 driver');
+    checks.push(packageVersion(path.join(home, 'node_modules/appium/package.json')).then((version) => {
+        if (version !== APPIUM_CORE_VERSION) {
+            throw new Error(`Appium core version drift: expected ${APPIUM_CORE_VERSION}, found ${version}`);
+        }
+    }));
     await Promise.all(checks);
     await pinAppiumRuntimeHome(home);
 }
@@ -151,6 +158,27 @@ export async function remediateBundledMorgan(home = path.resolve(process.env.APP
     return remediated;
 }
 
+export async function removeBrokenBundledAppiumPeers(
+    home = path.resolve(process.env.APPIUM_HOME ?? '.appium-runtime'),
+): Promise<number> {
+    const lockPath = path.join(home, 'package-lock.json');
+    const lock = JSON.parse(await readFile(lockPath, 'utf8')) as { packages?: Record<string, unknown> };
+    let removed = 0;
+    for (const driver of ['appium-xcuitest-driver', 'appium-uiautomator2-driver']) {
+        const nested = path.join(home, 'node_modules', driver, 'node_modules', 'appium');
+        if (!await stat(nested).then(() => true).catch(() => false)) continue;
+        const version = await packageVersion(path.join(nested, 'package.json')).catch(() => undefined);
+        if (version !== undefined) continue;
+        try {
+            await rm(nested, { recursive: true, force: true });
+            if (lock.packages) delete lock.packages[`node_modules/${driver}/node_modules/appium`];
+            removed += 1;
+        } catch { /* absent nested peer placeholder */ }
+    }
+    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, { mode: 0o600 });
+    return removed;
+}
+
 export async function invalidateAppiumExtensionCache(
     home = path.resolve(process.env.APPIUM_HOME ?? '.appium-runtime'),
 ): Promise<void> {
@@ -167,8 +195,9 @@ if (isEntrypoint(import.meta.url)) {
         console.log(`Prepared Appium runtime driver synchronization with morgan ${APPIUM_MORGAN_VERSION} override`);
     } else if (action === 'repair') {
         const remediated = await remediateBundledMorgan();
+        const removedPeers = await removeBrokenBundledAppiumPeers();
         await invalidateAppiumExtensionCache();
-        console.log(`Remediated ${remediated} bundled morgan cop${remediated === 1 ? 'y' : 'ies'} to ${APPIUM_MORGAN_VERSION}`);
+        console.log(`Remediated ${remediated} bundled morgan cop${remediated === 1 ? 'y' : 'ies'} to ${APPIUM_MORGAN_VERSION}; removed ${removedPeers} broken bundled Appium peer placeholder${removedPeers === 1 ? '' : 's'}`);
     } else {
         throw new Error('Usage: appium-runtime-hardening <prepare|sync|repair>');
     }

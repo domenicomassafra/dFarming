@@ -47,6 +47,15 @@ cp .env.device-worker.example .env
 
 The two Appium **ports** are intentionally separate but no longer have separate dependency trees. Both `:4725` (physical compatibility) and `:4726` (generic Simulator/Android runtime) execute Appium 3 against `.appium-runtime`. Before services are installed, setup applies the checksum/version-pinned WDA customization used by the physical lane. This removes the old Appium 2 tree while preserving the established port contract.
 
+Execution hosts own their disposable runtime footprint as well. `npm run runtime:storage`
+reports the Appium home, iOS Simulator devices, Android AVDs and WebDriverAgent
+DerivedData against `PHONE_FARM_RUNTIME_DISK_BUDGET_GB` (20 GiB by default).
+`npm run runtime:storage:cleanup` prunes unavailable iOS Simulators, Appium's
+extension cache, stale WebDriverAgent DerivedData and stale Android emulator
+`cache.img*` files. Cleanup skips locked/running Android AVDs and never deletes
+registered device metadata, Android userdata, or physical-device trust state.
+`PHONE_FARM_RUNTIME_STALE_DAYS` controls the rebuildable-cache age threshold.
+
 The local `devices.json` remains the authority for secrets and physical endpoint details such as the unlock passcode and local WDA/MJPEG ports. The MiniPC mirror never receives the passcode.
 
 ## Operator access

@@ -17,7 +17,7 @@ test('runtime and schema toolchains stay explicit without the retired Appium 2 t
     assert.equal(root.devDependencies?.appium, undefined);
     assert.equal(root.devDependencies?.['drizzle-kit'], undefined);
     assert.equal(root.dependencies?.['node-native-ocr'], undefined);
-    assert.equal(root.devDependencies?.['appium-runtime'], 'npm:appium@^3.7.0');
+    assert.equal(root.devDependencies?.['appium-runtime'], 'npm:appium@3.7.0');
     assert.equal(root.devDependencies?.['node-native-ocr'], '^0.4.18');
     assert.equal(database.dependencies?.['drizzle-kit'], '0.31.10');
     assert.equal(database.overrides?.esbuild, '0.25.12');
