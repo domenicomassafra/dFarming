@@ -52,24 +52,27 @@
     },
     {
       "id": "baguette",
-      "status": "held",
-      "boundary": "iOS Simulator video, accessibility and input transport",
-      "reason": "the current Appium/XCUITest Simulator lane is already live-proven; adopt Baguette only where measurement shows a concrete latency, density or streaming gain without duplicating scheduler authority.",
-      "failureMode": "no runtime dependency; Appium/XCUITest screenshots, semantic snapshots, input and MJPEG remain canonical"
+      "status": "promoted",
+      "boundary": "stable accessibility identifiers and simulator-farm readiness patterns; Baguette runtime transport remains held",
+      "implementation": "src/semantic/snapshot.ts",
+      "reason": "dFarming adopted the portable accessibility-metadata pattern while retaining the already proven Appium/XCUITest runtime. Baguette video/runtime may be promoted separately only after measured latency or density gains.",
+      "failureMode": "no Baguette runtime dependency; Appium/XCUITest screenshots, semantic snapshots, input and MJPEG remain canonical"
     },
     {
       "id": "mobile-use",
-      "status": "reference-only",
-      "boundary": "agent strategy and cross-platform mobile-use skills",
-      "reason": "dFarming already owns device allocation, deterministic workflows, policy, scheduling and receipts; only agent interaction patterns should be borrowed.",
-      "failureMode": "no runtime dependency; deterministic recipes and dFarming semantic flows remain available"
+      "status": "promoted",
+      "boundary": "structured cross-platform observe-to-act agent seam",
+      "implementation": "src/agent/client.ts",
+      "reason": "dFarming adopted the bounded observe/semantic-act pattern without importing mobile-use's runtime, allocation or orchestration authority.",
+      "failureMode": "no mobile-use runtime dependency; deterministic recipes, Portable Flow and direct dFarming API remain available"
     },
     {
       "id": "device-farm-ios",
-      "status": "held",
-      "boundary": "physical-iPhone qvh/H.264 benchmark transport",
-      "reason": "the donor is useful for measuring modern iOS video transport, but must not replace WDA/Appium control or become a second device-farm authority before physical-device benchmarks.",
-      "failureMode": "no runtime dependency; physical iPhone continues through the existing WDA/Appium lane"
+      "status": "promoted",
+      "boundary": "control/video transport separation and per-device video capability benchmarking; qvh runtime remains held",
+      "implementation": "src/video-benchmark.ts",
+      "reason": "dFarming adopted explicit per-device video capabilities and transport-neutral benchmarks. qvh remains an optional benchmark URL until a physical-iPhone measurement proves a benefit.",
+      "failureMode": "no device-farm-ios runtime dependency; WDA/Appium control and screenshot/MJPEG remain available"
     }
   ]
 }

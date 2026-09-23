@@ -22,7 +22,7 @@ an old branch.
   confirmed bulk operations and exactly one focused live stream.
 - [x] Optional Android scrcpy H.264 video adapter behind signed capabilities.
 - [x] Account-to-device binding, account pause/task policy and execution evidence.
-- [x] Current clean source gate: TypeScript + **214/214 tests** + web build.
+- [x] Current clean source gate: TypeScript + **220/220 tests** + web build.
 - [x] Dependency audits: root, production-only, isolated Drizzle CLI and the
   generated Appium driver home all report **0 vulnerabilities**.
 - [x] Physical-iOS source lane migrated from the retired Appium 2 tree to the
@@ -72,16 +72,22 @@ MiniPC emulator capacity is actually needed.
 - [x] DFARM-102 — dCreator bridge: internal authenticated asset intake,
   versioned jobs, DB-backed idempotency and execution receipts. The real
   dCreator-side caller remains a separate-project integration proof.
-- [x] DFARM-103 — Donor adoption governance and the three justified promoted
-  seams (Google emulator container, scrcpy video-only, bounded Maestro); the
-  other reviewed donors are explicitly held/reference-only rather than dead
-  adapters.
+- [x] DFARM-103 — Donor adoption governance with promoted seams kept narrow:
+  Google emulator capacity, scrcpy video-only, bounded Maestro, Baguette
+  accessibility/readiness patterns, mobile-use observe→act patterns and
+  device-farm-ios video-capability/benchmark separation. Donor runtimes that
+  would duplicate control authority remain explicitly held/reference-only.
 - [x] DFARM-104 — Windows Android worker packaging using the canonical Appium,
   scheduler-worker and authenticated gateway processes. Live Windows proof is
   pending until that host is online.
 - [x] DFARM-105 — Per-account execution-profile constraints (dedicated device,
   required tags, route ID and explicit profile identity) enforced by the
   scheduler repository before persistence and snapshotted into receipts.
+- [x] DFARM-106 — Donor-informed interaction/runtime hardening: structured
+  cross-platform observe→act API/MCP/CLI, stable accessibility IDs,
+  Maestro `stopApp`/`assertNotVisible`/ID selectors, per-device video
+  capability negotiation, backend-aware video benchmarks and Android emulator
+  `booting`→`sys.boot_completed` readiness.
 
 The open parts of DFARM-101/102/104/105 are live/external integration proofs,
 not unmerged source branches or hidden implementation WIP.

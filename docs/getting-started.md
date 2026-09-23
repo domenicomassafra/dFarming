@@ -128,6 +128,11 @@ cp .env.linux-android-worker.example .env
 The Linux installer prepares UiAutomator2 and installs three systemd-user
 services: Appium runtime, scheduler execution worker and authenticated device
 gateway. It does not install a web server or a second PostgreSQL/control plane.
+When dFarming boots a locally defined AVD from the host view it now reports a
+`booting` state until ADB maps the AVD name to a serial and
+`sys.boot_completed=1`. The default fail-closed timeout is 120 seconds and can
+be bounded with `DFARMING_ANDROID_EMULATOR_BOOT_TIMEOUT_MS`; headless local
+AVDs can opt into `DFARMING_ANDROID_EMULATOR_HEADLESS=true`.
 
 ## 5. Prepare WebDriverAgent (physical lane only)
 

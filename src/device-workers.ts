@@ -2,7 +2,7 @@ import type { DeviceConnectionStatus } from './devices/connection-manager.js';
 import type { Device } from './devices/discovery.js';
 import { loadRegisteredDevices, mutateRegisteredDevices, normalizeDeviceTags, type RegisteredDevice } from './devices/registry.js';
 import { coordinatesForProfile, validateCoordinateOverrides } from './devices/coordinates.js';
-import type { RemoteAction, RemoteControl, ScreenInfo } from './devices/wda-remote.js';
+import type { RemoteAction, RemoteControl, RemoteVideoCapabilities, ScreenInfo } from './devices/wda-remote.js';
 import type { HostCapability, HostSnapshot } from './hosts/capabilities.js';
 import type { RuntimeDevice } from './devices/runtime-discovery.js';
 import type { VirtualRuntime, VirtualRuntimePlatform } from './devices/virtual-runtime.js';
@@ -238,7 +238,7 @@ function sanitizedVirtualRuntime(value: unknown): VirtualRuntime | undefined {
     const name = nonEmptyString(source?.name);
     if (!source || !id || !name || (source.platform !== 'ios' && source.platform !== 'android')) return;
     if (source.platform === 'ios' ? source.kind !== 'simulator' : source.kind !== 'emulator') return;
-    if (source.state !== 'booted' && source.state !== 'shutdown') return;
+    if (source.state !== 'booted' && source.state !== 'booting' && source.state !== 'shutdown') return;
     return {
         id,
         name,
@@ -407,6 +407,14 @@ export class DeviceWorkerClient {
             { signal },
             DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
         );
+    }
+
+    async getVideoCapabilities(udid: string): Promise<RemoteVideoCapabilities> {
+        return await (await this.request(
+            `/v1/devices/${encodeURIComponent(udid)}/video-capabilities`,
+            {},
+            DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
+        )).json() as RemoteVideoCapabilities;
     }
 
     async performAction(udid: string, action: RemoteAction): Promise<void> {
@@ -639,6 +647,7 @@ export class DeviceWorkerFleet implements RemoteControl {
     async getScreenshot(udid: string): Promise<Buffer> { return (await this.clientFor(udid)).getScreenshot(udid); }
     async getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response> { return (await this.clientFor(udid)).getMjpegStream(udid, signal); }
     async getH264Stream(udid: string, signal?: AbortSignal): Promise<Response> { return (await this.clientFor(udid)).getH264Stream(udid, signal); }
+    async getVideoCapabilities(udid: string): Promise<RemoteVideoCapabilities> { return (await this.clientFor(udid)).getVideoCapabilities(udid); }
     async performAction(udid: string, action: RemoteAction): Promise<void> { return (await this.clientFor(udid)).performAction(udid, action); }
     async isLocked(udid: string): Promise<boolean> { return (await this.clientFor(udid)).isLocked(udid); }
     async connectionStatus(udid: string): Promise<DeviceConnectionStatus> { return (await this.clientFor(udid)).connection(udid); }

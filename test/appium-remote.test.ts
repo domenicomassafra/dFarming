@@ -40,6 +40,8 @@ test('Appium remote uses the narrow W3C/Appium protocol without a third-party We
     assert.equal((await remote.getScreenshot('SIM-1')).toString(), 'png-bytes');
     await remote.activateApp('com.example.app');
     await remote.terminateApp('com.example.app');
+    await remote.performAction('SIM-1', { type: 'launch', appId: 'com.example.other' });
+    await remote.performAction('SIM-1', { type: 'terminate', appId: 'com.example.other' });
     await remote.performAction('SIM-1', { type: 'tap', x: 25, y: 60 });
     await remote.performAction('SIM-1', { type: 'type', text: 'hello' });
     await remote.performAction('SIM-1', { type: 'home' });
@@ -62,6 +64,8 @@ test('Appium remote uses the narrow W3C/Appium protocol without a third-party We
     const execute = requests.find(({ pathname }) => pathname.endsWith('/execute/sync'))?.body as { script?: string; args?: unknown[] };
     assert.equal(execute.script, 'mobile: pressButton');
     assert.deepEqual(execute.args, [{ name: 'home' }]);
+    assert.equal(requests.filter(({ pathname }) => pathname.endsWith('/appium/device/activate_app')).length, 2);
+    assert.equal(requests.filter(({ pathname }) => pathname.endsWith('/appium/device/terminate_app')).length, 2);
     assert.equal(requests.some(({ method, pathname }) => method === 'DELETE' && pathname === '/session/session-1'), true);
 });
 

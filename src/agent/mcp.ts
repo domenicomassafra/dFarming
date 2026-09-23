@@ -47,6 +47,38 @@ export function buildDFarmingMcpServer(client = new DFarmingAgentClient()): McpS
         inputSchema: z.object({ udid: z.string().min(1), text: z.string().min(1).max(4000) }),
         annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
     }, async ({ udid, text }) => result(await client.typeText(udid, text)));
+    server.registerTool('dfarming_observe', {
+        description: 'Read one structured dFarming device observation: runtime identity, screen, lock state, scheduler ownership and compact semantic UI.',
+        inputSchema: z.object({
+            udid: z.string().min(1),
+            query: z.string().min(1).optional(),
+            maxNodes: z.number().int().min(1).max(500).optional(),
+        }),
+        annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    }, async ({ udid, query, maxNodes }) => result(await client.observe(udid, { query, maxNodes })));
+    server.registerTool('dfarming_act', {
+        description: 'Perform one policy-gated semantic/system/app action on a dFarming device. Prefer tapText/inputText over raw coordinates.',
+        inputSchema: z.object({
+            udid: z.string().min(1),
+            action: z.discriminatedUnion('kind', [
+                z.object({ kind: z.literal('tapRef'), generation: z.number().int().min(1), ref: z.string().regex(/^e\d+$/) }),
+                z.object({
+                    kind: z.literal('tapText'), text: z.string().min(1).max(240), type: z.string().max(80).optional(),
+                    exact: z.boolean().optional(), timeoutMs: z.number().int().min(0).max(30_000).optional(),
+                    pollMs: z.number().int().min(100).max(2_000).optional(),
+                }),
+                z.object({ kind: z.literal('type'), text: z.string().min(1).max(4_000) }),
+                z.object({
+                    kind: z.literal('inputText'), target: z.string().min(1).max(240), text: z.string().min(1).max(4_000),
+                    type: z.string().max(80).optional(), exact: z.boolean().optional(),
+                    timeoutMs: z.number().int().min(0).max(30_000).optional(), pollMs: z.number().int().min(100).max(2_000).optional(),
+                }),
+                z.object({ kind: z.literal('system'), action: z.enum(['home', 'lock', 'wake', 'unlock', 'volumeUp', 'volumeDown']) }),
+                z.object({ kind: z.literal('app'), action: z.enum(['launch', 'terminate']), appId: z.string().min(2).max(255) }),
+            ]),
+        }),
+        annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
+    }, async ({ udid, action }) => result(await client.act(udid, action)));
     return server;
 }
 

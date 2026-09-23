@@ -13,9 +13,22 @@ export interface ScreenInfo {
     statusBarSize?: ScreenSize;
 }
 
+export interface VideoTransportCapability {
+    id: 'mjpeg' | 'h264';
+    backend: string;
+    contentType: string;
+    optimized: boolean;
+}
+
+export interface RemoteVideoCapabilities {
+    transports: VideoTransportCapability[];
+}
+
 export type RemoteAction =
     | { type: 'tap'; x: number; y: number }
     | { type: 'type'; text: string }
+    | { type: 'launch'; appId: string }
+    | { type: 'terminate'; appId: string }
     | { type: 'home' }
     | { type: 'lock' }
     | { type: 'wake' }
@@ -79,6 +92,8 @@ export interface RemoteControl {
     getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response>;
     /** Optional encoded-video path. Control stays on performAction regardless of selected video transport. */
     getH264Stream?(udid: string, signal?: AbortSignal): Promise<Response>;
+    /** Describe only transports that are actually usable for this device. */
+    getVideoCapabilities?(udid: string): Promise<RemoteVideoCapabilities>;
     performAction(udid: string, action: RemoteAction): Promise<void>;
     isLocked(udid: string): Promise<boolean>;
     /** Drop any cached client for this device so its next use re-reads devices.json. */
@@ -235,6 +250,17 @@ export class WdaRemoteControl {
 
     async performAction(udid: string, action: RemoteAction): Promise<void> {
         this.assertTarget(udid);
+        if (action.type === 'launch' || action.type === 'terminate') {
+            if (!/^[A-Za-z0-9._-]{2,255}$/.test(action.appId)) {
+                throw new RemoteDeviceError('App id is invalid');
+            }
+            await this.request(action.type === 'launch' ? '/wda/apps/launch' : '/wda/apps/terminate', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ bundleId: action.appId }),
+            });
+            return;
+        }
         if (action.type === 'type') {
             if (!action.text || action.text.length > 4000) throw new RemoteDeviceError('Text input must contain 1 to 4000 characters');
             await this.request('/wda/keys', {
@@ -273,6 +299,18 @@ export class WdaRemoteControl {
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ actions }),
         });
+    }
+
+    async getVideoCapabilities(udid: string): Promise<RemoteVideoCapabilities> {
+        this.assertTarget(udid);
+        return {
+            transports: [{
+                id: 'mjpeg',
+                backend: 'wda-mjpeg',
+                contentType: 'multipart/x-mixed-replace',
+                optimized: true,
+            }],
+        };
     }
 }
 

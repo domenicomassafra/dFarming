@@ -57,6 +57,12 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
         }
     });
 
+    app.get<{ Params: { udid: string } }>('/api/devices/:udid/remote/video-capabilities', async (request) => (
+        remote.getVideoCapabilities
+            ? remote.getVideoCapabilities(request.params.udid)
+            : { transports: [{ id: 'mjpeg', backend: 'unknown-mjpeg', contentType: 'multipart/x-mixed-replace', optimized: false }] }
+    ));
+
     app.post<{ Params: { udid: string }; Querystring: { scope?: string } }>(
         '/api/devices/:udid/remote/stream-token',
         async (request) => {
@@ -166,7 +172,12 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
     });
 
     app.post<{ Params: { udid: string } }>('/api/devices/:udid/remote/h264-token', async (request, reply) => {
-        if (!remote.getH264Stream) return reply.code(501).send({ error: 'Optimized H.264 transport is unavailable' });
+        const capabilities = remote.getVideoCapabilities
+            ? await remote.getVideoCapabilities(request.params.udid)
+            : { transports: [] };
+        if (!remote.getH264Stream || !capabilities.transports.some(({ id }) => id === 'h264')) {
+            return reply.code(501).send({ error: 'Optimized H.264 transport is unavailable for this device' });
+        }
         const base = `/api/devices/${encodeURIComponent(request.params.udid)}/remote/h264`;
         if (!options.requireStreamToken) return { url: `${base}?t=${Date.now()}`, expiresAt: null };
         const capability = streamTokens.issue(request.params.udid);
@@ -178,7 +189,12 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
         Params: { udid: string };
         Querystring: { exp?: string; sig?: string };
     }>('/api/devices/:udid/remote/h264', async (request, reply) => {
-        if (!remote.getH264Stream) return reply.code(501).send({ error: 'Optimized H.264 transport is unavailable' });
+        const capabilities = remote.getVideoCapabilities
+            ? await remote.getVideoCapabilities(request.params.udid)
+            : { transports: [] };
+        if (!remote.getH264Stream || !capabilities.transports.some(({ id }) => id === 'h264')) {
+            return reply.code(501).send({ error: 'Optimized H.264 transport is unavailable for this device' });
+        }
         if (options.requireStreamToken) {
             const expiresAt = Number(request.query.exp);
             const signature = request.query.sig ?? '';
@@ -216,6 +232,34 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
     app.get<{
         Params: { udid: string };
         Querystring: { query?: string; maxNodes?: string };
+    }>('/api/devices/:udid/agent/observe', async (request, reply) => {
+        const device = (await discoverDevices()).find(({ udid }) => udid === request.params.udid);
+        if (!device) return reply.code(404).send({ error: 'Device is not connected' });
+        const rawMaxNodes = request.query.maxNodes === undefined ? 120 : Number(request.query.maxNodes);
+        const maxNodes = Number.isFinite(rawMaxNodes) ? Math.max(1, Math.min(500, Math.round(rawMaxNodes))) : 120;
+        const [screen, locked, snapshot, activeExecution, connection] = await Promise.all([
+            remote.getScreenInfo(device.udid),
+            remote.isLocked(device.udid).catch(() => null),
+            semantic.snapshot(device.udid, {
+                ...(request.query.query ? { query: request.query.query } : {}),
+                maxNodes,
+            }),
+            scheduler.activeExecution(device.udid),
+            options.connectionStatus ? options.connectionStatus(device.udid).catch(() => undefined) : Promise.resolve(undefined),
+        ]);
+        return {
+            device,
+            screen,
+            locked,
+            activeExecution: Boolean(activeExecution),
+            ...(connection ? { connection } : {}),
+            semantic: snapshot,
+        };
+    });
+
+    app.get<{
+        Params: { udid: string };
+        Querystring: { query?: string; maxNodes?: string };
     }>('/api/devices/:udid/semantic/snapshot', async (request) => semantic.snapshot(request.params.udid, {
         ...(request.query.query ? { query: request.query.query } : {}),
         ...(request.query.maxNodes ? { maxNodes: Number(request.query.maxNodes) } : {}),
@@ -243,12 +287,56 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
 
     app.post<{
         Params: { udid: string };
+        Body: { text: string; type?: string; exact?: boolean; timeoutMs?: number; pollMs?: number };
+    }>('/api/devices/:udid/semantic/tap-text', async (request, reply) => {
+        if (await scheduler.activeExecution(request.params.udid)) {
+            return reply.code(409).send({ error: 'Semantic input is disabled while automation is running' });
+        }
+        return semantic.tapText(request.params.udid, request.body.text, {
+            ...(request.body.type ? { type: request.body.type } : {}),
+            ...(request.body.exact !== undefined ? { exact: request.body.exact } : {}),
+            ...(request.body.timeoutMs !== undefined ? { timeoutMs: request.body.timeoutMs } : {}),
+            ...(request.body.pollMs !== undefined ? { pollMs: request.body.pollMs } : {}),
+        });
+    });
+
+    app.post<{
+        Params: { udid: string };
+        Body: { target: string; text: string; type?: string; exact?: boolean; timeoutMs?: number; pollMs?: number };
+    }>('/api/devices/:udid/semantic/input-text', async (request, reply) => {
+        if (await scheduler.activeExecution(request.params.udid)) {
+            return reply.code(409).send({ error: 'Semantic input is disabled while automation is running' });
+        }
+        await semantic.inputText(request.params.udid, request.body.target, request.body.text, {
+            ...(request.body.type ? { type: request.body.type } : {}),
+            ...(request.body.exact !== undefined ? { exact: request.body.exact } : {}),
+            ...(request.body.timeoutMs !== undefined ? { timeoutMs: request.body.timeoutMs } : {}),
+            ...(request.body.pollMs !== undefined ? { pollMs: request.body.pollMs } : {}),
+        });
+        return { ok: true };
+    });
+
+    app.post<{
+        Params: { udid: string };
         Body: { text: string; type?: string; timeoutMs?: number; pollMs?: number };
     }>('/api/devices/:udid/semantic/wait', async (request) => semantic.waitForText(request.params.udid, request.body.text, {
         ...(request.body.type ? { type: request.body.type } : {}),
         ...(request.body.timeoutMs !== undefined ? { timeoutMs: request.body.timeoutMs } : {}),
         ...(request.body.pollMs !== undefined ? { pollMs: request.body.pollMs } : {}),
     }));
+
+    app.post<{
+        Params: { udid: string };
+        Body: { text: string; type?: string; exact?: boolean; timeoutMs?: number; pollMs?: number };
+    }>('/api/devices/:udid/semantic/wait-gone', async (request) => {
+        await semantic.waitForTextGone(request.params.udid, request.body.text, {
+            ...(request.body.type ? { type: request.body.type } : {}),
+            ...(request.body.exact !== undefined ? { exact: request.body.exact } : {}),
+            ...(request.body.timeoutMs !== undefined ? { timeoutMs: request.body.timeoutMs } : {}),
+            ...(request.body.pollMs !== undefined ? { pollMs: request.body.pollMs } : {}),
+        });
+        return { ok: true };
+    });
 
     app.get<{ Params: { udid: string } }>('/api/devices/:udid/connection', async (request, reply) => {
         const registered = (await loadRegisteredDevices()).find(({ udid }) => udid === request.params.udid);

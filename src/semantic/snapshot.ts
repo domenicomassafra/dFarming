@@ -22,6 +22,7 @@ export interface SemanticElement {
     type: string;
     label: string;
     value?: string;
+    identifier?: string;
     rect: SemanticRect;
     center: { x: number; y: number };
     enabled: boolean;
@@ -50,6 +51,7 @@ interface RawNode {
     name?: unknown;
     label?: unknown;
     value?: unknown;
+    identifier?: unknown;
     rect?: unknown;
     isVisible?: unknown;
     visible?: unknown;
@@ -137,6 +139,7 @@ export class SemanticSnapshotStore {
             const label = clean(node.label ?? node.name);
             const rawValue = clean(node.value, 80);
             const value = rawValue && rawValue !== label ? rawValue : '';
+            const identifier = clean(node.identifier, 160);
             const visible = booleanish(node.isVisible ?? node.visible, true);
             const enabled = booleanish(node.isEnabled ?? node.enabled, true);
             const scrollable = SCROLLABLE.has(type);
@@ -150,13 +153,14 @@ export class SemanticSnapshotStore {
                         return;
                     }
                 }
-                const interesting = (INTERACTIVE.has(type) && (label || value || type === 'Cell'))
+                const interesting = (INTERACTIVE.has(type) && (label || value || identifier || type === 'Cell'))
                     || (TEXTUAL.has(type) && Boolean(label))
                     || (LANDMARK.has(type) && (Boolean(label) || type === 'Alert' || type === 'Sheet'))
                     || (scrollable && box.height > 100);
                 const echo = TEXTUAL.has(type) && Boolean(label) && ancestorLabels.has(label);
                 const matches = !query || label.toLowerCase().includes(query)
-                    || value.toLowerCase().includes(query) || type.toLowerCase().includes(query);
+                    || value.toLowerCase().includes(query) || identifier.toLowerCase().includes(query)
+                    || type.toLowerCase().includes(query);
                 if (interesting && !echo && visible && matches) {
                     if (elements.length >= maxNodes) {
                         truncated = true;
@@ -165,13 +169,15 @@ export class SemanticSnapshotStore {
                     const ref = `e${elements.length + 1}`;
                     const center = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
                     const element: SemanticElement = {
-                        ref, type, label, ...(value ? { value } : {}), rect: box, center, enabled, scrollable,
+                        ref, type, label, ...(value ? { value } : {}), ...(identifier ? { identifier } : {}),
+                        rect: box, center, enabled, scrollable,
                     };
                     elements.push(element);
                     refs.set(ref, element);
                     const parts = [`[${ref}]`, type];
                     if (label) parts.push(JSON.stringify(label));
                     if (value) parts.push(`value=${JSON.stringify(value)}`);
+                    if (identifier) parts.push(`id=${JSON.stringify(identifier)}`);
                     if (scrollable) parts.push('(scrollable)');
                     if (!enabled) parts.push('(disabled)');
                     lines.push(`${'  '.repeat(Math.min(depth, 8))}${parts.join(' ')} @${center.x},${center.y}`);
@@ -210,7 +216,7 @@ export class SemanticSnapshotStore {
         const wanted = type?.replace(/^XCUIElementType/, '').toLowerCase();
         return snapshot.elements
             .filter((element) => !wanted || element.type.toLowerCase() === wanted)
-            .filter((element) => !query || `${element.label} ${element.value ?? ''}`.toLowerCase().includes(query))
+            .filter((element) => !query || `${element.label} ${element.value ?? ''} ${element.identifier ?? ''}`.toLowerCase().includes(query))
             .sort((a, b) => {
                 const score = (element: SemanticElement) => element.label.toLowerCase() === query ? 2
                     : element.label.toLowerCase().startsWith(query) ? 1 : 0;

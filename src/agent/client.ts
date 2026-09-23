@@ -6,6 +6,14 @@ export interface DFarmingAgentClientOptions {
     fetchImpl?: typeof fetch;
 }
 
+export type DFarmingAgentAction =
+    | { kind: 'tapRef'; generation: number; ref: string }
+    | { kind: 'tapText'; text: string; type?: string; exact?: boolean; timeoutMs?: number; pollMs?: number }
+    | { kind: 'type'; text: string }
+    | { kind: 'inputText'; target: string; text: string; type?: string; exact?: boolean; timeoutMs?: number; pollMs?: number }
+    | { kind: 'system'; action: 'home' | 'lock' | 'wake' | 'unlock' | 'volumeUp' | 'volumeDown' }
+    | { kind: 'app'; action: 'launch' | 'terminate'; appId: string };
+
 export class DFarmingAgentClient {
     readonly baseUrl: URL;
     readonly token?: string;
@@ -22,6 +30,18 @@ export class DFarmingAgentClient {
 
     health(): Promise<unknown> { return this.request('GET', '/health'); }
     accounts(): Promise<unknown> { return this.request('GET', '/api/accounts'); }
+    devices(): Promise<unknown> { return this.request('GET', '/api/devices'); }
+
+    observe(udid: string, options: { query?: string; maxNodes?: number } = {}): Promise<unknown> {
+        const query = new URLSearchParams();
+        if (options.query) query.set('query', options.query);
+        if (options.maxNodes !== undefined) query.set('maxNodes', String(options.maxNodes));
+        return this.request('GET', `/api/devices/${encodeURIComponent(udid)}/agent/observe${query.size ? `?${query}` : ''}`);
+    }
+
+    videoCapabilities(udid: string): Promise<unknown> {
+        return this.request('GET', `/api/devices/${encodeURIComponent(udid)}/remote/video-capabilities`);
+    }
 
     snapshot(udid: string, options: { query?: string; maxNodes?: number } = {}): Promise<unknown> {
         const query = new URLSearchParams();
@@ -44,6 +64,54 @@ export class DFarmingAgentClient {
         options: { type?: string; timeoutMs?: number; pollMs?: number } = {},
     ): Promise<unknown> {
         return this.request('POST', `/api/devices/${encodeURIComponent(udid)}/semantic/wait`, { text, ...options });
+    }
+
+    waitForTextGone(
+        udid: string,
+        text: string,
+        options: { type?: string; exact?: boolean; timeoutMs?: number; pollMs?: number } = {},
+    ): Promise<unknown> {
+        return this.request('POST', `/api/devices/${encodeURIComponent(udid)}/semantic/wait-gone`, { text, ...options });
+    }
+
+    tapText(
+        udid: string,
+        text: string,
+        options: { type?: string; exact?: boolean; timeoutMs?: number; pollMs?: number } = {},
+    ): Promise<unknown> {
+        return this.request('POST', `/api/devices/${encodeURIComponent(udid)}/semantic/tap-text`, { text, ...options });
+    }
+
+    inputText(
+        udid: string,
+        target: string,
+        text: string,
+        options: { type?: string; exact?: boolean; timeoutMs?: number; pollMs?: number } = {},
+    ): Promise<unknown> {
+        return this.request('POST', `/api/devices/${encodeURIComponent(udid)}/semantic/input-text`, { target, text, ...options });
+    }
+
+    system(udid: string, action: Extract<DFarmingAgentAction, { kind: 'system' }>['action']): Promise<unknown> {
+        return this.request('POST', `/api/devices/${encodeURIComponent(udid)}/remote/action`, { type: action });
+    }
+
+    app(udid: string, action: 'launch' | 'terminate', appId: string): Promise<unknown> {
+        return this.request('POST', `/api/devices/${encodeURIComponent(udid)}/remote/action`, { type: action, appId });
+    }
+
+    act(udid: string, action: DFarmingAgentAction): Promise<unknown> {
+        if (action.kind === 'tapRef') return this.tapRef(udid, action.generation, action.ref);
+        if (action.kind === 'tapText') {
+            const { kind: _kind, text, ...options } = action;
+            return this.tapText(udid, text, options);
+        }
+        if (action.kind === 'type') return this.typeText(udid, action.text);
+        if (action.kind === 'inputText') {
+            const { kind: _kind, target, text, ...options } = action;
+            return this.inputText(udid, target, text, options);
+        }
+        if (action.kind === 'system') return this.system(udid, action.action);
+        return this.app(udid, action.action, action.appId);
     }
 
     private async request(method: 'GET' | 'POST', pathname: string, body?: unknown): Promise<unknown> {

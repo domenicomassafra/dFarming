@@ -5,6 +5,7 @@ interface NormalizedNode {
     name?: string;
     label?: string;
     value?: string;
+    identifier?: string;
     rect?: { x: number; y: number; width: number; height: number };
     visible?: boolean;
     enabled?: boolean;
@@ -71,10 +72,14 @@ function normalize(tag: string, record: Record<string, unknown>): NormalizedNode
         ?? stringValue(record['@_resource-id'])
         ?? stringValue(record['#text']);
     const value = stringValue(record['@_value']) ?? stringValue(record['@_text']);
+    const identifier = stringValue(record['@_resource-id'])
+        ?? stringValue(record['@_identifier'])
+        ?? stringValue(record['@_name']);
     return {
         type: stringValue(record['@_type']) ?? stringValue(record['@_class']) ?? tag,
         ...(label ? { label, name: label } : {}),
         ...(value && value !== label ? { value } : {}),
+        ...(identifier && identifier !== label ? { identifier } : {}),
         ...(rectangle(record) ? { rect: rectangle(record) } : {}),
         visible: booleanValue(record['@_visible'] ?? record['@_displayed'], true),
         enabled: booleanValue(record['@_enabled'], true),

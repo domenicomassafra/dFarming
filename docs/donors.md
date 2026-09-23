@@ -28,25 +28,40 @@ execution evidence. Donor software may own a narrow transport/runtime concern.
   the control plane for automation.
 - **Maestro** — flow interoperability/runner donor. dFarming stores its own
   immutable flow revisions and rejects lossy conversions.
+- **Baguette** — iOS Simulator farm/stream/accessibility donor. dFarming has
+  adopted stable accessibility identifiers and readiness patterns, while the
+  Baguette runtime/video server stays held behind benchmark evidence.
+- **mobile-use** — agent-interaction donor. dFarming has adopted a bounded
+  structured observe→act seam; mobile-use does not own devices, policy,
+  scheduling or receipts.
+- **device-farm-ios** — modern physical-iOS video/control separation donor.
+  dFarming exposes per-device video capabilities and transport-neutral
+  benchmarking; qvh remains optional until physical-hardware measurements.
 
 Forks are for controlled review, patches and reproducibility. Upstream changes
 are pulled deliberately, reviewed, tested and then the lock SHA is updated.
 
 ## Current promotion set
 
-Only three donor seams are promoted into production source today:
+The promoted seams are narrow capabilities or patterns; promotion does not
+imply loading the donor runtime:
 
 | Donor | Promoted seam | Core fallback |
 | --- | --- | --- |
 | Google Android emulator containers | pinned Linux/KVM emulator capacity | other device workers remain usable |
 | scrcpy | opt-in raw H.264 **video only** | screenshot/MJPEG remains available; Appium keeps control |
-| Maestro | bounded lossless flow import/export | Portable Flow remains canonical; lossy commands are rejected |
+| Maestro | bounded flow import/export including semantic IDs, stopApp and visibility waits | Portable Flow remains canonical; lossy commands are rejected |
+| Baguette | stable accessibility identifiers + simulator readiness patterns | Appium/XCUITest remains the runtime |
+| mobile-use | structured observe→act agent API/MCP/CLI | deterministic recipes and Portable Flow remain available |
+| device-farm-ios | per-device video capabilities + transport-neutral benchmark seam | WDA/Appium control remains canonical; qvh stays optional |
 
 Appium Device Farm and STF remain architecture/UX references because adopting
 their farm authorities would duplicate dFarming's scheduler/registry. IDB is
-held until a measured Apple transport gap justifies it. pymobiledevice3 is
-held external-only because of its GPL boundary and because the physical-iPhone
-lane still needs hardware proof before another lifecycle component is added.
+held until a measured Apple transport gap justifies it. The Baguette and
+device-farm-ios *runtime transports* are also still held even though bounded
+patterns from those donors are promoted. pymobiledevice3 is held external-only
+because of its GPL boundary and because the physical-iPhone lane still needs
+hardware proof before another lifecycle component is added.
 
 The test suite cross-checks every lock entry, immutable SHA, runtime-image
 digest, adoption decision, promoted implementation path and GPL isolation.

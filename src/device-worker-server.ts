@@ -229,8 +229,19 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
             .type(upstream.headers.get('content-type') ?? 'multipart/x-mixed-replace; boundary=--BoundaryString')
             .send(Readable.from(upstream.body as AsyncIterable<Uint8Array>));
     });
+    app.get<{ Params: { udid: string } }>('/v1/devices/:udid/video-capabilities', async (request) => {
+        await requireWorkerDevice(request.params.udid);
+        return remote.getVideoCapabilities
+            ? remote.getVideoCapabilities(request.params.udid)
+            : { transports: [] };
+    });
     app.get<{ Params: { udid: string } }>('/v1/devices/:udid/h264', async (request, reply) => {
-        if (!remote.getH264Stream) return reply.code(501).send({ error: 'Optimized H.264 transport is unavailable' });
+        const capabilities = remote.getVideoCapabilities
+            ? await remote.getVideoCapabilities(request.params.udid)
+            : { transports: [] };
+        if (!remote.getH264Stream || !capabilities.transports.some(({ id }) => id === 'h264')) {
+            return reply.code(501).send({ error: 'Optimized H.264 transport is unavailable for this device' });
+        }
         const abort = new AbortController();
         request.raw.once('close', () => abort.abort());
         try {

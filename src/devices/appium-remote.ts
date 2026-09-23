@@ -1,5 +1,5 @@
 import type { RegisteredDevice } from './registry.js';
-import type { RemoteAction, RemoteControl, ScreenInfo } from './wda-remote.js';
+import type { RemoteAction, RemoteControl, RemoteVideoCapabilities, ScreenInfo } from './wda-remote.js';
 import { normalizeAppiumPageSource } from '../semantic/appium-source.js';
 import { isInvalidAppiumSessionError, isRecoverableAppiumReadError, remoteWithFetch, type Browser } from './appium-driver.js';
 
@@ -119,10 +119,28 @@ export class AppiumRemoteControl implements RemoteControl {
         return new Response(stream, { headers: { 'content-type': `multipart/x-mixed-replace; boundary=${boundary}` } });
     }
 
+    async getVideoCapabilities(udid: string): Promise<RemoteVideoCapabilities> {
+        this.assertTarget(udid);
+        return {
+            transports: [{
+                id: 'mjpeg',
+                backend: 'appium-screenshot-mjpeg',
+                contentType: 'multipart/x-mixed-replace',
+                optimized: false,
+            }],
+        };
+    }
+
     async performAction(udid: string, action: RemoteAction): Promise<void> {
         this.assertTarget(udid);
         await this.withDriver(async (driver) => {
             const platform = this.device.platform ?? 'ios';
+            if (action.type === 'launch' || action.type === 'terminate') {
+                if (!/^[A-Za-z0-9._-]{2,255}$/.test(action.appId)) throw new Error('App id is invalid');
+                if (action.type === 'launch') await driver.activateApp(action.appId);
+                else await driver.terminateApp(action.appId);
+                return;
+            }
             if (action.type === 'tap' || action.type === 'swipe') {
                 const actions = action.type === 'tap'
                     ? [

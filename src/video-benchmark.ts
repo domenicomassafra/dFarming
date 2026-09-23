@@ -15,6 +15,15 @@ export interface StreamBenchmarkResult {
     controlP95Ms: number | null;
 }
 
+interface VideoCapabilities {
+    transports: Array<{
+        id: 'mjpeg' | 'h264';
+        backend: string;
+        contentType: string;
+        optimized: boolean;
+    }>;
+}
+
 export function percentile(values: readonly number[], fraction: number): number | null {
     if (!values.length) return null;
     const sorted = [...values].sort((a, b) => a - b);
@@ -95,37 +104,42 @@ export async function runVideoBenchmark(): Promise<Record<string, unknown>> {
     if (client.token) headers.set('authorization', `Bearer ${client.token}`);
     const controlUrl = new URL(`/api/devices/${encodeURIComponent(udid)}/remote/screenshot`, client.baseUrl);
     const baseline = await benchmark('control-baseline-no-stream', null, controlUrl, headers, durationMs);
+    const videoCapabilities = await client.videoCapabilities(udid) as VideoCapabilities;
+    const mjpegCapability = videoCapabilities.transports.find(({ id }) => id === 'mjpeg');
+    if (!mjpegCapability) throw new Error('Device advertises no MJPEG transport for the baseline video benchmark');
 
     const capabilityResponse = await fetch(new URL(`/api/devices/${encodeURIComponent(udid)}/remote/stream-token`, client.baseUrl), {
         method: 'POST', headers,
     });
-    if (!capabilityResponse.ok) throw new Error(`Unable to mint WDA stream capability (${capabilityResponse.status})`);
+    if (!capabilityResponse.ok) throw new Error(`Unable to mint MJPEG stream capability (${capabilityResponse.status})`);
     const capability = await capabilityResponse.json() as { url: string };
-    const wda = await benchmark('wda-mjpeg', new URL(capability.url, client.baseUrl), controlUrl, headers, durationMs);
+    const mjpeg = await benchmark(mjpegCapability.backend, new URL(capability.url, client.baseUrl), controlUrl, headers, durationMs);
 
     const qvhUrl = option('--qvh-url') ?? dfarmingEnv('QVH_URL');
     const qvh = qvhUrl ? await benchmark('qvh-h264', new URL(qvhUrl), controlUrl, headers, durationMs) : null;
-    let scrcpy: StreamBenchmarkResult | null = null;
-    try {
+    const h264Capability = videoCapabilities.transports.find(({ id }) => id === 'h264');
+    let h264: StreamBenchmarkResult | null = null;
+    if (h264Capability) try {
         const response = await fetch(new URL(`/api/devices/${encodeURIComponent(udid)}/remote/h264-token`, client.baseUrl), {
             method: 'POST', headers,
         });
         if (response.ok) {
             const capability = await response.json() as { url: string };
-            scrcpy = await benchmark('scrcpy-raw-h264', new URL(capability.url, client.baseUrl), controlUrl, headers, durationMs);
+            h264 = await benchmark(h264Capability.backend, new URL(capability.url, client.baseUrl), controlUrl, headers, durationMs);
         }
     } catch { /* optimized video is optional */ }
     return {
         deviceUdid: udid,
         capturedAt: new Date().toISOString(),
+        videoCapabilities,
         baseline,
-        wda,
+        mjpeg,
         qvh,
-        scrcpy,
+        h264,
         comparison: {
-            wdaP95ControlOverheadMs: baseline.controlP95Ms !== null && wda.controlP95Ms !== null ? wda.controlP95Ms - baseline.controlP95Ms : null,
+            mjpegP95ControlOverheadMs: baseline.controlP95Ms !== null && mjpeg.controlP95Ms !== null ? mjpeg.controlP95Ms - baseline.controlP95Ms : null,
             qvhP95ControlOverheadMs: qvh && baseline.controlP95Ms !== null && qvh.controlP95Ms !== null ? qvh.controlP95Ms - baseline.controlP95Ms : null,
-            scrcpyP95ControlOverheadMs: scrcpy && baseline.controlP95Ms !== null && scrcpy.controlP95Ms !== null ? scrcpy.controlP95Ms - baseline.controlP95Ms : null,
+            h264P95ControlOverheadMs: h264 && baseline.controlP95Ms !== null && h264.controlP95Ms !== null ? h264.controlP95Ms - baseline.controlP95Ms : null,
         },
     };
 }

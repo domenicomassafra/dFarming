@@ -115,6 +115,7 @@ export async function runLiveAcceptance(): Promise<Record<string, unknown>> {
     }
     const preflightErrors = acceptancePreflightErrors(doctor, device, host);
     if (preflightErrors.length) throw new Error(preflightErrors.join('\n'));
+    const videoCapabilities = await client.videoCapabilities(udid);
 
     const screenshot = await api(base, 'GET', `/api/devices/${encodeURIComponent(udid)}/remote/screenshot`);
     const screenshotBytes = Buffer.from(await screenshot.arrayBuffer());
@@ -171,7 +172,11 @@ export async function runLiveAcceptance(): Promise<Record<string, unknown>> {
         accounts,
         screenshot: { bytes: screenshotBytes.length, sha256: crypto.createHash('sha256').update(screenshotBytes).digest('hex') },
         semantic: { generation: snapshot.generation, count: snapshot.count },
-        stream: { firstChunkBytes: firstChunk.value.length, contentType: streamResponse.headers.get('content-type') },
+        stream: {
+            firstChunkBytes: firstChunk.value.length,
+            contentType: streamResponse.headers.get('content-type'),
+            capabilities: videoCapabilities,
+        },
         inputProof,
         taskProof,
     };

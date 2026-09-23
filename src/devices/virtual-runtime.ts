@@ -6,7 +6,7 @@ import { dfarmingEnv } from '../env.js';
 const execFileAsync = promisify(execFile);
 
 export type VirtualRuntimePlatform = 'ios' | 'android';
-export type VirtualRuntimeState = 'booted' | 'shutdown';
+export type VirtualRuntimeState = 'booted' | 'booting' | 'shutdown';
 
 export interface VirtualRuntime {
     id: string;
@@ -73,17 +73,71 @@ async function runningAndroidAvds(): Promise<Map<string, string>> {
     return result;
 }
 
+async function androidBootCompleted(serial: string): Promise<boolean> {
+    try {
+        const { stdout } = await execFileAsync('adb', ['-s', serial, 'shell', 'getprop', 'sys.boot_completed'], { timeout: 3_000 });
+        return stdout.trim() === '1';
+    } catch {
+        return false;
+    }
+}
+
+export interface AndroidBootWaitOptions {
+    timeoutMs?: number;
+    pollMs?: number;
+    runningAvds?: () => Promise<Map<string, string>>;
+    bootCompleted?: (serial: string) => Promise<boolean>;
+    now?: () => number;
+    sleep?: (milliseconds: number) => Promise<void>;
+}
+
+export async function waitForAndroidVirtualRuntime(
+    name: string,
+    options: AndroidBootWaitOptions = {},
+): Promise<string> {
+    const configuredTimeout = options.timeoutMs ?? Number(dfarmingEnv('ANDROID_EMULATOR_BOOT_TIMEOUT_MS') ?? 120_000);
+    const timeoutMs = Number.isFinite(configuredTimeout)
+        ? Math.max(10_000, Math.min(120_000, Math.round(configuredTimeout)))
+        : 120_000;
+    const pollMs = Math.max(100, Math.min(2_000, Math.round(options.pollMs ?? 1_000)));
+    const running = options.runningAvds ?? runningAndroidAvds;
+    const booted = options.bootCompleted ?? androidBootCompleted;
+    const now = options.now ?? Date.now;
+    const sleep = options.sleep ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+    const deadline = now() + timeoutMs;
+    let lastSerial: string | undefined;
+    while (true) {
+        const serial = (await running()).get(name);
+        if (serial) {
+            lastSerial = serial;
+            if (await booted(serial)) return serial;
+        }
+        if (now() >= deadline) break;
+        await sleep(pollMs);
+    }
+    throw new Error(
+        `Android emulator ${name} did not finish booting within ${timeoutMs}ms`
+        + (lastSerial ? ` (last ADB serial: ${lastSerial})` : ' (no ADB serial appeared)'),
+    );
+}
+
 async function androidVirtualRuntimes(): Promise<VirtualRuntime[]> {
     try {
         const { stdout } = await execFileAsync('emulator', ['-list-avds'], { timeout: 5_000 });
         const running = await runningAndroidAvds();
-        return parseAvdNames(stdout).map((name) => ({
-            id: name,
-            name,
-            platform: 'android' as const,
-            kind: 'emulator' as const,
-            state: running.has(name) ? 'booted' as const : 'shutdown' as const,
-            ...(running.get(name) ? { serial: running.get(name) } : {}),
+        return Promise.all(parseAvdNames(stdout).map(async (name) => {
+            const serial = running.get(name);
+            const state: VirtualRuntimeState = !serial
+                ? 'shutdown'
+                : await androidBootCompleted(serial) ? 'booted' : 'booting';
+            return {
+                id: name,
+                name,
+                platform: 'android' as const,
+                kind: 'emulator' as const,
+                state,
+                ...(serial ? { serial } : {}),
+            };
         }));
     } catch {
         return [];
@@ -121,10 +175,13 @@ export async function changeVirtualRuntimeState(
     }
     if (action === 'boot') {
         if (runtime.state === 'booted') return;
-        const args = ['-avd', runtime.id, '-no-snapshot-save', '-no-boot-anim'];
-        if (dfarmingEnv('ANDROID_EMULATOR_HEADLESS') === 'true') args.push('-no-window');
-        const child = spawn('emulator', args, { detached: true, stdio: 'ignore' });
-        child.unref();
+        if (runtime.state === 'shutdown') {
+            const args = ['-avd', runtime.id, '-no-snapshot-save', '-no-boot-anim'];
+            if (dfarmingEnv('ANDROID_EMULATOR_HEADLESS') === 'true') args.push('-no-window');
+            const child = spawn('emulator', args, { detached: true, stdio: 'ignore' });
+            child.unref();
+        }
+        await waitForAndroidVirtualRuntime(runtime.id);
         return;
     }
     const serial = runtime.serial;

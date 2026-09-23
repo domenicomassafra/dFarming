@@ -106,7 +106,9 @@ export class SemanticController {
         if (!options.exact) return matches;
         const wanted = text.trim().toLowerCase();
         return matches.filter((element) => (
-            element.label.trim().toLowerCase() === wanted || element.value?.trim().toLowerCase() === wanted
+            element.label.trim().toLowerCase() === wanted
+            || element.value?.trim().toLowerCase() === wanted
+            || element.identifier?.trim().toLowerCase() === wanted
         ));
     }
 
