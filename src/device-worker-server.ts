@@ -7,6 +7,7 @@ import { RegistryWdaRemoteControl } from './devices/registry-remote.js';
 import { requestWdaService } from './devices/wda-service-client.js';
 import type { DeviceConnectionStatus } from './devices/connection-manager.js';
 import type { RemoteAction } from './devices/wda-remote.js';
+import { parseRemoteAction } from './devices/remote-action.js';
 import type { JsonObject } from './types.js';
 import { detectHostCapabilities } from './hosts/capabilities.js';
 import {
@@ -19,6 +20,7 @@ import { physicalIosLaneEnabled } from './runtime-options.js';
 import { dfarmingEnv } from './env.js';
 import { isEntrypoint } from './entrypoint.js';
 import { bearerMatches } from './security/bearer.js';
+import { collectRecentDeviceLogs } from './devices/runtime-logs.js';
 
 async function localConnectionStatus(
     udid: string,
@@ -260,9 +262,12 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
             return reply.code(503).send({ error: error instanceof Error ? error.message : String(error) });
         }
     });
-    app.post<{ Params: { udid: string }; Body: RemoteAction }>('/v1/devices/:udid/action', async (request) => {
+    app.post<{ Params: { udid: string }; Body: RemoteAction }>('/v1/devices/:udid/action', async (request, reply) => {
         await requireWorkerDevice(request.params.udid);
-        await remote.performAction(request.params.udid, request.body);
+        let action: RemoteAction;
+        try { action = parseRemoteAction(request.body); }
+        catch (error) { return reply.code(400).send({ error: error instanceof Error ? error.message : String(error) }); }
+        await remote.performAction(request.params.udid, action);
         return { ok: true };
     });
     app.get<{ Params: { udid: string } }>('/v1/devices/:udid/locked', async (request) => {
@@ -270,6 +275,16 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
         return { locked: await remote.isLocked(request.params.udid) };
     });
     app.get<{ Params: { udid: string } }>('/v1/devices/:udid/connection', async (request) => localConnectionStatus(request.params.udid));
+    app.get<{
+        Params: { udid: string };
+        Querystring: { lines?: string; sinceSeconds?: string };
+    }>('/v1/devices/:udid/logs', async (request) => {
+        const registered = await requireWorkerDevice(request.params.udid);
+        return collectRecentDeviceLogs(registered, {
+            ...(request.query.lines !== undefined ? { lines: Number(request.query.lines) } : {}),
+            ...(request.query.sinceSeconds !== undefined ? { sinceSeconds: Number(request.query.sinceSeconds) } : {}),
+        });
+    });
     app.post<{ Params: { udid: string } }>('/v1/devices/:udid/reconnect', async (request, reply) => {
         const registered = await requireWorkerDevice(request.params.udid);
         const backend = registered?.automationBackend

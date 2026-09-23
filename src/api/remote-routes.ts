@@ -8,6 +8,7 @@ import { dfarmingEnv } from '../env.js';
 import type { Device } from '../devices/discovery.js';
 import { loadRegisteredDevices } from '../devices/registry.js';
 import type { RemoteAction, RemoteControl } from '../devices/wda-remote.js';
+import { parseRemoteAction } from '../devices/remote-action.js';
 import { requestWdaService } from '../devices/wda-service-client.js';
 import type { SchedulerRepository } from '../scheduler/repository.js';
 import { SemanticController } from '../semantic/controller.js';
@@ -62,6 +63,25 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
             ? remote.getVideoCapabilities(request.params.udid)
             : { transports: [{ id: 'mjpeg', backend: 'unknown-mjpeg', contentType: 'multipart/x-mixed-replace', optimized: false }] }
     ));
+
+    app.get<{
+        Params: { udid: string };
+        Querystring: { lines?: string; sinceSeconds?: string };
+    }>('/api/devices/:udid/diagnostics/logs', async (request) => {
+        if (!remote.getRecentLogs) {
+            return {
+                supported: false,
+                source: 'unavailable',
+                capturedAt: new Date().toISOString(),
+                lines: [],
+                warning: 'Recent device logs are not available through this runtime adapter',
+            };
+        }
+        return remote.getRecentLogs(request.params.udid, {
+            ...(request.query.lines !== undefined ? { lines: Number(request.query.lines) } : {}),
+            ...(request.query.sinceSeconds !== undefined ? { sinceSeconds: Number(request.query.sinceSeconds) } : {}),
+        });
+    });
 
     app.post<{ Params: { udid: string }; Querystring: { scope?: string } }>(
         '/api/devices/:udid/remote/stream-token',
@@ -225,7 +245,11 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
         if (await scheduler.activeExecution(request.params.udid)) {
             return reply.code(409).send({ error: 'Remote input is disabled while automation is running' });
         }
-        await remote.performAction(request.params.udid, request.body);
+        let action: RemoteAction;
+        try { action = parseRemoteAction(request.body); }
+        catch (error) { return reply.code(400).send({ error: errorMessage(error) }); }
+        await remote.performAction(request.params.udid, action);
+        semantic.invalidate(request.params.udid);
         return { ok: true };
     });
 
@@ -237,23 +261,39 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
         if (!device) return reply.code(404).send({ error: 'Device is not connected' });
         const rawMaxNodes = request.query.maxNodes === undefined ? 120 : Number(request.query.maxNodes);
         const maxNodes = Number.isFinite(rawMaxNodes) ? Math.max(1, Math.min(500, Math.round(rawMaxNodes))) : 120;
-        const [screen, locked, snapshot, activeExecution, connection] = await Promise.all([
-            remote.getScreenInfo(device.udid),
-            remote.isLocked(device.udid).catch(() => null),
-            semantic.snapshot(device.udid, {
+        const [semanticResult, executionResult, lockResult, connectionResult] = await Promise.allSettled([
+            semantic.snapshotWithScreen(device.udid, {
                 ...(request.query.query ? { query: request.query.query } : {}),
                 maxNodes,
             }),
             scheduler.activeExecution(device.udid),
-            options.connectionStatus ? options.connectionStatus(device.udid).catch(() => undefined) : Promise.resolve(undefined),
+            remote.isLocked(device.udid),
+            options.connectionStatus ? options.connectionStatus(device.udid) : Promise.resolve(undefined),
         ]);
+        const errors: Array<{ section: string; message: string }> = [];
+        const failed = (section: string, result: PromiseSettledResult<unknown>) => {
+            if (result.status === 'rejected') {
+                errors.push({ section, message: errorMessage(result.reason).slice(0, 300) });
+                return true;
+            }
+            return false;
+        };
+        failed('semantic', semanticResult);
+        failed('scheduler', executionResult);
+        failed('lock', lockResult);
+        failed('connection', connectionResult);
+        const semanticObservation = semanticResult.status === 'fulfilled' ? semanticResult.value : undefined;
+        const activeExecution = executionResult.status === 'fulfilled' ? Boolean(executionResult.value) : null;
+        const locked = lockResult.status === 'fulfilled' ? lockResult.value : null;
+        const connection = connectionResult.status === 'fulfilled' ? connectionResult.value : undefined;
         return {
             device,
-            screen,
+            ...(semanticObservation ? { screen: semanticObservation.screen } : {}),
             locked,
-            activeExecution: Boolean(activeExecution),
+            activeExecution,
             ...(connection ? { connection } : {}),
-            semantic: snapshot,
+            ...(semanticObservation ? { semantic: semanticObservation.snapshot } : {}),
+            ...(errors.length ? { errors } : {}),
         };
     });
 

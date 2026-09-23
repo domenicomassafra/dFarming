@@ -11,8 +11,9 @@ Use the repository's `npm run agent:client -- ...` adapter. The dFarming web/API
 
 - Never start WebDriverAgent, Appium or a second scheduler from this skill.
 - Start with `devices` and `accounts`, then use `observe` on the intended device. It returns runtime/screen/lock/scheduler state and a compact semantic UI in one bounded call.
+- `observe` may return an `errors[]` section while preserving healthy sections; treat that as partial telemetry, not as permission to bypass the control plane.
 - Prefer `tap-text`, `input`, semantic refs and waits over raw coordinates. This adapter deliberately has no raw-coordinate command.
-- A ref belongs to exactly one snapshot generation; take a new snapshot after meaningful UI transitions.
+- A ref belongs to exactly one snapshot generation and mutating actions invalidate prior refs immediately; observe again after a UI transition.
 - Mutating commands can return 409 while scheduled automation owns the device. Treat that as a control-plane refusal, not a reason to bypass it.
 - Sensitive typed text goes through stdin so it is not exposed in process arguments. The dFarming trace records text length only.
 - Do not create accounts, discover credentials, bypass login/CAPTCHA walls, evade platform enforcement or automate accounts the owner has not configured.
@@ -24,6 +25,7 @@ npm run -s agent:client -- health
 npm run -s agent:client -- devices
 npm run -s agent:client -- accounts
 npm run -s agent:client -- observe --udid '<udid>' --query 'Continue'
+npm run -s agent:client -- logs --udid '<udid>' --lines 120 --since-seconds 30
 npm run -s agent:client -- snapshot --udid '<udid>' --query 'Continue'
 npm run -s agent:client -- tap-text --udid '<udid>' --text 'continue_button' --exact
 npm run -s agent:client -- tap --udid '<udid>' --generation 3 --ref e2
@@ -32,6 +34,7 @@ printf '%s' "$SENSITIVE_TEXT" | npm run -s agent:client -- type --udid '<udid>'
 printf '%s' "$SENSITIVE_TEXT" | npm run -s agent:client -- input --udid '<udid>' --target 'Email'
 npm run -s agent:client -- system --udid '<udid>' --action home
 npm run -s agent:client -- app --udid '<udid>' --action launch --app-id com.example.app
+npm run -s agent:client -- orientation --udid '<udid>' --value landscape
 ```
 
 By default the adapter uses `http://127.0.0.1:3000`. For a non-loopback `DFARMING_URL`, `DFARMING_TOKEN` is mandatory. The legacy `PHONE_FARM_*` names are accepted only during migration.

@@ -34,6 +34,17 @@ function commandStep(command: MaestroCommand, appId: string): FlowStep[] {
         if (typeof value === 'string' && value.trim()) return [{ action: 'launch', appId: value.trim() }];
         return [{ action: 'launch', appId }];
     }
+    if (name === 'setOrientation') {
+        const orientation = typeof value === 'string' ? value.toUpperCase() : '';
+        if (orientation === 'PORTRAIT') return [{ action: 'setOrientation', orientation: 'portrait' }];
+        if (orientation === 'LANDSCAPE_LEFT' || orientation === 'LANDSCAPE') {
+            return [{ action: 'setOrientation', orientation: 'landscape' }];
+        }
+        throw new Error(
+            `Unsupported Maestro setOrientation ${JSON.stringify(value)}; `
+            + 'dFarming keeps only the lossless cross-platform portrait/landscape subset',
+        );
+    }
     if (name === 'tapOn') return [{ action: 'tapText', ...semanticSelector(value, name), timeoutMs: 10_000 }];
     if (name === 'assertVisible') return [{ action: 'assertVisible', ...semanticSelector(value, name), timeoutMs: 1_000 }];
     if (name === 'assertNotVisible') return [{ action: 'waitGone', ...semanticSelector(value, name), timeoutMs: 1_000 }];
@@ -86,6 +97,10 @@ export function exportMaestroFlow(payload: PortableFlowPayload): string {
         if (step.action === 'terminate') {
             if (step.appId !== appId) throw new Error('Maestro export does not support terminating a different app id');
             commands.push('stopApp');
+            continue;
+        }
+        if (step.action === 'setOrientation') {
+            commands.push({ setOrientation: step.orientation === 'portrait' ? 'PORTRAIT' : 'LANDSCAPE_LEFT' });
             continue;
         }
         if (step.action === 'tapText') { commands.push({ tapOn: step.text }); continue; }

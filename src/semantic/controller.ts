@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { RemoteControl } from '../devices/wda-remote.js';
+import type { RemoteControl, ScreenInfo } from '../devices/wda-remote.js';
 import { SemanticSnapshotStore, type SemanticSnapshot, type SemanticSnapshotOptions } from './snapshot.js';
 
 export interface SemanticFindOptions {
@@ -36,17 +36,29 @@ export class SemanticController {
     }
 
     async snapshot(deviceUdid: string, options: SemanticSnapshotOptions = {}): Promise<SemanticSnapshot> {
+        return (await this.snapshotWithScreen(deviceUdid, options)).snapshot;
+    }
+
+    async snapshotWithScreen(
+        deviceUdid: string,
+        options: SemanticSnapshotOptions = {},
+    ): Promise<{ screen: ScreenInfo; snapshot: SemanticSnapshot }> {
         const [screen, tree] = await Promise.all([
             this.remote.getScreenInfo(deviceUdid),
             this.remote.getAccessibilityTree(deviceUdid),
         ]);
-        return this.store.build(deviceUdid, tree, screen.screenSize, options);
+        return { screen, snapshot: this.store.build(deviceUdid, tree, screen.screenSize, options) };
+    }
+
+    invalidate(deviceUdid: string): number {
+        return this.store.invalidate(deviceUdid);
     }
 
     async tapRef(deviceUdid: string, generation: number, ref: string): Promise<{ ok: true; traceId: string }> {
         const element = this.store.resolve(deviceUdid, generation, ref);
         if (!element.enabled) throw new Error(`Semantic element ${ref} is disabled`);
         await this.remote.performAction(deviceUdid, { type: 'tap', x: element.center.x, y: element.center.y });
+        this.store.invalidate(deviceUdid);
         const trace = await this.writeTrace({
             action: 'tap-ref', deviceUdid, generation, ref, elementType: element.type, center: element.center,
         });
@@ -56,6 +68,7 @@ export class SemanticController {
     async typeText(deviceUdid: string, text: string): Promise<{ ok: true; traceId: string }> {
         if (!text || text.length > 4000) throw new Error('Semantic text input must contain 1 to 4000 characters');
         await this.remote.performAction(deviceUdid, { type: 'type', text });
+        this.store.invalidate(deviceUdid);
         const trace = await this.writeTrace({ action: 'type-text', deviceUdid, textLength: text.length });
         return { ok: true, traceId: trace.id };
     }

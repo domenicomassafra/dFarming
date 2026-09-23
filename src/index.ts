@@ -36,3 +36,6 @@ export {
     type RegistrationUpdate,
 } from './devices/registration.js';
 export * from './devices/wda-remote.js';
+export * from './devices/runtime-logs.js';
+export * from './devices/ios-simulator-native.js';
+export * from './devices/remote-action.js';

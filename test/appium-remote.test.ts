@@ -9,6 +9,10 @@ interface SeenRequest {
     body?: unknown;
 }
 
+const unavailableNativeScreenshot = async (): Promise<Buffer> => {
+    throw new Error('native Simulator screenshot unavailable in Appium protocol fixture');
+};
+
 function appiumFixture(requests: SeenRequest[]): typeof fetch {
     return async (input, init) => {
         const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
@@ -32,16 +36,20 @@ test('Appium remote uses the narrow W3C/Appium protocol without a third-party We
     const requests: SeenRequest[] = [];
     const remote = new AppiumRemoteControl({
         name: 'Simulator', udid: 'SIM-1', platform: 'ios', kind: 'simulator', automationBackend: 'appium', pluginData: {},
-    }, 'appium.test', 4726, appiumFixture(requests));
+    }, 'appium.test', 4726, appiumFixture(requests), unavailableNativeScreenshot);
 
-    assert.deepEqual(await remote.getScreenInfo('SIM-1'), { screenSize: { width: 390, height: 844 }, scale: 1 });
+    assert.deepEqual(await remote.getScreenInfo('SIM-1'), {
+        screenSize: { width: 390, height: 844 }, scale: 1, orientation: 'portrait',
+    });
     const tree = await remote.getAccessibilityTree('SIM-1') as { children?: Array<{ label?: string }> };
     assert.equal(tree.children?.[0]?.label, 'Done');
     assert.equal((await remote.getScreenshot('SIM-1')).toString(), 'png-bytes');
+    assert.equal((await remote.getVideoCapabilities('SIM-1')).transports[0]?.backend, 'simctl-screenshot-mjpeg');
     await remote.activateApp('com.example.app');
     await remote.terminateApp('com.example.app');
     await remote.performAction('SIM-1', { type: 'launch', appId: 'com.example.other' });
     await remote.performAction('SIM-1', { type: 'terminate', appId: 'com.example.other' });
+    await remote.performAction('SIM-1', { type: 'orientation', orientation: 'landscape' });
     await remote.performAction('SIM-1', { type: 'tap', x: 25, y: 60 });
     await remote.performAction('SIM-1', { type: 'type', text: 'hello' });
     await remote.performAction('SIM-1', { type: 'home' });
@@ -66,6 +74,7 @@ test('Appium remote uses the narrow W3C/Appium protocol without a third-party We
     assert.deepEqual(execute.args, [{ name: 'home' }]);
     assert.equal(requests.filter(({ pathname }) => pathname.endsWith('/appium/device/activate_app')).length, 2);
     assert.equal(requests.filter(({ pathname }) => pathname.endsWith('/appium/device/terminate_app')).length, 2);
+    assert.deepEqual(requests.find(({ pathname }) => pathname.endsWith('/orientation'))?.body, { orientation: 'LANDSCAPE' });
     assert.equal(requests.some(({ method, pathname }) => method === 'DELETE' && pathname === '/session/session-1'), true);
 });
 
@@ -83,8 +92,10 @@ test('Appium remote retries transient session creation failures within the same 
     };
     const remote = new AppiumRemoteControl({
         name: 'Simulator', udid: 'SIM-RETRY', platform: 'ios', kind: 'simulator', automationBackend: 'appium', pluginData: {},
-    }, 'appium.test', 4726, fetchImpl);
-    assert.deepEqual(await remote.getScreenInfo('SIM-RETRY'), { screenSize: { width: 430, height: 932 }, scale: 1 });
+    }, 'appium.test', 4726, fetchImpl, unavailableNativeScreenshot);
+    assert.deepEqual(await remote.getScreenInfo('SIM-RETRY'), {
+        screenSize: { width: 430, height: 932 }, scale: 1, orientation: 'portrait',
+    });
     assert.equal(attempts, 2);
 });
 
@@ -111,7 +122,7 @@ test('Appium remote recreates a stale session after the Appium server restarts',
     };
     const remote = new AppiumRemoteControl({
         name: 'Simulator', udid: 'SIM-STALE', platform: 'ios', kind: 'simulator', automationBackend: 'appium', pluginData: {},
-    }, 'appium.test', 4726, fetchImpl);
+    }, 'appium.test', 4726, fetchImpl, unavailableNativeScreenshot);
 
     assert.equal((await remote.getScreenshot('SIM-STALE')).toString(), 'fresh-png');
     assert.equal(sessions, 2);
@@ -140,7 +151,7 @@ test('Appium read-only operations recreate a session after a transport timeout w
     };
     const remote = new AppiumRemoteControl({
         name: 'Simulator', udid: 'SIM-TIMEOUT', platform: 'ios', kind: 'simulator', automationBackend: 'appium', pluginData: {},
-    }, 'appium.test', 4726, fetchImpl);
+    }, 'appium.test', 4726, fetchImpl, unavailableNativeScreenshot);
 
     assert.equal((await remote.getScreenshot('SIM-TIMEOUT')).toString(), 'recovered-png');
     assert.equal(sessions, 2);
@@ -169,7 +180,7 @@ test('Appium read-only operations recreate a session when WDA disappears behind 
     };
     const remote = new AppiumRemoteControl({
         name: 'Simulator', udid: 'SIM-WDA', platform: 'ios', kind: 'simulator', automationBackend: 'appium', pluginData: {},
-    }, 'appium.test', 4726, fetchImpl);
+    }, 'appium.test', 4726, fetchImpl, unavailableNativeScreenshot);
 
     assert.equal((await remote.getScreenshot('SIM-WDA')).toString(), 'wda-recovered');
     assert.equal(sessions, 2);

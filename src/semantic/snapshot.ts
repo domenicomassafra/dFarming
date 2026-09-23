@@ -113,6 +113,12 @@ function children(node: RawNode): RawNode[] {
 export class SemanticSnapshotStore {
     private readonly states = new Map<string, DeviceSnapshotState>();
 
+    invalidate(deviceUdid: string): number {
+        const generation = (this.states.get(deviceUdid)?.generation ?? 0) + 1;
+        this.states.set(deviceUdid, { generation, refs: new Map() });
+        return generation;
+    }
+
     build(deviceUdid: string, root: unknown, screen: ScreenSize, options: SemanticSnapshotOptions = {}): SemanticSnapshot {
         if (!root || typeof root !== 'object' || Array.isArray(root)) throw new Error('WDA returned an invalid accessibility tree');
         const previous = this.states.get(deviceUdid);

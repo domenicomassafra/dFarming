@@ -20,15 +20,17 @@ test('agent CLI exposes bounded cross-platform observe and act commands', async 
 
     await runAgentCli(['devices'], client);
     await runAgentCli(['observe', '--udid', 'SIM 1', '--query', 'Done', '--max-nodes', '50'], client);
+    await runAgentCli(['logs', '--udid', 'SIM 1', '--lines', '25', '--since-seconds', '10'], client);
     await runAgentCli(['tap-text', '--udid', 'SIM 1', '--text', 'done_button', '--exact'], client);
     await runAgentCli(['system', '--udid', 'SIM 1', '--action', 'home'], client);
     await runAgentCli(['app', '--udid', 'SIM 1', '--action', 'launch', '--app-id', 'com.example.app'], client);
 
     assert.equal(requests[0]?.pathname, '/api/devices');
     assert.equal(requests[1]?.pathname, '/api/devices/SIM%201/agent/observe?query=Done&maxNodes=50');
-    assert.deepEqual(requests[2]?.body, { text: 'done_button', exact: true });
-    assert.deepEqual(requests[3]?.body, { type: 'home' });
-    assert.deepEqual(requests[4]?.body, { type: 'launch', appId: 'com.example.app' });
+    assert.equal(requests[2]?.pathname, '/api/devices/SIM%201/diagnostics/logs?lines=25&sinceSeconds=10');
+    assert.deepEqual(requests[3]?.body, { text: 'done_button', exact: true });
+    assert.deepEqual(requests[4]?.body, { type: 'home' });
+    assert.deepEqual(requests[5]?.body, { type: 'launch', appId: 'com.example.app' });
 });
 
 test('agent CLI rejects unsupported direct actions', async () => {

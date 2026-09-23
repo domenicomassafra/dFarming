@@ -5,6 +5,7 @@ import type { JsonObject, JsonValue } from './types.js';
 export type FlowStep =
     | { action: 'launch'; appId: string }
     | { action: 'terminate'; appId: string }
+    | { action: 'setOrientation'; orientation: 'portrait' | 'landscape' }
     | { action: 'wait'; milliseconds: number }
     | { action: 'tap'; x: number; y: number }
     | { action: 'swipe'; startX: number; startY: number; endX: number; endY: number; durationMs: number }
@@ -47,6 +48,12 @@ function parseStep(value: JsonValue, index: number): FlowStep {
     if (action === 'launch' || action === 'terminate') {
         if (typeof step.appId !== 'string' || !APP_ID.test(step.appId)) throw new Error(`steps[${index}].appId is invalid`);
         return { action, appId: step.appId };
+    }
+    if (action === 'setOrientation') {
+        if (step.orientation !== 'portrait' && step.orientation !== 'landscape') {
+            throw new Error(`steps[${index}].orientation must be portrait or landscape`);
+        }
+        return { action, orientation: step.orientation };
     }
     if (action === 'wait') {
         return { action, milliseconds: Math.round(finite(step.milliseconds, `steps[${index}].milliseconds`, 50, 300_000)) };
@@ -166,6 +173,7 @@ const portableFlowTask: TaskDefinition<PortableFlowPayload> = {
                 await context.log(`Step ${index + 1}/${payload.steps.length}: ${step.action}`);
                 if (step.action === 'launch') await context.automation.activateApp(step.appId);
                 else if (step.action === 'terminate') await context.automation.terminateApp(step.appId);
+                else if (step.action === 'setOrientation') await context.automation.setOrientation(step.orientation);
                 else if (step.action === 'wait') await context.automation.pause(step.milliseconds, context.signal);
                 else if (step.action === 'tap') await context.automation.tap(step.x, step.y);
                 else if (step.action === 'swipe') await context.automation.swipe(step.startX, step.startY, step.endX, step.endY, step.durationMs);

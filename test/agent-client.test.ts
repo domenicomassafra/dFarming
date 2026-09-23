@@ -23,6 +23,7 @@ test('agent client uses semantic endpoints and bearer auth without raw-coordinat
     await client.typeText('udid / one', 'secret body');
     await client.observe('udid / one', { query: 'Done', maxNodes: 20 });
     await client.videoCapabilities('udid / one');
+    await client.logs('udid / one', { lines: 40, sinceSeconds: 15 });
     await client.act('udid / one', { kind: 'tapText', text: 'continue_button', exact: true });
     await client.act('udid / one', { kind: 'app', action: 'launch', appId: 'com.example.app' });
     assert.match(requests[0]!.url, /\/api\/devices\/udid%20%2F%20one\/semantic\/snapshot\?query=Continue&maxNodes=42$/);
@@ -30,8 +31,9 @@ test('agent client uses semantic endpoints and bearer auth without raw-coordinat
     assert.deepEqual(JSON.parse(requests[1]!.body ?? '{}'), { generation: 3, ref: 'e2' });
     assert.match(requests[3]!.url, /\/api\/devices\/udid%20%2F%20one\/agent\/observe\?query=Done&maxNodes=20$/);
     assert.match(requests[4]!.url, /\/api\/devices\/udid%20%2F%20one\/remote\/video-capabilities$/);
-    assert.deepEqual(JSON.parse(requests[5]!.body ?? '{}'), { text: 'continue_button', exact: true });
-    assert.deepEqual(JSON.parse(requests[6]!.body ?? '{}'), { type: 'launch', appId: 'com.example.app' });
+    assert.match(requests[5]!.url, /\/api\/devices\/udid%20%2F%20one\/diagnostics\/logs\?lines=40&sinceSeconds=15$/);
+    assert.deepEqual(JSON.parse(requests[6]!.body ?? '{}'), { text: 'continue_button', exact: true });
+    assert.deepEqual(JSON.parse(requests[7]!.body ?? '{}'), { type: 'launch', appId: 'com.example.app' });
 });
 
 test('agent client surfaces farm refusals instead of bypassing them', async () => {

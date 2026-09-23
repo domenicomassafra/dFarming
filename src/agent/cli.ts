@@ -44,6 +44,12 @@ export async function runAgentCli(args = process.argv.slice(2), client = new DFa
             ...(option(args, '--max-nodes') ? { maxNodes: Number(option(args, '--max-nodes')) } : {}),
         });
     }
+    if (command === 'logs') {
+        return client.logs(required(args, '--udid'), {
+            ...(option(args, '--lines') ? { lines: Number(option(args, '--lines')) } : {}),
+            ...(option(args, '--since-seconds') ? { sinceSeconds: Number(option(args, '--since-seconds')) } : {}),
+        });
+    }
     if (command === 'snapshot') {
         return client.snapshot(required(args, '--udid'), {
             ...(option(args, '--query') ? { query: option(args, '--query') } : {}),
@@ -89,8 +95,15 @@ export async function runAgentCli(args = process.argv.slice(2), client = new DFa
         if (action !== 'launch' && action !== 'terminate') throw new Error('--action must be launch or terminate');
         return client.app(required(args, '--udid'), action, required(args, '--app-id'));
     }
+    if (command === 'orientation') {
+        const orientation = required(args, '--value');
+        if (orientation !== 'portrait' && orientation !== 'landscape') {
+            throw new Error('--value must be portrait or landscape');
+        }
+        return client.orientation(required(args, '--udid'), orientation);
+    }
     throw new Error(
-        'Usage: agent:client <health|accounts|devices|observe|snapshot|tap|tap-text|wait|wait-gone|type|input|system|app> [options]. '
+        'Usage: agent:client <health|accounts|devices|observe|logs|snapshot|tap|tap-text|wait|wait-gone|type|input|system|app|orientation> [options]. '
         + '`type` and `input` read sensitive text from stdin.',
     );
 }

@@ -16,6 +16,7 @@ import type { RemoteControl } from './devices/wda-remote.js';
 export interface DeviceAutomation {
     activateApp(bundleId: string): Promise<void>;
     terminateApp(bundleId: string): Promise<void>;
+    setOrientation(orientation: 'portrait' | 'landscape'): Promise<void>;
     pause(milliseconds: number, signal?: AbortSignal): Promise<void>;
     screenshot(): Promise<Buffer>;
     tap(x: number, y: number): Promise<void>;

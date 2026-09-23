@@ -2,6 +2,7 @@ import type { RegisteredDevice } from './registry.js';
 import type { RemoteAction, RemoteControl, RemoteVideoCapabilities, ScreenInfo } from './wda-remote.js';
 import { normalizeAppiumPageSource } from '../semantic/appium-source.js';
 import { isInvalidAppiumSessionError, isRecoverableAppiumReadError, remoteWithFetch, type Browser } from './appium-driver.js';
+import { captureIosSimulatorScreenshot } from './ios-simulator-native.js';
 
 function driverBackend(device: RegisteredDevice): { platformName: 'iOS' | 'Android'; automationName: 'XCUITest' | 'UiAutomator2' } {
     if ((device.platform ?? 'ios') === 'android') return { platformName: 'Android', automationName: 'UiAutomator2' };
@@ -17,6 +18,7 @@ export class AppiumRemoteControl implements RemoteControl {
         readonly appiumHost = process.env.APPIUM_RUNTIME_HOST ?? '127.0.0.1',
         readonly appiumPort = Number(process.env.APPIUM_RUNTIME_PORT ?? 4726),
         private readonly fetchImpl: typeof fetch = fetch,
+        private readonly simulatorScreenshot: (udid: string) => Promise<Buffer> = captureIosSimulatorScreenshot,
     ) {}
 
     private assertTarget(udid: string): void {
@@ -76,7 +78,11 @@ export class AppiumRemoteControl implements RemoteControl {
     async getScreenInfo(udid: string): Promise<ScreenInfo> {
         this.assertTarget(udid);
         const size = await this.withDriver((driver) => driver.getWindowSize(), true);
-        return { screenSize: { width: size.width, height: size.height }, scale: 1 };
+        return {
+            screenSize: { width: size.width, height: size.height },
+            scale: 1,
+            orientation: size.width > size.height ? 'landscape' : 'portrait',
+        };
     }
 
     async getAccessibilityTree(udid: string): Promise<unknown> {
@@ -86,6 +92,13 @@ export class AppiumRemoteControl implements RemoteControl {
 
     async getScreenshot(udid: string): Promise<Buffer> {
         this.assertTarget(udid);
+        if ((this.device.platform ?? 'ios') === 'ios' && this.device.kind === 'simulator') {
+            try {
+                return await this.simulatorScreenshot(udid);
+            } catch {
+                // Keep Appium as the compatibility fallback when simctl itself is unavailable.
+            }
+        }
         return Buffer.from(await this.withDriver((driver) => driver.takeScreenshot(), true), 'base64');
     }
 
@@ -121,10 +134,11 @@ export class AppiumRemoteControl implements RemoteControl {
 
     async getVideoCapabilities(udid: string): Promise<RemoteVideoCapabilities> {
         this.assertTarget(udid);
+        const simulatorNative = (this.device.platform ?? 'ios') === 'ios' && this.device.kind === 'simulator';
         return {
             transports: [{
                 id: 'mjpeg',
-                backend: 'appium-screenshot-mjpeg',
+                backend: simulatorNative ? 'simctl-screenshot-mjpeg' : 'appium-screenshot-mjpeg',
                 contentType: 'multipart/x-mixed-replace',
                 optimized: false,
             }],
@@ -139,6 +153,10 @@ export class AppiumRemoteControl implements RemoteControl {
                 if (!/^[A-Za-z0-9._-]{2,255}$/.test(action.appId)) throw new Error('App id is invalid');
                 if (action.type === 'launch') await driver.activateApp(action.appId);
                 else await driver.terminateApp(action.appId);
+                return;
+            }
+            if (action.type === 'orientation') {
+                await driver.setOrientation(action.orientation === 'portrait' ? 'PORTRAIT' : 'LANDSCAPE');
                 return;
             }
             if (action.type === 'tap' || action.type === 'swipe') {

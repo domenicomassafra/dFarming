@@ -31,3 +31,25 @@ Forks are kept in the owner namespace as `dFarming-baguette`, `dFarming-mobile-u
   `com.dfarming.runtime=android-emulator` are discovered as first-class
   virtual runtimes. dFarming can stop/start the container and does not mark a
   restart complete until ADB reconnects and Android finishes booting.
+- The mobile-use-style observation seam now degrades section-by-section instead
+  of failing the whole observation when lock, scheduler or connection status is
+  temporarily unavailable. Screen metadata is obtained once per observation,
+  and semantic refs are invalidated immediately after mutating actions so an
+  agent cannot reuse coordinates from a pre-transition snapshot.
+- Direct remote actions are parsed at runtime on both the control plane and the
+  worker. Unknown action types, malformed app identifiers, unbounded text,
+  invalid orientations and unreasonable swipe durations fail closed before
+  reaching Appium/WDA.
+- Baguette's Simulator-native seam was adopted narrowly: iOS Simulator
+  screenshots use `simctl io screenshot` first and fall back to Appium only
+  when the native probe itself is unavailable. In live testing on the Studio,
+  repeated native captures completed in roughly 0.5–0.7 s while the stale
+  Appium screenshot path had timed out at 30 s. Control and accessibility stay
+  on the canonical Appium/XCUITest path; Baguette runtime/video remains held.
+- Read-only diagnostics are exposed as bounded snapshots instead of shell
+  access: `simctl log show` for iOS Simulator and `adb logcat` for Android,
+  capped at 500 lines / 5 minutes with common credential patterns redacted.
+  Physical-iPhone log collection remains explicitly unsupported until a
+  similarly bounded native transport is proven.
+- Portable flows and Maestro import/export now share portrait/landscape
+  orientation steps. Unsupported or lossy Maestro commands still fail closed.

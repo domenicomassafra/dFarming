@@ -63,6 +63,7 @@ test('portable flow executes shared automation primitives in order', async () =>
         automation: {
             activateApp: async (id: string) => { calls.push(`launch:${id}`); },
             terminateApp: async (id: string) => { calls.push(`terminate:${id}`); },
+            setOrientation: async (orientation: 'portrait' | 'landscape') => { calls.push(`orientation:${orientation}`); },
             pause: async (ms: number) => { calls.push(`wait:${ms}`); },
             screenshot: async () => { calls.push('screenshot'); return Buffer.from('x'); },
             tap: async (x: number, y: number) => { calls.push(`tap:${x},${y}`); },
@@ -80,6 +81,7 @@ test('portable flow executes shared automation primitives in order', async () =>
         name: 'demo',
         steps: [
             { action: 'launch', appId: 'com.example.app' },
+            { action: 'setOrientation', orientation: 'landscape' },
             { action: 'tap', x: 10, y: 20 },
             { action: 'type', text: 'hello' },
             { action: 'home' },
@@ -89,7 +91,7 @@ test('portable flow executes shared automation primitives in order', async () =>
     const result = await task.execute(context, payload);
     assert.equal(result.exitCode, 0);
     assert.deepEqual(calls.filter((call) => !call.startsWith('log:')), [
-        'launch:com.example.app', 'tap:10,20', 'type:hello', 'system:home', 'screenshot',
+        'launch:com.example.app', 'orientation:landscape', 'tap:10,20', 'type:hello', 'system:home', 'screenshot',
     ]);
 });
 
@@ -107,7 +109,7 @@ test('portable flows execute semantic accessibility-first steps', async () => {
         completePipelineItem: async () => {},
         failPipelineItem: async () => {},
         automation: {
-            activateApp: async () => {}, terminateApp: async () => {}, pause: async () => {},
+            activateApp: async () => {}, terminateApp: async () => {}, setOrientation: async () => {}, pause: async () => {},
             screenshot: async () => Buffer.from('x'), tap: async () => {}, swipe: async () => {}, typeText: async () => {},
             waitForText: async (text: string) => { calls.push(`wait:${text}`); },
             tapText: async (text: string) => { calls.push(`tap:${text}`); },

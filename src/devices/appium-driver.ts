@@ -42,6 +42,7 @@ export interface Browser {
     deleteSession(): Promise<void>;
     activateApp(appId: string): Promise<void>;
     terminateApp(appId: string): Promise<void>;
+    setOrientation(orientation: 'PORTRAIT' | 'LANDSCAPE'): Promise<void>;
     queryAppState(appId: string): Promise<number>;
     updateSettings(settings: Record<string, unknown>): Promise<void>;
     setTimeout(timeouts: { implicit?: number; script?: number; pageLoad?: number }): Promise<void>;
@@ -278,6 +279,10 @@ export class AppiumDriver implements Browser {
 
     async terminateApp(appId: string): Promise<void> {
         await this.request('POST', 'appium/device/terminate_app', { appId, bundleId: appId });
+    }
+
+    async setOrientation(orientation: 'PORTRAIT' | 'LANDSCAPE'): Promise<void> {
+        await this.request('POST', 'orientation', { orientation });
     }
 
     async queryAppState(appId: string): Promise<number> {

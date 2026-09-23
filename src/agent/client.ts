@@ -12,6 +12,7 @@ export type DFarmingAgentAction =
     | { kind: 'type'; text: string }
     | { kind: 'inputText'; target: string; text: string; type?: string; exact?: boolean; timeoutMs?: number; pollMs?: number }
     | { kind: 'system'; action: 'home' | 'lock' | 'wake' | 'unlock' | 'volumeUp' | 'volumeDown' }
+    | { kind: 'orientation'; orientation: 'portrait' | 'landscape' }
     | { kind: 'app'; action: 'launch' | 'terminate'; appId: string };
 
 export class DFarmingAgentClient {
@@ -41,6 +42,13 @@ export class DFarmingAgentClient {
 
     videoCapabilities(udid: string): Promise<unknown> {
         return this.request('GET', `/api/devices/${encodeURIComponent(udid)}/remote/video-capabilities`);
+    }
+
+    logs(udid: string, options: { lines?: number; sinceSeconds?: number } = {}): Promise<unknown> {
+        const query = new URLSearchParams();
+        if (options.lines !== undefined) query.set('lines', String(options.lines));
+        if (options.sinceSeconds !== undefined) query.set('sinceSeconds', String(options.sinceSeconds));
+        return this.request('GET', `/api/devices/${encodeURIComponent(udid)}/diagnostics/logs${query.size ? `?${query}` : ''}`);
     }
 
     snapshot(udid: string, options: { query?: string; maxNodes?: number } = {}): Promise<unknown> {
@@ -99,6 +107,10 @@ export class DFarmingAgentClient {
         return this.request('POST', `/api/devices/${encodeURIComponent(udid)}/remote/action`, { type: action, appId });
     }
 
+    orientation(udid: string, orientation: 'portrait' | 'landscape'): Promise<unknown> {
+        return this.request('POST', `/api/devices/${encodeURIComponent(udid)}/remote/action`, { type: 'orientation', orientation });
+    }
+
     act(udid: string, action: DFarmingAgentAction): Promise<unknown> {
         if (action.kind === 'tapRef') return this.tapRef(udid, action.generation, action.ref);
         if (action.kind === 'tapText') {
@@ -111,6 +123,7 @@ export class DFarmingAgentClient {
             return this.inputText(udid, target, text, options);
         }
         if (action.kind === 'system') return this.system(udid, action.action);
+        if (action.kind === 'orientation') return this.orientation(udid, action.orientation);
         return this.app(udid, action.action, action.appId);
     }
 

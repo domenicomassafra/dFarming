@@ -31,3 +31,11 @@ test('refs are scoped to device and invalidated by the next generation', () => {
     assert.throws(() => store.resolve('udid-a', 1, 'e1'), /stale/);
     assert.throws(() => store.resolve('udid-b', 1, 'e1'), /No semantic snapshot/);
 });
+
+test('explicit invalidation makes refs stale before the next observation', () => {
+    const store = new SemanticSnapshotStore();
+    const snapshot = store.build('udid-a', tree, { width: 390, height: 844 });
+    assert.equal(store.invalidate('udid-a'), 2);
+    assert.throws(() => store.resolve('udid-a', snapshot.generation, 'e1'), /stale/);
+    assert.equal(store.build('udid-a', tree, { width: 390, height: 844 }).generation, 3);
+});

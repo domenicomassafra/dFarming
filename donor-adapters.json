@@ -53,17 +53,17 @@
     {
       "id": "baguette",
       "status": "promoted",
-      "boundary": "stable accessibility identifiers and simulator-farm readiness patterns; Baguette runtime transport remains held",
+      "boundary": "stable accessibility identifiers, Simulator-native screenshot fallback and simulator-farm readiness patterns; Baguette runtime transport remains held",
       "implementation": "src/semantic/snapshot.ts",
-      "reason": "dFarming adopted the portable accessibility-metadata pattern while retaining the already proven Appium/XCUITest runtime. Baguette video/runtime may be promoted separately only after measured latency or density gains.",
-      "failureMode": "no Baguette runtime dependency; Appium/XCUITest screenshots, semantic snapshots, input and MJPEG remain canonical"
+      "reason": "dFarming adopted the portable accessibility-metadata and native simctl screenshot patterns while retaining Appium/XCUITest as the automation authority. Baguette video/runtime may be promoted separately only after measured latency or density gains.",
+      "failureMode": "no Baguette runtime dependency; failed native Simulator screenshots fall back to Appium/XCUITest while semantic input and scheduling remain canonical dFarming paths"
     },
     {
       "id": "mobile-use",
       "status": "promoted",
       "boundary": "structured cross-platform observe-to-act agent seam",
       "implementation": "src/agent/client.ts",
-      "reason": "dFarming adopted the bounded observe/semantic-act pattern without importing mobile-use's runtime, allocation or orchestration authority.",
+      "reason": "dFarming adopted the bounded partial-observe/semantic-act pattern with stale-ref invalidation and runtime action validation, without importing mobile-use's runtime, allocation or orchestration authority.",
       "failureMode": "no mobile-use runtime dependency; deterministic recipes, Portable Flow and direct dFarming API remain available"
     },
     {

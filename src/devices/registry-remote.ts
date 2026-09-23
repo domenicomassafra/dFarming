@@ -10,6 +10,7 @@ import {
 import { passcodeForDevice } from './secrets.js';
 import { AppiumRemoteControl } from './appium-remote.js';
 import { ScrcpyVideoSource } from './scrcpy-video.js';
+import { collectRecentDeviceLogs } from './runtime-logs.js';
 
 export class RegistryWdaRemoteControl implements RemoteControl {
     private readonly controls = new Map<string, WdaRemoteControl | AppiumRemoteControl>();
@@ -105,6 +106,11 @@ export class RegistryWdaRemoteControl implements RemoteControl {
                 { id: 'h264', backend: 'scrcpy-raw-h264', contentType: 'video/h264', optimized: true },
             ],
         };
+    }
+    async getRecentLogs(udid: string, options?: { lines?: number; sinceSeconds?: number }) {
+        const device = (await loadRegisteredDevices()).find((candidate) => candidate.udid === udid);
+        if (!device) throw new Error(`Device ${udid} is not registered`);
+        return collectRecentDeviceLogs(device, options);
     }
     async performAction(udid: string, action: RemoteAction): Promise<void> { return (await this.control(udid)).performAction(udid, action); }
     async isLocked(udid: string): Promise<boolean> { return (await this.control(udid)).isLocked(udid); }

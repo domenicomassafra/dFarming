@@ -6,7 +6,7 @@ The production authority is the Linux MiniPC. It owns the dashboard/API, Postgre
 
 Execution hosts own device-local runtimes. A Mac owns Xcode signing/WebDriverAgent for physical iPhones and can additionally expose iOS Simulators through the isolated modern Appium/XCUITest sidecar. The MiniPC never needs Xcode and an execution host no longer needs to host the canonical web UI.
 
-The control plane reaches each Mac through the authenticated device-worker gateway. Screenshot, accessibility, MJPEG and remote input are proxied through that gateway; WDA ports remain loopback-only on the Mac. Device workers connect to the MiniPC PostgreSQL instance to claim their per-device pg-boss queues. Scheduled media is fetched on demand from the MiniPC through a separate authenticated internal endpoint and verified by size + SHA-256 before use.
+The control plane reaches each Mac through the authenticated device-worker gateway. Screenshot, accessibility, MJPEG, bounded runtime diagnostics and remote input are proxied through that gateway; WDA ports remain loopback-only on the Mac. iOS Simulator still previews prefer native `simctl io screenshot` and fall back to Appium, while control/accessibility remain on Appium/XCUITest. Device workers connect to the MiniPC PostgreSQL instance to claim their per-device pg-boss queues. Scheduled media is fetched on demand from the MiniPC through a separate authenticated internal endpoint and verified by size + SHA-256 before use.
 
 ## Network model
 

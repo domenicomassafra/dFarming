@@ -56,6 +56,15 @@ export function buildDFarmingMcpServer(client = new DFarmingAgentClient()): McpS
         }),
         annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
     }, async ({ udid, query, maxNodes }) => result(await client.observe(udid, { query, maxNodes })));
+    server.registerTool('dfarming_logs', {
+        description: 'Read a bounded recent device log snapshot for diagnostics. Supported on iOS Simulator and Android runtimes.',
+        inputSchema: z.object({
+            udid: z.string().min(1),
+            lines: z.number().int().min(1).max(500).optional(),
+            sinceSeconds: z.number().int().min(1).max(300).optional(),
+        }),
+        annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    }, async ({ udid, lines, sinceSeconds }) => result(await client.logs(udid, { lines, sinceSeconds })));
     server.registerTool('dfarming_act', {
         description: 'Perform one policy-gated semantic/system/app action on a dFarming device. Prefer tapText/inputText over raw coordinates.',
         inputSchema: z.object({
@@ -74,6 +83,7 @@ export function buildDFarmingMcpServer(client = new DFarmingAgentClient()): McpS
                     timeoutMs: z.number().int().min(0).max(30_000).optional(), pollMs: z.number().int().min(100).max(2_000).optional(),
                 }),
                 z.object({ kind: z.literal('system'), action: z.enum(['home', 'lock', 'wake', 'unlock', 'volumeUp', 'volumeDown']) }),
+                z.object({ kind: z.literal('orientation'), orientation: z.enum(['portrait', 'landscape']) }),
                 z.object({ kind: z.literal('app'), action: z.enum(['launch', 'terminate']), appId: z.string().min(2).max(255) }),
             ]),
         }),

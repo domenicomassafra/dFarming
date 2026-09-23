@@ -11,7 +11,10 @@ export interface ScreenInfo {
     screenSize: ScreenSize;
     scale: number;
     statusBarSize?: ScreenSize;
+    orientation?: DeviceOrientation;
 }
+
+export type DeviceOrientation = 'portrait' | 'landscape';
 
 export interface VideoTransportCapability {
     id: 'mjpeg' | 'h264';
@@ -24,11 +27,20 @@ export interface RemoteVideoCapabilities {
     transports: VideoTransportCapability[];
 }
 
+export interface DeviceLogSnapshot {
+    supported: boolean;
+    source: 'simctl' | 'adb' | 'unavailable';
+    capturedAt: string;
+    lines: string[];
+    warning?: string;
+}
+
 export type RemoteAction =
     | { type: 'tap'; x: number; y: number }
     | { type: 'type'; text: string }
     | { type: 'launch'; appId: string }
     | { type: 'terminate'; appId: string }
+    | { type: 'orientation'; orientation: DeviceOrientation }
     | { type: 'home' }
     | { type: 'lock' }
     | { type: 'wake' }
@@ -94,6 +106,8 @@ export interface RemoteControl {
     getH264Stream?(udid: string, signal?: AbortSignal): Promise<Response>;
     /** Describe only transports that are actually usable for this device. */
     getVideoCapabilities?(udid: string): Promise<RemoteVideoCapabilities>;
+    /** Bounded recent runtime logs for diagnostics; never an arbitrary shell. */
+    getRecentLogs?(udid: string, options?: { lines?: number; sinceSeconds?: number }): Promise<DeviceLogSnapshot>;
     performAction(udid: string, action: RemoteAction): Promise<void>;
     isLocked(udid: string): Promise<boolean>;
     /** Drop any cached client for this device so its next use re-reads devices.json. */
@@ -165,8 +179,12 @@ export class WdaRemoteControl {
         this.assertTarget(udid);
         const response = await this.request('/wda/screen');
         const payload = await response.json() as WdaPayload<ScreenInfo>;
-        this.cachedScreenInfo = payload.value;
-        return payload.value;
+        const value = {
+            ...payload.value,
+            orientation: payload.value.screenSize.width > payload.value.screenSize.height ? 'landscape' as const : 'portrait' as const,
+        };
+        this.cachedScreenInfo = value;
+        return value;
     }
 
     async getAccessibilityTree(udid: string): Promise<unknown> {
@@ -259,6 +277,15 @@ export class WdaRemoteControl {
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ bundleId: action.appId }),
             });
+            return;
+        }
+        if (action.type === 'orientation') {
+            await this.request('/orientation', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ orientation: action.orientation === 'portrait' ? 'PORTRAIT' : 'LANDSCAPE' }),
+            });
+            this.cachedScreenInfo = undefined;
             return;
         }
         if (action.type === 'type') {

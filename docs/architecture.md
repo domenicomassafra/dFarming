@@ -87,8 +87,12 @@ it only for devices owned by that execution host.
 ### macOS `device-worker` gateway — `src/device-worker-server.ts`
 
 Authenticated transport boundary used by the MiniPC for host inventory,
-runtime discovery/lifecycle, screenshots, accessibility, streaming, input and
-device configuration. A disabled device or disabled physical-iOS lane is
+runtime discovery/lifecycle, screenshots, accessibility, streaming, bounded
+recent logs, input and device configuration. iOS Simulator screenshots prefer
+native `simctl io screenshot` so preview does not depend on Appium session
+health; Appium remains the control/accessibility authority and is the fallback
+for capture. Android diagnostics use bounded `adb logcat`; iOS Simulator uses
+bounded `simctl log show`. A disabled device or disabled physical-iOS lane is
 rejected here as well as hidden from discovery.
 
 ### macOS `wda-service` — `src/devices/wda-service.ts`

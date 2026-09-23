@@ -36,7 +36,9 @@ export function parseVirtualSimulators(stdout: string): VirtualRuntime[] {
             name: device.name ?? `iOS Simulator ${device.udid.slice(-6)}`,
             platform: 'ios' as const,
             kind: 'simulator' as const,
-            state: device.state === 'Booted' ? 'booted' as const : 'shutdown' as const,
+            state: device.state === 'Booted'
+                ? 'booted' as const
+                : device.state === 'Shutdown' ? 'shutdown' as const : 'booting' as const,
             osVersion: iosRuntimeVersion(runtime),
             provider: 'simctl' as const,
         }];

@@ -81,6 +81,7 @@ function deviceAutomation(registered: RegisteredDevice, passcode: string | undef
         return {
             activateApp: (appId) => remote.activateApp(appId),
             terminateApp: (appId) => remote.terminateApp(appId),
+            setOrientation: (orientation) => remote.performAction(udid, { type: 'orientation', orientation }),
             pause: (milliseconds, signal) => new Promise((resolve, reject) => {
                 if (signal?.aborted) return reject(signal.reason);
                 const onAbort = () => { clearTimeout(timer); reject(signal!.reason); };
@@ -120,6 +121,7 @@ function deviceAutomation(registered: RegisteredDevice, passcode: string | undef
     return {
         activateApp: (bundleId) => appRequest('/wda/apps/launch', bundleId),
         terminateApp: (bundleId) => appRequest('/wda/apps/terminate', bundleId),
+        setOrientation: (orientation) => remote.performAction(udid, { type: 'orientation', orientation }),
         pause: (milliseconds, signal) => new Promise((resolve, reject) => {
             if (signal?.aborted) return reject(signal.reason);
             const onAbort = () => { clearTimeout(timer); reject(signal!.reason); };

@@ -2,7 +2,7 @@ import type { DeviceConnectionStatus } from './devices/connection-manager.js';
 import type { Device } from './devices/discovery.js';
 import { loadRegisteredDevices, mutateRegisteredDevices, normalizeDeviceTags, type RegisteredDevice } from './devices/registry.js';
 import { coordinatesForProfile, validateCoordinateOverrides } from './devices/coordinates.js';
-import type { RemoteAction, RemoteControl, RemoteVideoCapabilities, ScreenInfo } from './devices/wda-remote.js';
+import type { DeviceLogSnapshot, RemoteAction, RemoteControl, RemoteVideoCapabilities, ScreenInfo } from './devices/wda-remote.js';
 import type { HostCapability, HostSnapshot } from './hosts/capabilities.js';
 import type { RuntimeDevice } from './devices/runtime-discovery.js';
 import type { VirtualRuntime, VirtualRuntimePlatform } from './devices/virtual-runtime.js';
@@ -421,6 +421,17 @@ export class DeviceWorkerClient {
         )).json() as RemoteVideoCapabilities;
     }
 
+    async getRecentLogs(udid: string, options: { lines?: number; sinceSeconds?: number } = {}): Promise<DeviceLogSnapshot> {
+        const query = new URLSearchParams();
+        if (options.lines !== undefined) query.set('lines', String(options.lines));
+        if (options.sinceSeconds !== undefined) query.set('sinceSeconds', String(options.sinceSeconds));
+        return await (await this.request(
+            `/v1/devices/${encodeURIComponent(udid)}/logs${query.size ? `?${query}` : ''}`,
+            {},
+            DEVICE_WORKER_REMOTE_OPERATION_TIMEOUT_MS,
+        )).json() as DeviceLogSnapshot;
+    }
+
     async performAction(udid: string, action: RemoteAction): Promise<void> {
         await this.request(`/v1/devices/${encodeURIComponent(udid)}/action`, {
             method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(action),
@@ -652,6 +663,9 @@ export class DeviceWorkerFleet implements RemoteControl {
     async getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response> { return (await this.clientFor(udid)).getMjpegStream(udid, signal); }
     async getH264Stream(udid: string, signal?: AbortSignal): Promise<Response> { return (await this.clientFor(udid)).getH264Stream(udid, signal); }
     async getVideoCapabilities(udid: string): Promise<RemoteVideoCapabilities> { return (await this.clientFor(udid)).getVideoCapabilities(udid); }
+    async getRecentLogs(udid: string, options?: { lines?: number; sinceSeconds?: number }): Promise<DeviceLogSnapshot> {
+        return (await this.clientFor(udid)).getRecentLogs(udid, options);
+    }
     async performAction(udid: string, action: RemoteAction): Promise<void> { return (await this.clientFor(udid)).performAction(udid, action); }
     async isLocked(udid: string): Promise<boolean> { return (await this.clientFor(udid)).isLocked(udid); }
     async connectionStatus(udid: string): Promise<DeviceConnectionStatus> { return (await this.clientFor(udid)).connection(udid); }
