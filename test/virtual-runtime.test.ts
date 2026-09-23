@@ -57,6 +57,30 @@ test('parses labeled Android emulator containers into first-class virtual runtim
     }]);
 });
 
+test('stopped Android emulator containers stay discoverable from persistent Docker port bindings', () => {
+    const definitions = parseDockerAndroidRuntimeDefinitions(JSON.stringify([
+        {
+            Name: '/dfarming-android-emulator-api30',
+            State: { Running: false },
+            Config: {
+                Labels: {
+                    'com.dfarming.runtime': 'android-emulator',
+                    'com.google.android.emulator.description': 'Pixel 2 Emulator, running API 30',
+                },
+            },
+            NetworkSettings: { Ports: {} },
+            HostConfig: { PortBindings: { '5555/tcp': [{ HostIp: '127.0.0.1', HostPort: '5555' }] } },
+        },
+    ]));
+    assert.deepEqual(definitions, [{
+        id: 'docker:dfarming-android-emulator-api30',
+        name: 'Pixel 2 Emulator, running API 30',
+        serial: '127.0.0.1:5555',
+        running: false,
+        containerName: 'dfarming-android-emulator-api30',
+    }]);
+});
+
 test('Android virtual runtime readiness waits for both ADB identity and completed boot', async () => {
     let now = 0;
     let probe = 0;

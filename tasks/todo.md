@@ -22,7 +22,7 @@ an old branch.
   confirmed bulk operations and exactly one focused live stream.
 - [x] Optional Android scrcpy H.264 video adapter behind signed capabilities.
 - [x] Account-to-device binding, account pause/task policy and execution evidence.
-- [x] Current clean source gate: TypeScript + **221/221 tests** + web build.
+- [x] Current clean source gate: TypeScript + **222/222 tests** + web build.
 - [x] Dependency audits: root, production-only, isolated Drizzle CLI and the
   generated Appium driver home all report **0 vulnerabilities**.
 - [x] Physical-iOS source lane migrated from the retired Appium 2 tree to the
@@ -91,7 +91,8 @@ MiniPC emulator capacity is actually needed.
 - [x] DFARM-107 — Containerized Google Android Emulator is a first-class
   virtual runtime: Docker-label discovery, explicit provider metadata,
   `booting/booted/shutdown` state and dFarming-owned stop/start lifecycle
-  with ADB reconnect + boot-completion proof.
+  with persistent stopped-container discovery, ADB reconnect and
+  boot-completion proof.
 
 The open parts of DFARM-101/102/104/105 are live/external integration proofs,
 not unmerged source branches or hidden implementation WIP.

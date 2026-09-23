@@ -62,15 +62,20 @@ export function parseDockerAndroidRuntimeDefinitions(stdout: string): DockerAndr
         State?: { Running?: boolean };
         Config?: { Labels?: Record<string, string>; Image?: string };
         NetworkSettings?: { Ports?: Record<string, Array<{ HostIp?: string; HostPort?: string }> | null> };
+        HostConfig?: { PortBindings?: Record<string, Array<{ HostIp?: string; HostPort?: string }> | null> };
     }>;
     return body.flatMap((container) => {
         if (container.Config?.Labels?.['com.dfarming.runtime'] !== 'android-emulator') return [];
         const containerName = container.Name?.replace(/^\/+/, '').trim();
-        const hostPort = container.NetworkSettings?.Ports?.['5555/tcp']?.[0]?.HostPort?.trim();
+        const hostPort = (
+            container.NetworkSettings?.Ports?.['5555/tcp']?.[0]?.HostPort
+            ?? container.HostConfig?.PortBindings?.['5555/tcp']?.[0]?.HostPort
+        )?.trim();
         if (!containerName || !hostPort || !/^\d{1,5}$/.test(hostPort)) return [];
         return [{
             id: `docker:${containerName}`,
             name: container.Config?.Labels?.['com.dfarming.runtime.display-name']?.trim()
+                || container.Config?.Labels?.['com.google.android.emulator.description']?.trim()
                 || `Android Emulator (${containerName})`,
             serial: `127.0.0.1:${hostPort}`,
             running: container.State?.Running === true,
