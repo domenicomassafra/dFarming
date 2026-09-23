@@ -33,6 +33,7 @@ test('adb alone enables physical Android but does not falsely advertise emulator
         id: 'linux', platform: 'linux', arch: 'x64', appiumEntry: '/definitely/not/appium',
         appiumRuntimeEntry: '/definitely/not/appium-runtime',
         commandAvailable: async (command) => command === 'adb',
+        virtualRuntimes: async () => [],
     });
     assert.deepEqual(host.capabilities.sort(), ['adb', 'android.physical'].sort());
     assert.equal(host.tools.emulator, false);
@@ -43,9 +44,21 @@ test('Android emulator hosting requires both adb and emulator binaries', async (
         id: 'linux', platform: 'linux', arch: 'x64', appiumEntry: '/definitely/not/appium',
         appiumRuntimeEntry: '/definitely/not/appium-runtime',
         commandAvailable: async (command) => command === 'adb' || command === 'emulator',
+        virtualRuntimes: async () => [],
     });
     assert.deepEqual(host.capabilities.sort(), ['adb', 'android.emulator', 'android.physical'].sort());
     assert.equal(host.tools.emulator, true);
+});
+
+test('Docker-backed Android emulator hosting is advertised even without the local emulator binary', async () => {
+    const host = await detectHostCapabilities({
+        id: 'linux', platform: 'linux', arch: 'x64', appiumEntry: '/definitely/not/appium',
+        appiumRuntimeEntry: '/definitely/not/appium-runtime',
+        commandAvailable: async (command) => command === 'adb',
+        virtualRuntimes: async () => [{ platform: 'android', kind: 'emulator' }],
+    });
+    assert.deepEqual(host.capabilities.sort(), ['adb', 'android.emulator', 'android.physical'].sort());
+    assert.equal(host.tools.emulator, false);
 });
 
 test('verified scrcpy server advertises optional Android H.264 without replacing ADB control', async () => {
@@ -54,6 +67,7 @@ test('verified scrcpy server advertises optional Android H.264 without replacing
         appiumEntry: '/definitely/not/appium', appiumRuntimeEntry: '/definitely/not/appium-runtime',
         scrcpyServerJar: new URL(import.meta.url).pathname,
         commandAvailable: async (command) => command === 'adb',
+        virtualRuntimes: async () => [],
     });
     assert.ok(host.capabilities.includes('android.h264'));
     assert.equal(host.tools.scrcpyVideo, true);
@@ -64,6 +78,7 @@ test('workers advertise only named network route ids and device scope', async ()
     const host = await detectHostCapabilities({
         id: 'linux', platform: 'linux', arch: 'x64', appiumEntry: '/definitely/not/appium',
         appiumRuntimeEntry: '/definitely/not/appium-runtime', commandAvailable: async () => false,
+        virtualRuntimes: async () => [],
         networkRoutesValue: '[{"id":"italy.private","deviceUdids":["phone-a"]},{"id":"testing"}]',
     });
     assert.deepEqual(host.networkRoutes, [

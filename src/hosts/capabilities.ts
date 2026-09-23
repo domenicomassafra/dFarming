@@ -5,6 +5,7 @@ import { access } from 'node:fs/promises';
 import { physicalIosLaneEnabled } from '../runtime-options.js';
 import { parseNetworkRouteAttestations, type NetworkRouteAttestation } from '../network-routes.js';
 import { dfarmingEnv } from '../env.js';
+import { listVirtualRuntimes, type VirtualRuntime } from '../devices/virtual-runtime.js';
 
 export type HostCapability =
     | 'ios.physical'
@@ -67,6 +68,7 @@ export async function detectHostCapabilities(options: {
     scrcpyServerJar?: string;
     networkRoutesValue?: string;
     commandAvailable?: (command: string) => Promise<boolean>;
+    virtualRuntimes?: () => Promise<Array<Pick<VirtualRuntime, 'platform' | 'kind'>>>;
 } = {}): Promise<HostSnapshot> {
     const platform = options.platform ?? process.platform;
     const probe = options.commandAvailable ?? ((command: string) => commandAvailable(command, options.envPath));
@@ -83,6 +85,12 @@ export async function detectHostCapabilities(options: {
     const capabilities: HostCapability[] = [];
     const networkRoutes = parseNetworkRouteAttestations(options.networkRoutesValue);
     const physicalIosEnabled = options.physicalIosEnabled ?? physicalIosLaneEnabled();
+    const hostedVirtualRuntimes = platform === 'linux'
+        ? await (options.virtualRuntimes ?? listVirtualRuntimes)().catch(() => [])
+        : [];
+    const dockerOrLocalAndroidEmulator = hostedVirtualRuntimes.some(
+        (runtime) => runtime.platform === 'android' && runtime.kind === 'emulator',
+    );
     if (appium || appiumRuntime) capabilities.push('appium');
     if (xcrun) capabilities.push('simctl');
     if (adb) capabilities.push('adb');
@@ -92,7 +100,7 @@ export async function detectHostCapabilities(options: {
         if (physicalIosEnabled && xcrun && appium) capabilities.push('wda');
     }
     if (adb) capabilities.push('android.physical');
-    if (adb && emulator) capabilities.push('android.emulator');
+    if (adb && (emulator || dockerOrLocalAndroidEmulator)) capabilities.push('android.emulator');
     if (adb && scrcpyVideo) capabilities.push('android.h264');
     return {
         id: options.id ?? dfarmingEnv('WORKER_ID') ?? 'local',

@@ -30,7 +30,10 @@ Forks are kept in the owner namespace as `dFarming-baguette`, `dFarming-mobile-u
 - Google Android Emulator containers labeled
   `com.dfarming.runtime=android-emulator` are discovered as first-class
   virtual runtimes. dFarming can stop/start the container and does not mark a
-  restart complete until ADB reconnects and Android finishes booting.
+  restart complete until ADB reconnects and Android finishes booting. Host
+  capability discovery now also counts these labeled Docker runtimes as
+  `android.emulator` capacity even when the standalone Android SDK
+  `emulator` binary is not installed on that worker.
 - The mobile-use-style observation seam now degrades section-by-section instead
   of failing the whole observation when lock, scheduler or connection status is
   temporarily unavailable. Screen metadata is obtained once per observation,
