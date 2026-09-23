@@ -1,7 +1,7 @@
 import type { RegisteredDevice } from './registry.js';
 import type { RemoteAction, RemoteControl, ScreenInfo } from './wda-remote.js';
 import { normalizeAppiumPageSource } from '../semantic/appium-source.js';
-import { isInvalidAppiumSessionError, remoteWithFetch, type Browser } from './appium-driver.js';
+import { isInvalidAppiumSessionError, isRecoverableAppiumReadError, remoteWithFetch, type Browser } from './appium-driver.js';
 
 function driverBackend(device: RegisteredDevice): { platformName: 'iOS' | 'Android'; automationName: 'XCUITest' | 'UiAutomator2' } {
     if ((device.platform ?? 'ios') === 'android') return { platformName: 'Android', automationName: 'UiAutomator2' };
@@ -46,14 +46,15 @@ export class AppiumRemoteControl implements RemoteControl {
         return this.driverPromise;
     }
 
-    private async withDriver<T>(operation: (driver: Browser) => Promise<T>): Promise<T> {
+    private async withDriver<T>(operation: (driver: Browser) => Promise<T>, retryReadTransport = false): Promise<T> {
         const initialPromise = this.driver();
         const initial = await initialPromise;
         try {
             return await operation(initial);
         } catch (error) {
-            if (!isInvalidAppiumSessionError(error)) throw error;
+            if (!isInvalidAppiumSessionError(error) && !(retryReadTransport && isRecoverableAppiumReadError(error))) throw error;
             if (this.driverPromise === initialPromise) this.driverPromise = undefined;
+            await initial.deleteSession().catch(() => undefined);
             return operation(await this.driver());
         }
     }
@@ -74,18 +75,18 @@ export class AppiumRemoteControl implements RemoteControl {
 
     async getScreenInfo(udid: string): Promise<ScreenInfo> {
         this.assertTarget(udid);
-        const size = await this.withDriver((driver) => driver.getWindowSize());
+        const size = await this.withDriver((driver) => driver.getWindowSize(), true);
         return { screenSize: { width: size.width, height: size.height }, scale: 1 };
     }
 
     async getAccessibilityTree(udid: string): Promise<unknown> {
         this.assertTarget(udid);
-        return normalizeAppiumPageSource(await this.withDriver((driver) => driver.getPageSource()));
+        return normalizeAppiumPageSource(await this.withDriver((driver) => driver.getPageSource(), true));
     }
 
     async getScreenshot(udid: string): Promise<Buffer> {
         this.assertTarget(udid);
-        return Buffer.from(await this.withDriver((driver) => driver.takeScreenshot()), 'base64');
+        return Buffer.from(await this.withDriver((driver) => driver.takeScreenshot(), true), 'base64');
     }
 
     async getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response> {
@@ -163,6 +164,6 @@ export class AppiumRemoteControl implements RemoteControl {
 
     async isLocked(udid: string): Promise<boolean> {
         this.assertTarget(udid);
-        return this.withDriver((driver) => driver.isLocked());
+        return this.withDriver((driver) => driver.isLocked(), true);
     }
 }

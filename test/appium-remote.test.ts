@@ -113,3 +113,60 @@ test('Appium remote recreates a stale session after the Appium server restarts',
     assert.equal(sessions, 2);
     assert.equal(requests.filter(({ method, pathname }) => method === 'POST' && pathname === '/session').length, 2);
 });
+
+test('Appium read-only operations recreate a session after a transport timeout without retrying actions', async () => {
+    let sessions = 0;
+    const requests: SeenRequest[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+        const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
+        const method = String(init?.method ?? 'GET').toUpperCase();
+        requests.push({ method, pathname: url.pathname });
+        if (method === 'POST' && url.pathname === '/session') {
+            sessions += 1;
+            return Response.json({ value: { sessionId: `session-${sessions}`, capabilities: {} } });
+        }
+        if (url.pathname === '/session/session-1/screenshot') {
+            throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+        }
+        if (method === 'DELETE' && url.pathname === '/session/session-1') return Response.json({ value: null });
+        if (url.pathname === '/session/session-2/screenshot') {
+            return Response.json({ value: Buffer.from('recovered-png').toString('base64') });
+        }
+        return Response.json({ value: null });
+    };
+    const remote = new AppiumRemoteControl({
+        name: 'Simulator', udid: 'SIM-TIMEOUT', platform: 'ios', kind: 'simulator', automationBackend: 'appium', pluginData: {},
+    }, 'appium.test', 4726, fetchImpl);
+
+    assert.equal((await remote.getScreenshot('SIM-TIMEOUT')).toString(), 'recovered-png');
+    assert.equal(sessions, 2);
+    assert.equal(requests.some(({ method, pathname }) => method === 'DELETE' && pathname === '/session/session-1'), true);
+});
+
+test('Appium read-only operations recreate a session when WDA disappears behind a live Appium session', async () => {
+    let sessions = 0;
+    const fetchImpl: typeof fetch = async (input, init) => {
+        const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
+        const method = String(init?.method ?? 'GET').toUpperCase();
+        if (method === 'POST' && url.pathname === '/session') {
+            sessions += 1;
+            return Response.json({ value: { sessionId: `session-${sessions}`, capabilities: {} } });
+        }
+        if (url.pathname === '/session/session-1/screenshot') {
+            return Response.json({
+                value: { error: 'unknown error', message: 'Could not proxy command to WDA: connect ECONNREFUSED 127.0.0.1:8100' },
+            }, { status: 500 });
+        }
+        if (method === 'DELETE' && url.pathname === '/session/session-1') return Response.json({ value: null });
+        if (url.pathname === '/session/session-2/screenshot') {
+            return Response.json({ value: Buffer.from('wda-recovered').toString('base64') });
+        }
+        return Response.json({ value: null });
+    };
+    const remote = new AppiumRemoteControl({
+        name: 'Simulator', udid: 'SIM-WDA', platform: 'ios', kind: 'simulator', automationBackend: 'appium', pluginData: {},
+    }, 'appium.test', 4726, fetchImpl);
+
+    assert.equal((await remote.getScreenshot('SIM-WDA')).toString(), 'wda-recovered');
+    assert.equal(sessions, 2);
+});

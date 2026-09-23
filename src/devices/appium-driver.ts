@@ -72,6 +72,12 @@ export function isInvalidAppiumSessionError(error: unknown): boolean {
     return error.status === 404 && /(?:invalid|unknown|missing).*session|session.*(?:not found|does not exist)/i.test(error.message);
 }
 
+export function isRecoverableAppiumReadError(error: unknown): boolean {
+    if (isInvalidAppiumSessionError(error)) return true;
+    if (error instanceof AppiumProtocolError && error.status !== undefined && error.status >= 500) return true;
+    return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+}
+
 function retryableSessionError(error: unknown): boolean {
     if (!(error instanceof AppiumProtocolError)) return true;
     return error.status === 408 || error.status === 429 || (error.status !== undefined && error.status >= 500);
