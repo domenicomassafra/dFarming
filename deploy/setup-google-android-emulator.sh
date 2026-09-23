@@ -31,6 +31,7 @@ docker_args=(
   --name "$name"
   --restart unless-stopped
   --label com.dfarming.runtime=android-emulator
+  --label "com.dfarming.runtime.display-name=${DFARMING_ANDROID_EMULATOR_DISPLAY_NAME:-Google Android Emulator API 30}"
   -e "ADBKEY=$(cat "$adb_key")"
   --device /dev/kvm
   -p "127.0.0.1:${grpc_port}:8554/tcp"

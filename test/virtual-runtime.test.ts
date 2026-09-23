@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseAvdNames, parseVirtualSimulators, waitForAndroidVirtualRuntime } from '../src/devices/virtual-runtime.js';
+import {
+    parseAvdNames,
+    parseDockerAndroidRuntimeDefinitions,
+    parseVirtualSimulators,
+    waitForAndroidVirtualRuntime,
+} from '../src/devices/virtual-runtime.js';
 
 test('parses available iOS simulator definitions and preserves boot state', () => {
     const runtimes = parseVirtualSimulators(JSON.stringify({
@@ -21,6 +26,35 @@ test('parses available iOS simulator definitions and preserves boot state', () =
 
 test('parses Android AVD definitions without shell interpretation', () => {
     assert.deepEqual(parseAvdNames('Pixel_9_API_36\nTablet_API_35\n\n'), ['Pixel_9_API_36', 'Tablet_API_35']);
+});
+
+test('parses labeled Android emulator containers into first-class virtual runtime definitions', () => {
+    const definitions = parseDockerAndroidRuntimeDefinitions(JSON.stringify([
+        {
+            Name: '/dfarming-android-emulator-api30',
+            State: { Running: true },
+            Config: {
+                Labels: {
+                    'com.dfarming.runtime': 'android-emulator',
+                    'com.dfarming.runtime.display-name': 'Google Android Emulator API 30',
+                },
+            },
+            NetworkSettings: { Ports: { '5555/tcp': [{ HostIp: '127.0.0.1', HostPort: '5555' }] } },
+        },
+        {
+            Name: '/unrelated',
+            State: { Running: true },
+            Config: { Labels: {} },
+            NetworkSettings: { Ports: { '5555/tcp': [{ HostPort: '5556' }] } },
+        },
+    ]));
+    assert.deepEqual(definitions, [{
+        id: 'docker:dfarming-android-emulator-api30',
+        name: 'Google Android Emulator API 30',
+        serial: '127.0.0.1:5555',
+        running: true,
+        containerName: 'dfarming-android-emulator-api30',
+    }]);
 });
 
 test('Android virtual runtime readiness waits for both ADB identity and completed boot', async () => {

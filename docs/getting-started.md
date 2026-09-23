@@ -133,6 +133,10 @@ When dFarming boots a locally defined AVD from the host view it now reports a
 `sys.boot_completed=1`. The default fail-closed timeout is 120 seconds and can
 be bounded with `DFARMING_ANDROID_EMULATOR_BOOT_TIMEOUT_MS`; headless local
 AVDs can opt into `DFARMING_ANDROID_EMULATOR_HEADLESS=true`.
+The Google emulator-container installer also labels its container as a dFarming
+virtual runtime, so it appears in the same host/runtime view as local AVDs and
+can be stopped/restarted through the control plane. Its ADB-mapped device stays
+the execution target; Docker is only the lifecycle provider.
 
 ## 5. Prepare WebDriverAgent (physical lane only)
 

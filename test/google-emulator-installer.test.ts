@@ -12,6 +12,8 @@ test('Google emulator packaging is pinned, no-metrics and reconnects ADB persist
     assert.match(installer, /30-google-x64-no-metrics@sha256:e78ac1816acef59e40285e90003acd490ef54bb3242ed088afa31bc982577050/);
     assert.match(installer, /--device \/dev\/kvm/);
     assert.match(installer, /--restart unless-stopped/);
+    assert.match(installer, /com\.dfarming\.runtime=android-emulator/);
+    assert.match(installer, /com\.dfarming\.runtime\.display-name/);
     assert.match(installer, /127\.0\.0\.1:\$\{adb_port\}:5555/);
     assert.match(installer, /dfarming-android-emulator-connect\.timer/);
     assert.match(installer, /connect 127\.0\.0\.1:\$\{adb_port\}/);

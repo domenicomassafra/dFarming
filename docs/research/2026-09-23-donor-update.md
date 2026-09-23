@@ -27,3 +27,7 @@ Forks are kept in the owner namespace as `dFarming-baguette`, `dFarming-mobile-u
   remains separate from automation control.
 - Android emulator state distinguishes `booting` from `booted`, and Boot waits
   for an ADB serial plus `sys.boot_completed=1` before reporting success.
+- Google Android Emulator containers labeled
+  `com.dfarming.runtime=android-emulator` are discovered as first-class
+  virtual runtimes. dFarming can stop/start the container and does not mark a
+  restart complete until ADB reconnects and Android finishes booting.

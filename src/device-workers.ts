@@ -247,6 +247,10 @@ function sanitizedVirtualRuntime(value: unknown): VirtualRuntime | undefined {
         state: source.state,
         ...(nonEmptyString(source.osVersion) ? { osVersion: nonEmptyString(source.osVersion) } : {}),
         ...(nonEmptyString(source.serial) ? { serial: nonEmptyString(source.serial) } : {}),
+        ...(['simctl', 'local-avd', 'docker'].includes(String(source.provider))
+            ? { provider: source.provider as VirtualRuntime['provider'] }
+            : {}),
+        ...(nonEmptyString(source.containerName) ? { containerName: nonEmptyString(source.containerName) } : {}),
     };
 }
 

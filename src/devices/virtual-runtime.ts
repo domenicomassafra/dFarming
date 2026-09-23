@@ -16,6 +16,8 @@ export interface VirtualRuntime {
     state: VirtualRuntimeState;
     osVersion?: string;
     serial?: string;
+    provider?: 'simctl' | 'local-avd' | 'docker';
+    containerName?: string;
 }
 
 function iosRuntimeVersion(runtime: string): string {
@@ -36,12 +38,45 @@ export function parseVirtualSimulators(stdout: string): VirtualRuntime[] {
             kind: 'simulator' as const,
             state: device.state === 'Booted' ? 'booted' as const : 'shutdown' as const,
             osVersion: iosRuntimeVersion(runtime),
+            provider: 'simctl' as const,
         }];
     }));
 }
 
 export function parseAvdNames(stdout: string): string[] {
     return stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
+export interface DockerAndroidRuntimeDefinition {
+    id: string;
+    name: string;
+    serial: string;
+    running: boolean;
+    containerName: string;
+}
+
+export function parseDockerAndroidRuntimeDefinitions(stdout: string): DockerAndroidRuntimeDefinition[] {
+    if (!stdout.trim()) return [];
+    const body = JSON.parse(stdout) as Array<{
+        Name?: string;
+        State?: { Running?: boolean };
+        Config?: { Labels?: Record<string, string>; Image?: string };
+        NetworkSettings?: { Ports?: Record<string, Array<{ HostIp?: string; HostPort?: string }> | null> };
+    }>;
+    return body.flatMap((container) => {
+        if (container.Config?.Labels?.['com.dfarming.runtime'] !== 'android-emulator') return [];
+        const containerName = container.Name?.replace(/^\/+/, '').trim();
+        const hostPort = container.NetworkSettings?.Ports?.['5555/tcp']?.[0]?.HostPort?.trim();
+        if (!containerName || !hostPort || !/^\d{1,5}$/.test(hostPort)) return [];
+        return [{
+            id: `docker:${containerName}`,
+            name: container.Config?.Labels?.['com.dfarming.runtime.display-name']?.trim()
+                || `Android Emulator (${containerName})`,
+            serial: `127.0.0.1:${hostPort}`,
+            running: container.State?.Running === true,
+            containerName,
+        }];
+    });
 }
 
 async function iosVirtualRuntimes(): Promise<VirtualRuntime[]> {
@@ -122,10 +157,11 @@ export async function waitForAndroidVirtualRuntime(
 }
 
 async function androidVirtualRuntimes(): Promise<VirtualRuntime[]> {
+    let avds: VirtualRuntime[] = [];
     try {
         const { stdout } = await execFileAsync('emulator', ['-list-avds'], { timeout: 5_000 });
         const running = await runningAndroidAvds();
-        return Promise.all(parseAvdNames(stdout).map(async (name) => {
+        avds = await Promise.all(parseAvdNames(stdout).map(async (name) => {
             const serial = running.get(name);
             const state: VirtualRuntimeState = !serial
                 ? 'shutdown'
@@ -137,11 +173,41 @@ async function androidVirtualRuntimes(): Promise<VirtualRuntime[]> {
                 kind: 'emulator' as const,
                 state,
                 ...(serial ? { serial } : {}),
+                provider: 'local-avd' as const,
             };
         }));
-    } catch {
-        return [];
+    } catch { /* local emulator CLI may be absent on container-only workers */ }
+
+    let containers: VirtualRuntime[] = [];
+    if (process.platform === 'linux') {
+        try {
+            const { stdout: ids } = await execFileAsync(
+                'docker',
+                ['ps', '-aq', '--filter', 'label=com.dfarming.runtime=android-emulator'],
+                { timeout: 5_000 },
+            );
+            const containerIds = ids.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+            if (containerIds.length) {
+                const { stdout: inspect } = await execFileAsync('docker', ['inspect', ...containerIds], {
+                    timeout: 8_000,
+                    maxBuffer: 8 * 1024 * 1024,
+                });
+                containers = await Promise.all(parseDockerAndroidRuntimeDefinitions(inspect).map(async (definition) => ({
+                    id: definition.id,
+                    name: definition.name,
+                    platform: 'android' as const,
+                    kind: 'emulator' as const,
+                    state: !definition.running
+                        ? 'shutdown' as const
+                        : await androidBootCompleted(definition.serial) ? 'booted' as const : 'booting' as const,
+                    serial: definition.serial,
+                    provider: 'docker' as const,
+                    containerName: definition.containerName,
+                })));
+            }
+        } catch { /* Docker is optional on ordinary Android workers */ }
     }
+    return [...avds, ...containers];
 }
 
 export async function listVirtualRuntimes(): Promise<VirtualRuntime[]> {
@@ -172,6 +238,32 @@ export async function changeVirtualRuntimeState(
             await execFileAsync('xcrun', ['simctl', 'shutdown', runtime.id], { timeout: 30_000 });
         }
         return;
+    }
+    if (runtime.provider === 'docker') {
+        if (!runtime.containerName || !runtime.serial) {
+            throw Object.assign(new Error('Docker Android runtime metadata is incomplete'), { statusCode: 409 });
+        }
+        if (action === 'shutdown') {
+            if (runtime.state === 'shutdown') return;
+            await execFileAsync('docker', ['stop', runtime.containerName], { timeout: 30_000 });
+            return;
+        }
+        if (runtime.state === 'shutdown') {
+            await execFileAsync('docker', ['start', runtime.containerName], { timeout: 30_000 });
+        }
+        const configuredTimeout = Number(dfarmingEnv('ANDROID_EMULATOR_BOOT_TIMEOUT_MS') ?? 120_000);
+        const timeoutMs = Number.isFinite(configuredTimeout)
+            ? Math.max(10_000, Math.min(120_000, Math.round(configuredTimeout)))
+            : 120_000;
+        const deadline = Date.now() + timeoutMs;
+        while (true) {
+            try { await execFileAsync('adb', ['connect', runtime.serial], { timeout: 3_000 }); } catch { /* retry below */ }
+            if (await androidBootCompleted(runtime.serial)) return;
+            if (Date.now() >= deadline) {
+                throw new Error(`Android emulator container ${runtime.containerName} did not finish booting within ${timeoutMs}ms`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1_000));
+        }
     }
     if (action === 'boot') {
         if (runtime.state === 'booted') return;
