@@ -11,11 +11,11 @@ import { ensureWdaCustomizations } from '../src/devices/wda/patch.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 test('reviewed modern WDA patch is checksum-pinned and contains every required endpoint', async () => {
-    const manifest = JSON.parse(await readFile(path.join(root, 'Patches/appium-webdriveragent-16.12.8-dfarming.json'), 'utf8')) as {
+    const manifest = JSON.parse(await readFile(path.join(root, 'Patches/appium-webdriveragent-16.12.9-dfarming.json'), 'utf8')) as {
         xcuitestDriverVersion: string; webDriverAgentVersion: string; patchFile: string; patchSha256: string;
     };
-    assert.equal(manifest.xcuitestDriverVersion, '12.12.3');
-    assert.equal(manifest.webDriverAgentVersion, '16.12.8');
+    assert.equal(manifest.xcuitestDriverVersion, '12.13.1');
+    assert.equal(manifest.webDriverAgentVersion, '16.12.9');
     const patch = await readFile(path.join(root, manifest.patchFile));
     assert.equal(crypto.createHash('sha256').update(patch).digest('hex'), manifest.patchSha256);
     const text = patch.toString('utf8');

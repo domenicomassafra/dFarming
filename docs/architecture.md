@@ -1,13 +1,34 @@
 # Architecture — what does what
 
-Mobile Farm is one Linux MiniPC control plane plus macOS execution-host runtimes
-over one PostgreSQL database and a few worker-local state files. There is no
+Mobile Farm is one Linux MiniPC control plane plus a heterogeneous set of
+execution-host runtimes over one PostgreSQL database and a few worker-local state files. There is no
 client framework: the dashboard is server-rendered HTML with HTMX. Physical
 iPhones keep their specialized WDA video/control path, while iOS Simulators use
 generic Appium/XCUITest control. Both lanes now use the same pinned Appium 3 /
 XCUITest runtime; the physical lane retains a compatibility Appium listener on
 `:4725` only because existing social recipes use that port. Both are exposed to
 the MiniPC through the authenticated device-worker gateway.
+
+The canonical topology is deliberately **hybrid, not fixed**. A deployment may mix:
+
+- iOS Simulators on macOS workers;
+- Android Emulators on Linux or macOS workers that actually have both ADB and
+  the Android Emulator installed;
+- physical iPhones on macOS workers with Xcode/WDA signing available;
+- physical Android devices on any worker with ADB.
+
+The MiniPC may therefore be both control-plane host and Android execution host,
+but Linux is never treated as an iOS Simulator/WDA host. Device pools may span
+workers and physical/virtual kinds, with soft kind preferences used after load
+so an operator can prefer real hardware or virtual capacity without pinning an
+automation to one machine forever.
+
+Footprint policy: reuse an already installed runtime before adding another copy
+of the same heavy SDK/system image to a second host. Capability discovery reports
+only what a host can execute now; an installed ADB binary alone must not advertise
+Android Emulator capacity. Heavy Android SDK/emulator images are installed on the
+MiniPC only when that capacity is actually wanted; the existing KVM-capable host
+is suitable, but the control plane itself does not require those gigabytes.
 
 ```
  browser / Hermes / MCP
@@ -21,11 +42,12 @@ the MiniPC through the authenticated device-worker gateway.
            │ authenticated worker HTTP + shared PostgreSQL
            ▼
 ┌───────────────────────────────┐
-│ macOS execution worker        │
+│ execution worker(s)           │
+│ macOS and/or Linux            │
 │ device gateway + job worker   │
 ├───────────────────────────────┤
-│ Appium 3 :4725 + custom WDA  │──▶ physical iPhone (optional)
-│ Appium 3 :4726 + XCUITest    │──▶ iOS Simulator / Android
+│ Appium 3 + WDA/XCUITest      │──▶ iPhone / iOS Simulator (macOS)
+│ Appium 3 + UiAutomator2      │──▶ Android physical / emulator
 └───────────────────────────────┘
 ```
 
@@ -83,8 +105,8 @@ Persistent WebDriverAgent supervisor, controlled over a Unix socket
 ### macOS `appium` physical compatibility lane — `:4725`
 This is an Appium 3 process using `APPIUM_HOME=.appium-runtime`. It exists to
 preserve the existing physical-iPhone social-recipe port contract. The pinned
-XCUITest 12.12.3 / WDA 16.12.8 source is extended by the reviewed
-`appium-webdriveragent-16.12.8-dfarming.patch` for sessionless absolute touch,
+XCUITest 12.13.1 / WDA 16.12.9 source is extended by the reviewed
+`appium-webdriveragent-16.12.9-dfarming.patch` for sessionless absolute touch,
 Photos import and device buttons. `wda:patch` checks exact upstream versions
 and the patch checksum before modifying the installed WDA source. The listener
 is omitted when `PHONE_FARM_ENABLE_PHYSICAL_IOS=false`.

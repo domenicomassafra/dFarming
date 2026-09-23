@@ -17,8 +17,8 @@ test('Appium home hardening pins both drivers and the bounded morgan remediation
     assert.deepEqual(hardenedAppiumHomePackage({
         devDependencies: {
             other: '1.0.0',
-            'appium-uiautomator2-driver': '^8.6.4',
-            'appium-xcuitest-driver': '^12.12.3',
+            'appium-uiautomator2-driver': '^8.7.0',
+            'appium-xcuitest-driver': '^12.13.1',
         },
     }), {
         devDependencies: {
@@ -50,7 +50,7 @@ test('Appium home hardening refuses driver drift before rewriting the manifest',
 
 test('Android-only Appium homes are hardened without adding the Apple driver', () => {
     assert.deepEqual(hardenedAppiumHomePackage({
-        devDependencies: { 'appium-uiautomator2-driver': '^8.6.4' },
+        devDependencies: { 'appium-uiautomator2-driver': '^8.7.0' },
     }), {
         devDependencies: {
             'appium-uiautomator2-driver': UIAUTOMATOR2_DRIVER_VERSION,

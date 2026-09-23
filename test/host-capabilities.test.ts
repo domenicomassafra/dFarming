@@ -28,13 +28,24 @@ test('a simulator-only Mac does not advertise physical iOS or WDA capabilities',
     assert.deepEqual(host.capabilities.sort(), ['ios.simulator', 'simctl'].sort());
 });
 
-test('adb enables Android physical and emulator lanes on any worker OS', async () => {
+test('adb alone enables physical Android but does not falsely advertise emulator hosting', async () => {
     const host = await detectHostCapabilities({
         id: 'linux', platform: 'linux', arch: 'x64', appiumEntry: '/definitely/not/appium',
         appiumRuntimeEntry: '/definitely/not/appium-runtime',
         commandAvailable: async (command) => command === 'adb',
     });
+    assert.deepEqual(host.capabilities.sort(), ['adb', 'android.physical'].sort());
+    assert.equal(host.tools.emulator, false);
+});
+
+test('Android emulator hosting requires both adb and emulator binaries', async () => {
+    const host = await detectHostCapabilities({
+        id: 'linux', platform: 'linux', arch: 'x64', appiumEntry: '/definitely/not/appium',
+        appiumRuntimeEntry: '/definitely/not/appium-runtime',
+        commandAvailable: async (command) => command === 'adb' || command === 'emulator',
+    });
     assert.deepEqual(host.capabilities.sort(), ['adb', 'android.emulator', 'android.physical'].sort());
+    assert.equal(host.tools.emulator, true);
 });
 
 test('verified scrcpy server advertises optional Android H.264 without replacing ADB control', async () => {

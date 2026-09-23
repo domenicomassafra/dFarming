@@ -25,8 +25,10 @@ The broader modernization lane remains Appium 3 + a current XCUITest driver/WDA.
 
 ## Source modernization closure — 2026-09-21
 
-- The custom WDA endpoints were ported to XCUITest 12.12.3 / WebDriverAgent
-  16.12.8 and pinned by upstream-version + patch-SHA manifest.
+- The custom WDA endpoints were first ported to XCUITest 12.12.3 /
+  WebDriverAgent 16.12.8, then revalidated and promoted to XCUITest 12.13.1 /
+  WebDriverAgent 16.12.9 with the same reviewed patch and a new version-pinned
+  manifest.
 - The modern patched WDA completed `xcodebuild build-for-testing` successfully
   with Xcode 27 against the booted iOS 27 Simulator before repository cutover.
 - The Appium 2 toolchain and obsolete WDA 8.9.1 patches were removed. Both

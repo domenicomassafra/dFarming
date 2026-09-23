@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "xcuitestDriverVersion": "12.13.1",
+  "webDriverAgentVersion": "16.12.9",
+  "patchFile": "Patches/appium-webdriveragent-16.12.9-dfarming.patch",
+  "patchSha256": "163d37a56bff6d6f424d3b77d9a31d869bc5e5eddae5112a4285c57d35a5e7b5"
+}

@@ -31,6 +31,7 @@ export interface HostSnapshot {
         appiumRuntime: boolean;
         xcrun: boolean;
         adb: boolean;
+        emulator: boolean;
         scrcpyVideo: boolean;
     };
     metrics?: {
@@ -68,9 +69,10 @@ export async function detectHostCapabilities(options: {
 } = {}): Promise<HostSnapshot> {
     const platform = options.platform ?? process.platform;
     const probe = options.commandAvailable ?? ((command: string) => commandAvailable(command, options.envPath));
-    const [xcrun, adb, appium, appiumRuntime, scrcpyVideo] = await Promise.all([
+    const [xcrun, adb, emulator, appium, appiumRuntime, scrcpyVideo] = await Promise.all([
         probe('xcrun'),
         probe('adb'),
+        probe('emulator'),
         exists(options.appiumEntry ?? path.resolve('node_modules/appium-runtime/index.js')),
         exists(options.appiumRuntimeEntry ?? path.resolve('node_modules/appium-runtime/index.js')),
         options.scrcpyServerJar || process.env.PHONE_FARM_SCRCPY_SERVER_JAR
@@ -88,7 +90,8 @@ export async function detectHostCapabilities(options: {
         if (xcrun) capabilities.push('ios.simulator');
         if (physicalIosEnabled && xcrun && appium) capabilities.push('wda');
     }
-    if (adb) capabilities.push('android.physical', 'android.emulator');
+    if (adb) capabilities.push('android.physical');
+    if (adb && emulator) capabilities.push('android.emulator');
     if (adb && scrcpyVideo) capabilities.push('android.h264');
     return {
         id: options.id ?? process.env.PHONE_FARM_WORKER_ID ?? 'local',
@@ -99,7 +102,7 @@ export async function detectHostCapabilities(options: {
         observedAt: new Date().toISOString(),
         capabilities,
         ...(networkRoutes.length ? { networkRoutes } : {}),
-        tools: { appium, appiumRuntime, xcrun, adb, scrcpyVideo },
+        tools: { appium, appiumRuntime, xcrun, adb, emulator, scrcpyVideo },
         metrics: {
             uptimeSeconds: Math.max(0, Math.round(os.uptime())),
             load1: Number((os.loadavg()[0] ?? 0).toFixed(2)),

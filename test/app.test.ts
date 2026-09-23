@@ -222,7 +222,7 @@ test('overview control center exposes the major product surfaces instead of hidi
         listHosts: () => [{
             id: 'macstudio', hostname: 'studio', os: 'darwin', arch: 'arm64', online: true,
             observedAt: new Date(0).toISOString(), capabilities: ['ios.physical'],
-            tools: { appium: true, appiumRuntime: true, xcrun: true, adb: false, scrcpyVideo: false },
+            tools: { appium: true, appiumRuntime: true, xcrun: true, adb: false, emulator: false, scrcpyVideo: false },
             error: 'ignored unsupported worker advertisement',
         }],
     });

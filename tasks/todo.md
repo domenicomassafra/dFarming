@@ -14,15 +14,19 @@ an old branch.
 - [x] Stable semantic accessibility model for XCUITest + UiAutomator2.
 - [x] Portable versioned flows and bounded Maestro interoperability.
 - [x] Capability-aware allocation, tags and persistent device pools.
+- [x] Hybrid host/device topology is canonical: pools can mix physical and
+  virtual devices across compatible workers, with soft physical/virtual
+  preference after load. Android-emulator capability requires both ADB and the
+  emulator binary instead of being inferred from ADB alone.
 - [x] Fleet wall grouping/filtering, Online/Offline/Disconnected state, safe
   confirmed bulk operations and exactly one focused live stream.
 - [x] Optional Android scrcpy H.264 video adapter behind signed capabilities.
 - [x] Account-to-device binding, account pause/task policy and execution evidence.
-- [x] Current clean source gate: TypeScript + **194/194 tests** + web build.
+- [x] Current clean source gate: TypeScript + **203/203 tests** + web build.
 - [x] Dependency audits: root, production-only, isolated Drizzle CLI and the
   generated Appium driver home all report **0 vulnerabilities**.
 - [x] Physical-iOS source lane migrated from the retired Appium 2 tree to the
-  pinned Appium 3/XCUITest 12.12.3 + WDA 16.12.8 path; the reviewed custom WDA
+  pinned Appium 3/XCUITest 12.13.1 + WDA 16.12.9 path; the reviewed custom WDA
   patch is checksum/version-gated and compiles on Xcode 27 / iOS 27 Simulator.
 - [x] Approved donor forks created and pinned in `donors.lock.json`.
 
@@ -46,6 +50,12 @@ Historical FARM ticket files remain for provenance; they are not active WIP.
 
 The physical-iPhone WDA regression matrix is also hardware/signing gated. The
 Mac Studio currently runs the simulator-only production profile.
+
+The MiniPC has hardware virtualization (/dev/kvm) and is a valid future
+Android-emulator worker, but no Android SDK/ADB/emulator is installed there in
+the current production image. This is intentional footprint preservation, not
+missing source support: use the existing Linux Android worker setup when local
+MiniPC emulator capacity is actually needed.
 
 ## Non-hardware feature implementation
 

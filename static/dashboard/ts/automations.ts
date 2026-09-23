@@ -16,6 +16,7 @@ interface DevicePoolRow {
     selector: {
         platform?: 'ios' | 'android';
         kind?: 'physical' | 'simulator' | 'emulator';
+        preferredKinds?: Array<'physical' | 'simulator' | 'emulator'>;
         workerId?: string;
         tags?: string[];
         requireIdle?: boolean;
@@ -87,6 +88,7 @@ const elements = {
     flowPoolFields: document.querySelector<HTMLElement>('#flow-pool-fields')!,
     flowPoolPlatform: document.querySelector<HTMLSelectElement>('#flow-pool-platform')!,
     flowPoolKind: document.querySelector<HTMLSelectElement>('#flow-pool-kind')!,
+    flowPoolPreference: document.querySelector<HTMLSelectElement>('#flow-pool-preference')!,
     flowPoolWorker: document.querySelector<HTMLSelectElement>('#flow-pool-worker')!,
     flowSavedPool: document.querySelector<HTMLSelectElement>('#flow-saved-pool')!,
     flowPoolName: document.querySelector<HTMLInputElement>('#flow-pool-name')!,
@@ -261,9 +263,18 @@ async function loadDevices(): Promise<void> {
 
 function allocationTarget(): Record<string, unknown> {
     const tags = [...new Set(elements.flowPoolTags.value.split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean))];
+    const platform = elements.flowPoolPlatform.value;
+    const exactKind = elements.flowPoolKind.value;
+    const preference = elements.flowPoolPreference.value;
+    const preferredKinds = !exactKind && preference === 'physical-first'
+        ? (platform === 'ios' ? ['physical', 'simulator'] : platform === 'android' ? ['physical', 'emulator'] : ['physical', 'simulator', 'emulator'])
+        : !exactKind && preference === 'virtual-first'
+            ? (platform === 'ios' ? ['simulator', 'physical'] : platform === 'android' ? ['emulator', 'physical'] : ['simulator', 'emulator', 'physical'])
+            : undefined;
     return {
-        ...(elements.flowPoolPlatform.value ? { platform: elements.flowPoolPlatform.value } : {}),
-        ...(elements.flowPoolKind.value ? { kind: elements.flowPoolKind.value } : {}),
+        ...(platform ? { platform } : {}),
+        ...(exactKind ? { kind: exactKind } : {}),
+        ...(preferredKinds ? { preferredKinds } : {}),
         ...(elements.flowPoolWorker.value ? { workerId: elements.flowPoolWorker.value } : {}),
         ...(tags.length ? { tags } : {}),
         requireIdle: true,
@@ -312,6 +323,13 @@ function applySelectedPool(): void {
     elements.flowPoolName.value = pool.name;
     elements.flowPoolPlatform.value = pool.selector.platform ?? '';
     elements.flowPoolKind.value = pool.selector.kind ?? '';
+    const firstPreference = pool.selector.preferredKinds?.[0];
+    elements.flowPoolPreference.value = firstPreference === 'physical'
+        ? 'physical-first'
+        : firstPreference === 'simulator' || firstPreference === 'emulator'
+            ? 'virtual-first'
+            : '';
+    elements.flowPoolPreference.disabled = Boolean(elements.flowPoolKind.value);
     elements.flowPoolWorker.value = pool.selector.workerId ?? '';
     elements.flowPoolTags.value = pool.selector.tags?.join(', ') ?? '';
     selectedPoolDirty = false;
@@ -858,8 +876,9 @@ elements.flowInspectorQuery.addEventListener('keydown', (event) => {
 });
 elements.flowTargetMode.addEventListener('change', updateFlowTimingUi);
 elements.flowTimingKind.addEventListener('change', updateFlowTimingUi);
-for (const field of [elements.flowPoolPlatform, elements.flowPoolKind, elements.flowPoolWorker]) {
+for (const field of [elements.flowPoolPlatform, elements.flowPoolKind, elements.flowPoolPreference, elements.flowPoolWorker]) {
     field.addEventListener('change', () => {
+        if (field === elements.flowPoolKind) elements.flowPoolPreference.disabled = Boolean(elements.flowPoolKind.value);
         markSelectedPoolDirty();
         void refreshAllocationPreview().catch((error) => { elements.flowAllocationHint.textContent = errorMessage(error); });
     });

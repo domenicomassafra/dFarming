@@ -14,7 +14,7 @@ Turn the iPhone-first worker model into a device-runtime model that can host phy
 - `simctl` iOS Simulator discovery and `adb` Android physical/emulator discovery.
 - Dashboard fast-attach flow for non-physical-iPhone runtimes.
 - Dedicated Appium 3 sidecar on `:4726`, isolated from the physical-iPhone Appium/WDA lane on `:4725`.
-- XCUITest `12.12.3` + UiAutomator2 `8.6.4` isolated in `.appium-runtime`.
+- XCUITest `12.13.1` + UiAutomator2 `8.7.0` isolated in `.appium-runtime`.
 - Generic Appium remote screen/input/app-lifecycle adapter.
 - Appium XML → canonical semantic stable-ref normalization for Android and iOS Simulator.
 - launchd service packaging and device-worker setup install both runtime drivers.

@@ -26,7 +26,7 @@ const host: HostSnapshot = {
     id: 'studio', hostname: 'studio', os: 'darwin', arch: 'arm64', online: true,
     observedAt: new Date(0).toISOString(), capabilities: ['ios.simulator'],
     networkRoutes: [{ id: 'italy.private', deviceUdids: ['phone-a'] }],
-    tools: { appium: false, appiumRuntime: true, xcrun: true, adb: false, scrcpyVideo: false },
+    tools: { appium: false, appiumRuntime: true, xcrun: true, adb: false, emulator: false, scrcpyVideo: false },
 };
 
 test('account execution profiles enforce dedicated device, tags, and worker route attestation', () => {

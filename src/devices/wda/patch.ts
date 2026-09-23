@@ -9,7 +9,7 @@ import { isEntrypoint } from '../../entrypoint.js';
 
 const execFileAsync = promisify(execFile);
 const packageRoot = fileURLToPath(new URL('../../../', import.meta.url));
-const manifestPath = path.join(packageRoot, 'Patches/appium-webdriveragent-16.12.8-dfarming.json');
+const manifestPath = path.join(packageRoot, 'Patches/appium-webdriveragent-16.12.9-dfarming.json');
 
 interface WdaPatchManifest {
     schemaVersion: 1;

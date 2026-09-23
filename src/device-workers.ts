@@ -199,6 +199,7 @@ function sanitizedHostSnapshot(value: unknown, descriptor: DeviceWorkerDescripto
             appiumRuntime: toolsSource?.appiumRuntime === true,
             xcrun: toolsSource?.xcrun === true,
             adb: toolsSource?.adb === true,
+            emulator: toolsSource?.emulator === true,
             scrcpyVideo: toolsSource?.scrcpyVideo === true,
         },
         ...(metrics ? { metrics } : {}),
@@ -493,7 +494,7 @@ export class DeviceWorkerFleet implements RemoteControl {
             observedAt: new Date().toISOString(),
             error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
             capabilities: [],
-            tools: { appium: false, appiumRuntime: false, xcrun: false, adb: false, scrcpyVideo: false },
+            tools: { appium: false, appiumRuntime: false, xcrun: false, adb: false, emulator: false, scrcpyVideo: false },
         };
     }
 

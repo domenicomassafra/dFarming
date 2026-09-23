@@ -17,7 +17,7 @@ both execute the root `appium-runtime` package and share the pinned
 physical social-recipe port contract; there is no Appium 2 dependency tree.
 
 The physical WDA extensions are carried as a reviewed patch against exactly
-XCUITest `12.12.3` / WebDriverAgent `16.12.8`. `wda:patch` verifies the manifest
+XCUITest `12.13.1` / WebDriverAgent `16.12.9`. `wda:patch` verifies the manifest
 versions and SHA-256 and fails closed on version drift or a partially applied
 patch. Updating that driver requires re-porting/reviewing the patch and then
 real physical-device regression proof; never use `npm audit fix --force` as a

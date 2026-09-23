@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import { isEntrypoint } from './entrypoint.js';
 
-export const XCUITEST_DRIVER_VERSION = '12.12.3';
-export const UIAUTOMATOR2_DRIVER_VERSION = '8.6.4';
+export const XCUITEST_DRIVER_VERSION = '12.13.1';
+export const UIAUTOMATOR2_DRIVER_VERSION = '8.7.0';
 export const APPIUM_MORGAN_VERSION = '1.12.1';
 
 interface AppiumHomePackage {

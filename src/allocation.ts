@@ -5,6 +5,8 @@ import type { MobileDeviceKind, MobilePlatform } from './types.js';
 export interface DeviceAllocationSelector {
     platform?: MobilePlatform;
     kind?: MobileDeviceKind;
+    /** Soft ordering used only after current execution/schedule load. Exact `kind` remains a hard filter. */
+    preferredKinds?: MobileDeviceKind[];
     workerId?: string;
     deviceUdids?: string[];
     /** Every requested tag must exist on the candidate device. */
@@ -21,6 +23,7 @@ export interface DeviceAllocationCandidate {
     workerId?: string;
     queuedOrRunning: number;
     activeSchedules: number;
+    preferenceRank: number;
     score: number;
 }
 
@@ -53,6 +56,7 @@ export function rankAllocationCandidates(
     selector: DeviceAllocationSelector = {},
 ): DeviceAllocationCandidate[] {
     const requireIdle = selector.requireIdle !== false;
+    const preferredKinds = selector.preferredKinds ?? [];
     const activeExecutionCount = new Map<string, number>();
     const activeScheduleCount = new Map<string, number>();
     for (const execution of executions) {
@@ -72,6 +76,8 @@ export function rankAllocationCandidates(
         if (!deviceMatchesAllocationSelector(device, selector)) return [];
         if (requireIdle && queuedOrRunning > 0) return [];
         const activeSchedules = activeScheduleCount.get(device.udid) ?? 0;
+        const preferenceIndex = preferredKinds.indexOf(kind);
+        const preferenceRank = preferenceIndex === -1 ? preferredKinds.length : preferenceIndex;
         return [{
             udid: device.udid,
             name: device.name,
@@ -80,8 +86,9 @@ export function rankAllocationCandidates(
             ...(device.workerId ? { workerId: device.workerId } : {}),
             queuedOrRunning,
             activeSchedules,
-            // Running/queued work dominates recurring schedule load. Stable UDID tie-break below.
-            score: queuedOrRunning * 1000 + activeSchedules * 10,
+            preferenceRank,
+            // Load dominates preference: mixed pools can prefer physical/virtual without pinning work there.
+            score: queuedOrRunning * 1000 + activeSchedules * 10 + preferenceRank,
         }];
     }).sort((left, right) => left.score - right.score
         || left.activeSchedules - right.activeSchedules

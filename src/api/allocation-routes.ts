@@ -23,6 +23,16 @@ function validatedAllocationSelector(selector: DeviceAllocationSelector | undefi
     if (value.kind !== undefined && !['physical', 'simulator', 'emulator'].includes(value.kind)) {
         throw httpError(400, 'target.kind is invalid');
     }
+    if (value.preferredKinds !== undefined && (
+        !Array.isArray(value.preferredKinds)
+        || value.preferredKinds.length > 3
+        || value.preferredKinds.some((kind) => !['physical', 'simulator', 'emulator'].includes(kind))
+    )) {
+        throw httpError(400, 'target.preferredKinds must contain valid device kinds');
+    }
+    if (value.kind !== undefined && value.preferredKinds?.length) {
+        throw httpError(400, 'target.kind and target.preferredKinds cannot be combined');
+    }
     if (value.workerId !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(value.workerId)) {
         throw httpError(400, 'target.workerId is invalid');
     }
@@ -45,6 +55,7 @@ function validatedAllocationSelector(selector: DeviceAllocationSelector | undefi
     return {
         ...(value.platform ? { platform: value.platform } : {}),
         ...(value.kind ? { kind: value.kind } : {}),
+        ...(value.preferredKinds?.length ? { preferredKinds: [...new Set(value.preferredKinds)] } : {}),
         ...(value.workerId ? { workerId: value.workerId } : {}),
         ...(value.deviceUdids ? {
             deviceUdids: [...new Set(value.deviceUdids.map((udid) => udid.trim()))],
