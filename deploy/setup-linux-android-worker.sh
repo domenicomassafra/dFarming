@@ -75,7 +75,7 @@ export JAVA_HOME="$java_home"
 npm ci --ignore-scripts
 npm rebuild node-native-ocr esbuild sharp --foreground-scripts
 [[ -d .appium-runtime/node_modules/appium-uiautomator2-driver ]] || npm run appium:runtime:install-android
-npm run appium:runtime:harden
+npm run appium:runtime:sync
 npm run doctor:device-worker
 
 node_bin="$(command -v node)"

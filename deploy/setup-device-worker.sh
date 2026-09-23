@@ -94,7 +94,7 @@ npm ci --ignore-scripts
 npm rebuild node-native-ocr esbuild sharp --foreground-scripts
 [[ -d .appium-runtime/node_modules/appium-xcuitest-driver ]] || npm run appium:runtime:install-ios
 [[ -d .appium-runtime/node_modules/appium-uiautomator2-driver ]] || npm run appium:runtime:install-android
-npm run appium:runtime:harden
+npm run appium:runtime:sync
 npm run wda:patch
 npm run doctor:device-worker
 npm run service -- install

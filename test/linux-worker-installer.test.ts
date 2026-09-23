@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 test('Linux Android worker pins Appium home and waits for service readiness', async () => {
     const installer = await readFile(path.join(root, 'deploy', 'setup-linux-android-worker.sh'), 'utf8');
+    assert.match(installer, /appium:runtime:sync/);
     assert.match(installer, /Environment=APPIUM_HOME=\$repo\/\.appium-runtime/);
     assert.match(installer, /Environment=ANDROID_HOME=\$android_sdk_root/);
     assert.match(installer, /Environment=ANDROID_SDK_ROOT=\$android_sdk_root/);

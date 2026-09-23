@@ -25,6 +25,8 @@ test('runtime and schema toolchains stay explicit without the retired Appium 2 t
     assert.match(root.scripts?.appium ?? '', /\.appium-runtime/);
     assert.match(root.scripts?.['appium:runtime:harden'] ?? '', /appium-runtime-hardening\.ts repair/);
     assert.match(root.scripts?.['appium:runtime:harden'] ?? '', /audit:appium-runtime/);
+    assert.match(root.scripts?.['appium:runtime:sync'] ?? '', /appium-runtime-hardening\.ts sync/);
+    assert.match(root.scripts?.['appium:runtime:sync'] ?? '', /audit:appium-runtime/);
     assert.match(root.scripts?.['audit:appium-runtime'] ?? '', /--audit-level=low/);
     assert.match(root.scripts?.['db:generate'] ?? '', /toolchains\/db-schema\/node_modules\/drizzle-kit\/bin\.cjs/);
     assert.match(installer, /npm run wda:patch/);

@@ -42,6 +42,7 @@
     "appium:runtime:install-android": "APPIUM_HOME=.appium-runtime node node_modules/appium-runtime/index.js driver install uiautomator2@8.7.0",
     "appium:runtime:drivers": "APPIUM_HOME=.appium-runtime node node_modules/appium-runtime/index.js driver list --installed",
     "appium:runtime:harden": "node --import tsx src/appium-runtime-hardening.ts prepare && npm install --prefix .appium-runtime --ignore-scripts && node --import tsx src/appium-runtime-hardening.ts repair && npm run audit:appium-runtime",
+    "appium:runtime:sync": "node --import tsx src/appium-runtime-hardening.ts sync && npm install --prefix .appium-runtime --ignore-scripts && node --import tsx src/appium-runtime-hardening.ts repair && npm run audit:appium-runtime",
     "wda:patch": "node --import tsx src/devices/wda/patch.ts",
     "wda:prepare": "node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/devices/wda/prepare.ts",
     "wda:service": "node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/devices/wda-service.ts",

@@ -17,6 +17,7 @@ test('Windows Android packaging reuses canonical worker processes and Task Sched
     assert.match(installer, /PHONE_FARM_CONTROL_PLANE_URL/);
     assert.match(installer, /DATABASE_URL/);
     assert.match(installer, /doctor:device-worker/);
+    assert.match(installer, /appium:runtime:sync/);
     assert.match(installer, /Wait-Http 'Appium runtime'/);
     assert.match(installer, /Wait-Http 'Device worker'/);
     assert.match(installer, /\$env:OS -ne 'Windows_NT'/);

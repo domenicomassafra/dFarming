@@ -22,7 +22,7 @@ an old branch.
   confirmed bulk operations and exactly one focused live stream.
 - [x] Optional Android scrcpy H.264 video adapter behind signed capabilities.
 - [x] Account-to-device binding, account pause/task policy and execution evidence.
-- [x] Current clean source gate: TypeScript + **203/203 tests** + web build.
+- [x] Current clean source gate: TypeScript + **204/204 tests** + web build.
 - [x] Dependency audits: root, production-only, isolated Drizzle CLI and the
   generated Appium driver home all report **0 vulnerabilities**.
 - [x] Physical-iOS source lane migrated from the retired Appium 2 tree to the

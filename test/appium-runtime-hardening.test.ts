@@ -8,6 +8,7 @@ import {
     APPIUM_MORGAN_VERSION,
     hardenAppiumRuntimeHome,
     hardenedAppiumHomePackage,
+    pinAppiumRuntimeHome,
     remediateBundledMorgan,
     UIAUTOMATOR2_DRIVER_VERSION,
     XCUITEST_DRIVER_VERSION,
@@ -46,6 +47,19 @@ test('Appium home hardening refuses driver drift before rewriting the manifest',
     await writeFile(path.join(home, 'node_modules/appium-uiautomator2-driver/package.json'), JSON.stringify({ version: UIAUTOMATOR2_DRIVER_VERSION }));
     await assert.rejects(() => hardenAppiumRuntimeHome(home), /version drift/);
     assert.doesNotMatch(await readFile(path.join(home, 'package.json'), 'utf8'), /overrides/);
+});
+
+test('Appium runtime synchronization can advance a stale declared driver pin before install', async (context) => {
+    const home = await mkdtemp(path.join(os.tmpdir(), 'dfarming-appium-sync-'));
+    context.after(() => rm(home, { recursive: true, force: true }));
+    await writeFile(path.join(home, 'package.json'), JSON.stringify({
+        devDependencies: { 'appium-uiautomator2-driver': '8.6.4' },
+    }));
+    await pinAppiumRuntimeHome(home);
+    const manifest = JSON.parse(await readFile(path.join(home, 'package.json'), 'utf8'));
+    assert.equal(manifest.devDependencies['appium-uiautomator2-driver'], UIAUTOMATOR2_DRIVER_VERSION);
+    assert.equal(manifest.devDependencies.morgan, APPIUM_MORGAN_VERSION);
+    assert.equal(manifest.devDependencies['appium-xcuitest-driver'], undefined);
 });
 
 test('Android-only Appium homes are hardened without adding the Apple driver', () => {

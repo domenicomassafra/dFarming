@@ -31,6 +31,18 @@ export function hardenedAppiumHomePackage(input: AppiumHomePackage): AppiumHomeP
     };
 }
 
+export async function pinAppiumRuntimeHome(
+    home = path.resolve(process.env.APPIUM_HOME ?? '.appium-runtime'),
+): Promise<void> {
+    const packagePath = path.join(home, 'package.json');
+    const current = JSON.parse(await readFile(packagePath, 'utf8')) as AppiumHomePackage;
+    const dependencies = current.devDependencies ?? {};
+    if (!('appium-xcuitest-driver' in dependencies) && !('appium-uiautomator2-driver' in dependencies)) {
+        throw new Error('Appium runtime home contains no managed XCUITest or UiAutomator2 driver');
+    }
+    await writeFile(packagePath, `${JSON.stringify(hardenedAppiumHomePackage(current), null, 2)}\n`, { mode: 0o600 });
+}
+
 async function directoriesNamed(root: string, name: string, found: string[] = []): Promise<string[]> {
     for (const entry of await readdir(root, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue;
@@ -71,7 +83,7 @@ export async function hardenAppiumRuntimeHome(home = path.resolve(process.env.AP
     }
     if (!checks.length) throw new Error('Appium runtime home contains no managed XCUITest or UiAutomator2 driver');
     await Promise.all(checks);
-    await writeFile(packagePath, `${JSON.stringify(hardenedAppiumHomePackage(current), null, 2)}\n`, { mode: 0o600 });
+    await pinAppiumRuntimeHome(home);
 }
 
 export async function remediateBundledMorgan(home = path.resolve(process.env.APPIUM_HOME ?? '.appium-runtime')): Promise<number> {
@@ -144,10 +156,13 @@ if (isEntrypoint(import.meta.url)) {
     if (action === 'prepare') {
         await hardenAppiumRuntimeHome();
         console.log(`Pinned Appium runtime drivers and morgan ${APPIUM_MORGAN_VERSION} override`);
+    } else if (action === 'sync') {
+        await pinAppiumRuntimeHome();
+        console.log(`Prepared Appium runtime driver synchronization with morgan ${APPIUM_MORGAN_VERSION} override`);
     } else if (action === 'repair') {
         const remediated = await remediateBundledMorgan();
         console.log(`Remediated ${remediated} bundled morgan cop${remediated === 1 ? 'y' : 'ies'} to ${APPIUM_MORGAN_VERSION}`);
     } else {
-        throw new Error('Usage: appium-runtime-hardening <prepare|repair>');
+        throw new Error('Usage: appium-runtime-hardening <prepare|sync|repair>');
     }
 }

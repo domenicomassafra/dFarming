@@ -92,7 +92,7 @@ if (-not (Test-Path (Join-Path $Root '.appium-runtime\node_modules\appium-uiauto
     & npm.cmd run appium:runtime:install-android
     if ($LASTEXITCODE -ne 0) { throw 'UiAutomator2 driver install failed' }
 }
-& npm.cmd run appium:runtime:harden
+& npm.cmd run appium:runtime:sync
 if ($LASTEXITCODE -ne 0) { throw 'Appium runtime dependency hardening failed' }
 & npm.cmd run doctor:device-worker
 if ($LASTEXITCODE -ne 0) { throw 'device-worker doctor failed' }
