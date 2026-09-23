@@ -49,7 +49,7 @@ const commentOverride = (process.env.WORKFLOW_COMMENT_TEXT ?? '').trim() || unde
 const registeredDevice = (await loadRegisteredDevices()).find((device) => device.udid === udid);
 if (!registeredDevice) throw new Error(`Device ${udid} is not registered`);
 
-const pluginData = registeredDevice.pluginData?.['com.git-agni.tiktok'] as Record<string, unknown> | undefined;
+const pluginData = registeredDevice.pluginData?.['com.dfarming.tiktok'] as Record<string, unknown> | undefined;
 const workflows = listWorkflowsFromPluginData(pluginData);
 const workflow = workflows.find((item) => item.id === workflowId);
 if (!workflow) throw new Error(`Workflow ${workflowId} was not found on this device`);

@@ -1,6 +1,6 @@
 # Architecture — what does what
 
-Mobile Farm is one Linux MiniPC control plane plus a heterogeneous set of
+dFarming is one Linux MiniPC control plane plus a heterogeneous set of
 execution-host runtimes over one PostgreSQL database and a few worker-local state files. There is no
 client framework: the dashboard is server-rendered HTML with HTMX. Physical
 iPhones keep their specialized WDA video/control path, while iOS Simulators use
@@ -61,8 +61,8 @@ Fastify control plane, normally containerized on the MiniPC.
   assets, remote control).
 - Live device screen and input are proxied through the owning device worker;
   browser clients never need direct access to WDA/Appium ports.
-- Loads plugins (`PHONE_FARM_PLUGINS`) and the auth provider
-  (`PHONE_FARM_AUTH_PLUGIN`); mounts each plugin's **panels** on the device
+- Loads plugins (`DFARMING_PLUGINS`) and the auth provider
+  (`DFARMING_AUTH_PLUGIN`); mounts each plugin's **panels** on the device
   page and its **routes** under `/plugins/<pluginId>`.
 - `assertSafeBind(host, authProvider)` refuses a non‑loopback bind with no
   auth provider.
@@ -109,7 +109,7 @@ XCUITest 12.13.1 / WDA 16.12.9 source is extended by the reviewed
 `appium-webdriveragent-16.12.9-dfarming.patch` for sessionless absolute touch,
 Photos import and device buttons. `wda:patch` checks exact upstream versions
 and the patch checksum before modifying the installed WDA source. The listener
-is omitted when `PHONE_FARM_ENABLE_PHYSICAL_IOS=false`.
+is omitted when `DFARMING_ENABLE_PHYSICAL_IOS=false`.
 
 ### macOS `appium-runtime` cross-platform lane — `:4726`
 The second Appium 3 listener uses the same pinned `.appium-runtime` driver home
@@ -172,7 +172,7 @@ without the UI, for scripted or bulk (`--all`) setup.
 Every schedule and execution row carries a **task envelope**:
 
 ```
-pluginId : string        e.g. "com.git-agni.tiktok" or "com.git-agni.instagram"
+pluginId : string        e.g. "com.dfarming.tiktok" or "com.dfarming.instagram"
 taskType : string        e.g. "doomscroll"
 taskVersion : integer     e.g. 1
 payload : jsonb          validated, version-specific shape
@@ -185,9 +185,9 @@ installed, that schedule fails loudly instead of executing v2 logic.
 
 ### Portable semantic flows
 
-`com.phone-farm.flow/flow@1` is the iOS automation contract. Coordinate tap/swipe remains available as a fallback, but the preferred steps use the common accessibility tree: `tapText`, `waitVisible`, `assertVisible`, `waitGone`, and `inputText`. WDA JSON and XCUITest XML are normalized into the same stable-ref snapshot model before those actions run. This keeps scheduler contracts independent of Appium/WDA and lets the same flow survive device-size changes when labels and accessibility roles remain stable.
+`com.dfarming.flow/flow@1` is the portable automation contract. Coordinate tap/swipe remains available as a fallback, but the preferred steps use the common accessibility tree: `tapText`, `waitVisible`, `assertVisible`, `waitGone`, and `inputText`. WDA JSON and XCUITest XML are normalized into the same stable-ref snapshot model before those actions run. This keeps scheduler contracts independent of Appium/WDA and lets the same flow survive device-size changes when labels and accessibility roles remain stable.
 
-Portable flows are also canonical library objects. `scheduler.flow_definitions` identifies a flow while `scheduler.flow_versions` stores immutable revisions; editing creates a new revision instead of mutating history. Mobile Farm JSON is the native lossless interchange format. A bounded Maestro YAML adapter supports the accessibility-oriented command subset that maps cleanly into this contract; unsupported/lossy steps fail export rather than silently changing behavior.
+Portable flows are also canonical library objects. `scheduler.flow_definitions` identifies a flow while `scheduler.flow_versions` stores immutable revisions; editing creates a new revision instead of mutating history. dFarming JSON (`dfarming-flow@1`) is the native lossless interchange format; legacy `mobile-farm-flow@1` is import-only compatibility. A bounded Maestro YAML adapter supports the accessibility-oriented command subset that maps cleanly into this contract; unsupported/lossy steps fail export rather than silently changing behavior.
 
 ### Virtual runtime lifecycle
 
@@ -213,7 +213,7 @@ routes and campaigns that call the repository directly. The resolved profile
 ID and route ID are copied to both schedule and execution rows so receipts stay
 auditable without embedding network secrets in task payloads.
 
-Network routes are worker-local attestations. `PHONE_FARM_NETWORK_ROUTES`
+Network routes are worker-local attestations. `DFARMING_NETWORK_ROUTES`
 contains only route IDs and optional device scope; the worker may be attached
 to an operator-managed VPN/proxy/network namespace, but credentials/endpoints
 are never returned by `/v1/host` or stored by the MiniPC. If a selected worker
@@ -224,7 +224,7 @@ execution failure rather than silent fallback to another egress path. This
 feature is for privacy, testing and operational segmentation; it does not
 rotate/fallback routes to evade provider enforcement.
 
-`com.phone-farm.flow/flow@1` is the generic iOS automation contract. Its payload
+`com.dfarming.flow/flow@1` is the generic mobile automation contract. Its payload
 is an ordered list of portable actions (app launch/terminate, wait, tap, swipe,
 type, system buttons and screenshot), authored in Automation Studio and queued
 through the exact same scheduler/evidence path as plugin-specific tasks.
@@ -266,7 +266,7 @@ in `src/scheduler/recurrence.ts`; the next occurrence is written to
 | `src/instagram-plugin.ts` | Built‑in Instagram plugin: task definitions, device panel, routes |
 | `src/plugin.ts` | **Stable plugin & auth interfaces** |
 | `src/registry.ts` | `PluginRegistry` — task resolution and validation |
-| `src/loader.ts` | Dynamic import of `PHONE_FARM_PLUGINS` / `PHONE_FARM_AUTH_PLUGIN` |
+| `src/loader.ts` | Dynamic import of `DFARMING_PLUGINS` / `DFARMING_AUTH_PLUGIN` |
 | `src/example-plugin.ts` | Minimal reference plugin |
 | `static/dashboard/` | HTML templates, browser TS (`tsconfig.web.json` → `static/dashboard/assets/*.js`) |
 | `Patches/` | WDA source patches applied by `wda:prepare` |

@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 
-import type { PhoneFarmPlugin } from './plugin.js';
+import { TIKTOK_PLUGIN_ID } from './branding.js';
+import type { DFarmingPlugin } from './plugin.js';
 import type { JsonObject, ScheduleTiming } from './types.js';
 import {
     resolveDeviceCoordinates,
@@ -117,7 +118,7 @@ function pipelineTimingsForDevice(frequency: PipelineFrequency, staggerMinutes: 
     }];
 }
 
-function activeFarmDevices(devices: RegisteredDevice[]): RegisteredDevice[] {
+function activeDFarmingDevices(devices: RegisteredDevice[]): RegisteredDevice[] {
     return devices
         .filter((device) => !device.disabled)
         .sort((a, b) => {
@@ -134,9 +135,9 @@ async function hashFile(filePath: string): Promise<string> {
 }
 
 
-export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}): PhoneFarmPlugin {
+export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}): DFarmingPlugin {
     return {
-        id: 'com.git-agni.tiktok',
+        id: TIKTOK_PLUGIN_ID,
         version: '0.1.0',
         displayName: 'TikTok automation',
         tasks: createTikTokTaskDefinitions(configuration),
@@ -147,7 +148,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
         async registerRoutes(context) {
             const deviceData = async (udid: string) => (await context.loadDevices()).find((device) => device.udid === udid);
             const tiktokPluginData = (device: { pluginData: Record<string, JsonObject | undefined> }) => (
-                device.pluginData['com.git-agni.tiktok'] ?? {}
+                device.pluginData['com.dfarming.tiktok'] ?? {}
             );
 
             context.app.get<{ Params: { udid: string } }>('/api/devices/:udid/tiktok/workflows', async (request, reply) => {
@@ -192,12 +193,12 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         const target = devices.find(({ udid }) => udid === request.params.udid);
                         if (!target) return false;
                         const current = listWorkflowsFromPluginData(
-                            (target.pluginData['com.git-agni.tiktok'] ?? {}) as Record<string, unknown>,
+                            (target.pluginData['com.dfarming.tiktok'] ?? {}) as Record<string, unknown>,
                         );
                         target.pluginData = {
                             ...target.pluginData,
-                            'com.git-agni.tiktok': replaceWorkflowsInPluginData(
-                                target.pluginData['com.git-agni.tiktok'] as Record<string, unknown> | undefined,
+                            'com.dfarming.tiktok': replaceWorkflowsInPluginData(
+                                target.pluginData['com.dfarming.tiktok'] as Record<string, unknown> | undefined,
                                 [...current, pattern],
                             ) as JsonObject,
                         };
@@ -233,7 +234,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         const target = devices.find(({ udid }) => udid === request.params.udid);
                         if (!target) return false;
                         const current = listWorkflowsFromPluginData(
-                            (target.pluginData['com.git-agni.tiktok'] ?? {}) as Record<string, unknown>,
+                            (target.pluginData['com.dfarming.tiktok'] ?? {}) as Record<string, unknown>,
                         );
                         const index = current.findIndex(({ id }) => id === request.params.id);
                         if (index < 0) return false;
@@ -262,8 +263,8 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         next[index] = updated;
                         target.pluginData = {
                             ...target.pluginData,
-                            'com.git-agni.tiktok': replaceWorkflowsInPluginData(
-                                target.pluginData['com.git-agni.tiktok'] as Record<string, unknown> | undefined,
+                            'com.dfarming.tiktok': replaceWorkflowsInPluginData(
+                                target.pluginData['com.dfarming.tiktok'] as Record<string, unknown> | undefined,
                                 next,
                             ) as JsonObject,
                         };
@@ -283,14 +284,14 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         const target = devices.find(({ udid }) => udid === request.params.udid);
                         if (!target) return false;
                         const current = listWorkflowsFromPluginData(
-                            (target.pluginData['com.git-agni.tiktok'] ?? {}) as Record<string, unknown>,
+                            (target.pluginData['com.dfarming.tiktok'] ?? {}) as Record<string, unknown>,
                         );
                         const next = current.filter(({ id }) => id !== request.params.id);
                         if (next.length === current.length) return false;
                         target.pluginData = {
                             ...target.pluginData,
-                            'com.git-agni.tiktok': replaceWorkflowsInPluginData(
-                                target.pluginData['com.git-agni.tiktok'] as Record<string, unknown> | undefined,
+                            'com.dfarming.tiktok': replaceWorkflowsInPluginData(
+                                target.pluginData['com.dfarming.tiktok'] as Record<string, unknown> | undefined,
                                 next,
                             ) as JsonObject,
                         };
@@ -318,13 +319,13 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         if (kind === 'now') {
                             const recent = await context.scheduler.listExecutions(50, device.udid);
                             const mine = recent.filter(({ pluginId, taskType }) => (
-                                pluginId === 'com.git-agni.tiktok' && taskType === 'doomscroll-following'
+                                pluginId === 'com.dfarming.tiktok' && taskType === 'doomscroll-following'
                             ));
                             if (mine.some(({ status }) => status === 'running')) {
                                 throw new Error('An engagement session is already running on this device. Stop it from Activity, then start again.');
                             }
                             await context.scheduler.clearDeviceQueue(device.udid, {
-                                pluginId: 'com.git-agni.tiktok',
+                                pluginId: 'com.dfarming.tiktok',
                                 taskType: 'doomscroll-following',
                                 onlyQueued: true,
                             });
@@ -332,7 +333,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         await context.scheduler.createTask({
                             deviceUdid: device.udid,
                             task: {
-                                pluginId: 'com.git-agni.tiktok', taskType: 'doomscroll-following', taskVersion: 1,
+                                pluginId: 'com.dfarming.tiktok', taskType: 'doomscroll-following', taskVersion: 1,
                                 payload: {
                                     durationMinutes: Number(body.durationMinutes),
                                     personality: body.personality,
@@ -345,7 +346,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                             },
                             timing,
                             runWindowMinutes: body.runWindowMinutes ? Number(body.runWindowMinutes) : undefined,
-                        }, device.pluginData['com.git-agni.tiktok'] ?? {});
+                        }, device.pluginData['com.dfarming.tiktok'] ?? {});
                         return reply.code(202).type('text/html').send(await context.renderActivity(device.udid));
                     } catch (error) {
                         const message = error instanceof Error ? error.message : String(error);
@@ -366,7 +367,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         await context.scheduler.createTask({
                             deviceUdid: device.udid,
                             task: {
-                                pluginId: 'com.git-agni.tiktok', taskType: 'workflow-replay', taskVersion: 1,
+                                pluginId: 'com.dfarming.tiktok', taskType: 'workflow-replay', taskVersion: 1,
                                 payload: {
                                     workflowId: body.workflowId ?? '',
                                     ...(body.durationMinutes ? { durationMinutes: Number(body.durationMinutes) } : {}),
@@ -375,7 +376,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                                 },
                             },
                             timing: { kind: 'now' },
-                        }, device.pluginData['com.git-agni.tiktok'] ?? {});
+                        }, device.pluginData['com.dfarming.tiktok'] ?? {});
                         return reply.code(202).type('text/html').send(await context.renderActivity(device.udid));
                     } catch (error) {
                         const message = error instanceof Error ? error.message : String(error);
@@ -394,7 +395,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                 const found = await context.mutateDevices((devices) => {
                     const device = devices.find(({ udid }) => udid === request.params.udid);
                     if (!device) return false;
-                    device.pluginData = { ...device.pluginData, 'com.git-agni.tiktok': { ...device.pluginData['com.git-agni.tiktok'], accounts } };
+                    device.pluginData = { ...device.pluginData, 'com.dfarming.tiktok': { ...device.pluginData['com.dfarming.tiktok'], accounts } };
                     return true;
                 });
                 if (!found) return reply.code(404).send({ error: 'Device is not registered' });
@@ -416,13 +417,13 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         if (kind === 'now') {
                             const recent = await context.scheduler.listExecutions(50, device.udid);
                             const mine = recent.filter(({ pluginId, taskType }) => (
-                                pluginId === 'com.git-agni.tiktok' && taskType === 'doomscroll'
+                                pluginId === 'com.dfarming.tiktok' && taskType === 'doomscroll'
                             ));
                             if (mine.some(({ status }) => status === 'running')) {
                                 throw new Error('A warmup session is already running on this device. Stop it from Activity, then start again.');
                             }
                             await context.scheduler.clearDeviceQueue(device.udid, {
-                                pluginId: 'com.git-agni.tiktok',
+                                pluginId: 'com.dfarming.tiktok',
                                 taskType: 'doomscroll',
                                 onlyQueued: true,
                             });
@@ -430,7 +431,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         await context.scheduler.createTask({
                             deviceUdid: device.udid,
                             task: {
-                                pluginId: 'com.git-agni.tiktok', taskType: 'doomscroll', taskVersion: 1,
+                                pluginId: 'com.dfarming.tiktok', taskType: 'doomscroll', taskVersion: 1,
                                 payload: {
                                     durationMinutes: Number(body.durationMinutes), personality: body.personality,
                                     likeEnabled: body.likeEnabled === 'on', saveEnabled: body.saveEnabled === 'on',
@@ -441,7 +442,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                             },
                             timing,
                             runWindowMinutes: body.runWindowMinutes ? Number(body.runWindowMinutes) : undefined,
-                        }, device.pluginData['com.git-agni.tiktok'] ?? {});
+                        }, device.pluginData['com.dfarming.tiktok'] ?? {});
                         return reply.code(202).type('text/html').send(await context.renderActivity(device.udid));
                     } catch (error) {
                         const message = error instanceof Error ? error.message : String(error);
@@ -452,7 +453,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
 
             context.app.get<{ Params: { udid: string } }>('/api/devices/:udid/posts/current', async (request) => {
                 const latest = (await context.scheduler.listExecutions(25, request.params.udid))
-                    .find(({ pluginId, taskType }) => pluginId === 'com.git-agni.tiktok' && taskType === 'post');
+                    .find(({ pluginId, taskType }) => pluginId === 'com.dfarming.tiktok' && taskType === 'post');
                 if (!latest) return { status: 'idle', logs: [] };
                 const detail = await context.scheduler.execution(latest.id);
                 return { ...latest, destination: latest.payload.destination ?? null, logs: detail?.logs ?? [] };
@@ -498,7 +499,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                     const schedule = await context.scheduler.createTask({
                         deviceUdid: device.udid,
                         task: {
-                            pluginId: 'com.git-agni.tiktok', taskType: 'post', taskVersion: 1,
+                            pluginId: 'com.dfarming.tiktok', taskType: 'post', taskVersion: 1,
                             payload: {
                                 media: stored.map(({ id, name, mimeType }) => ({ assetId: id, name, mimeType })),
                                 destination,
@@ -510,7 +511,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         },
                         timing,
                         runWindowMinutes: fields.get('runWindowMinutes') ? Number(fields.get('runWindowMinutes')) : undefined,
-                    }, device.pluginData['com.git-agni.tiktok'] ?? {}, new Date(), assetIds);
+                    }, device.pluginData['com.dfarming.tiktok'] ?? {}, new Date(), assetIds);
                     return reply.code(202).send(schedule);
                 } catch (error) {
                     if (assetIds.length) await context.scheduler.deleteAssets(assetIds);
@@ -526,7 +527,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                 const frequency = pipeline.frequency ?? 'production';
                 const staggerMinutes = pipeline.staggerMinutes ?? 0;
                 const items = await context.scheduler.listPipelineItems(device.udid);
-                const fleet = activeFarmDevices(await context.loadDevices());
+                const fleet = activeDFarmingDevices(await context.loadDevices());
                 return {
                     enabled: pipeline.enabled === true,
                     frequency,
@@ -579,7 +580,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                     if (caption.length > 2200) throw new Error('Caption must be 2,200 characters or fewer');
                     const fleet = fields.get('fleet') === 'true' || fields.get('scope') === 'fleet';
                     const targets = fleet
-                        ? activeFarmDevices(await context.loadDevices())
+                        ? activeDFarmingDevices(await context.loadDevices())
                         : [device];
                     if (!targets.length) throw new Error('No connected devices available for the pipeline');
                     const created = [];
@@ -644,7 +645,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                                 const schedule = await context.scheduler.createTask({
                                     deviceUdid: target.udid,
                                     task: {
-                                        pluginId: 'com.git-agni.tiktok',
+                                        pluginId: 'com.dfarming.tiktok',
                                         taskType: 'pipeline-drain',
                                         taskVersion: 1,
                                         payload: {},
@@ -662,7 +663,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                         await context.mutateDevices((devices) => {
                             const row = devices.find((entry) => entry.udid === target.udid);
                             if (!row) throw new Error(`Device ${target.name} disappeared while updating pipeline`);
-                            row.pluginData['com.git-agni.tiktok'] = next;
+                            row.pluginData['com.dfarming.tiktok'] = next;
                         });
                         createdByDevice.push({
                             udid: target.udid, name: target.name, staggerMinutes, scheduleIds: createdIds,
@@ -696,7 +697,7 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                 const fleet = request.body?.fleet === true || request.body?.scope === 'fleet';
                 try {
                     const targets = fleet
-                        ? activeFarmDevices(await context.loadDevices())
+                        ? activeDFarmingDevices(await context.loadDevices())
                         : [device];
                     if (!targets.length) return reply.code(409).send({ error: 'No active devices for fleet pipeline' });
                     const result = await applyPipelineAuto(targets, enabled, frequency, fleet);
@@ -720,14 +721,14 @@ export function createTikTokPlugin(configuration: TikTokPluginConfiguration = {}
                     const schedule = await context.scheduler.createTask({
                         deviceUdid: device.udid,
                         task: {
-                            pluginId: 'com.git-agni.tiktok',
+                            pluginId: 'com.dfarming.tiktok',
                             taskType: 'pipeline-drain',
                             taskVersion: 1,
                             payload: {},
                         },
                         timing: { kind: 'now' },
                         runWindowMinutes: 45,
-                    }, device.pluginData['com.git-agni.tiktok'] ?? {});
+                    }, device.pluginData['com.dfarming.tiktok'] ?? {});
                     return reply.code(202).send(schedule);
                 } catch (error) {
                     return reply.code(400).send({ error: error instanceof Error ? error.message : String(error) });

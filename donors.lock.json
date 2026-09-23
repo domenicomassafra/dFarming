@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-21",
+  "updatedAt": "2026-09-23",
   "donors": [
     {
       "id": "appium-device-farm",
@@ -58,6 +58,30 @@
       "sha": "c436d39f2ba07c4241b7712f85aa5e889d90d62b",
       "license": "Apache-2.0",
       "role": "portable semantic flow format/runner reference"
+    },
+    {
+      "id": "baguette",
+      "upstream": "tddworks/baguette",
+      "fork": "domenicomassafra/dFarming-baguette",
+      "sha": "14a3d23a03989dbce9ef0b75a906cb82e96f38aa",
+      "license": "Apache-2.0",
+      "role": "iOS Simulator farm, low-latency video, accessibility and input reference"
+    },
+    {
+      "id": "mobile-use",
+      "upstream": "minitap-ai/mobile-use",
+      "fork": "domenicomassafra/dFarming-mobile-use",
+      "sha": "62913c933e21b27da353a89316a09f60525af496",
+      "license": "Apache-2.0",
+      "role": "cross-platform agentic mobile-control and skill architecture reference"
+    },
+    {
+      "id": "device-farm-ios",
+      "upstream": "LWHikarik/device-farm-ios",
+      "fork": "domenicomassafra/dFarming-device-farm-ios",
+      "sha": "37a169d88905b59bc998ea5f251dd00e813aa17c",
+      "license": "MIT",
+      "role": "physical-iOS qvh/video transport benchmark donor from fix/restore-ios-support"
     }
   ]
 }

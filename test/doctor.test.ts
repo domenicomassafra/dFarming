@@ -15,7 +15,7 @@ function runner(fixtures: Record<string, { status?: number; stdout?: string; std
 }
 
 function doctorCwd(context: test.TestContext): string {
-    const cwd = mkdtempSync(path.join(os.tmpdir(), 'phone-farm-doctor-'));
+    const cwd = mkdtempSync(path.join(os.tmpdir(), 'dfarming-doctor-'));
     context.after(() => rmSync(cwd, { recursive: true, force: true }));
     const appiumRuntime = path.join(cwd, 'node_modules', 'appium-runtime');
     mkdirSync(appiumRuntime, { recursive: true });
@@ -73,9 +73,9 @@ test('device-worker runtime can be ready without a physical iPhone and does not 
         'xcodebuild -version': { stdout: 'Xcode 27.0\nBuild version 27A266a' },
         'xcrun xctrace list devices': { stdout: '== Devices ==\nMac Studio Dodo (47E01785-0016-5835-8977-860F1D589104)\n\n== Simulators ==\n' },
     }), {
-        PHONE_FARM_ROLE: 'device-worker',
-        PHONE_FARM_WORKER_ID: 'macstudio',
-        DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
+        DFARMING_ROLE: 'device-worker',
+        DFARMING_WORKER_ID: 'macstudio',
+        DATABASE_URL: 'postgresql://dfarming:secret@minipc:55432/dfarming',
     }, cwd, 'darwin');
     assert.equal(report.checks.find(({ id }) => id === 'iphone')?.status, 'fail');
     assert.equal(report.runtimeReady, true);
@@ -88,10 +88,10 @@ test('simulator-only device worker is runtime-ready without physical signing', (
         'xcode-select -p': { stdout: '/Applications/Xcode.app/Contents/Developer\n' },
         'xcodebuild -version': { stdout: 'Xcode 27.0\nBuild version 27A266a' },
     }), {
-        PHONE_FARM_ROLE: 'device-worker',
-        PHONE_FARM_WORKER_ID: 'macstudio',
-        PHONE_FARM_ENABLE_PHYSICAL_IOS: 'false',
-        DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
+        DFARMING_ROLE: 'device-worker',
+        DFARMING_WORKER_ID: 'macstudio',
+        DFARMING_ENABLE_PHYSICAL_IOS: 'false',
+        DATABASE_URL: 'postgresql://dfarming:secret@minipc:55432/dfarming',
     }, cwd, 'darwin');
     assert.equal(report.runtimeReady, true);
     assert.equal(report.realDeviceReady, false);
@@ -102,11 +102,11 @@ test('control-plane doctor does not require Xcode and requires Docker/database c
     const report = collectDoctorReport(runner({
         'docker --version': { stdout: 'Docker version 28.0.0' },
     }), {
-        PHONE_FARM_ROLE: 'control-plane',
-        DATABASE_URL: 'postgresql://phone_farm:secret@127.0.0.1:5432/phone_farm',
-        PHONE_FARM_DEVICE_WORKERS: 'macstudio=http://macstudio:3010',
-        PHONE_FARM_DEVICE_WORKER_TOKEN: 'worker-secret',
-        PHONE_FARM_INTERNAL_TOKEN: 'internal-secret',
+        DFARMING_ROLE: 'control-plane',
+        DATABASE_URL: 'postgresql://dfarming:secret@127.0.0.1:5432/dfarming',
+        DFARMING_DEVICE_WORKERS: 'macstudio=http://macstudio:3010',
+        DFARMING_DEVICE_WORKER_TOKEN: 'worker-secret',
+        DFARMING_INTERNAL_TOKEN: 'internal-secret',
     }, process.cwd());
     assert.equal(report.runtimeReady, true);
     assert.equal(report.realDeviceReady, false);
@@ -124,9 +124,9 @@ test('Linux Android device worker requires ADB and UiAutomator2 but never Xcode'
         'adb -s ABC123 shell getprop ro.kernel.qemu': { stdout: '0\n' },
         'java -version': { stderr: 'openjdk version "21.0.12"\n' },
     }), {
-        PHONE_FARM_ROLE: 'device-worker',
-        PHONE_FARM_WORKER_ID: 'android-linux',
-        DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
+        DFARMING_ROLE: 'device-worker',
+        DFARMING_WORKER_ID: 'android-linux',
+        DATABASE_URL: 'postgresql://dfarming:secret@minipc:55432/dfarming',
         ANDROID_HOME: sdk,
         ANDROID_SDK_ROOT: sdk,
     }, cwd, 'linux');
@@ -150,9 +150,9 @@ test('Linux Android doctor never counts a TCP-connected qemu emulator as a physi
         'adb -s 127.0.0.1:5555 shell getprop ro.kernel.qemu': { stdout: '1\n' },
         'java -version': { stderr: 'openjdk version "21.0.12"\n' },
     }), {
-        PHONE_FARM_ROLE: 'device-worker',
-        PHONE_FARM_WORKER_ID: 'android-linux',
-        DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
+        DFARMING_ROLE: 'device-worker',
+        DFARMING_WORKER_ID: 'android-linux',
+        DATABASE_URL: 'postgresql://dfarming:secret@minipc:55432/dfarming',
         ANDROID_HOME: sdk,
     }, cwd, 'linux');
     assert.equal(report.runtimeReady, true);
@@ -168,9 +168,9 @@ test('Linux Android worker is not runtime-ready with adb alone and no SDK root',
         'adb devices -l': { stdout: 'List of devices attached\n' },
         'java -version': { stderr: 'openjdk version "21.0.12"\n' },
     }), {
-        PHONE_FARM_ROLE: 'device-worker',
-        PHONE_FARM_WORKER_ID: 'android-linux',
-        DATABASE_URL: 'postgresql://phone_farm:secret@minipc:55432/phone_farm',
+        DFARMING_ROLE: 'device-worker',
+        DFARMING_WORKER_ID: 'android-linux',
+        DATABASE_URL: 'postgresql://dfarming:secret@minipc:55432/dfarming',
     }, cwd, 'linux');
     assert.equal(report.runtimeReady, false);
     assert.equal(report.checks.find(({ id }) => id === 'android-sdk')?.status, 'fail');

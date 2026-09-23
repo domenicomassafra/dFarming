@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { canonicalizePluginData } from '../branding.js';
 import { coordinatesForProfile, validateCoordinateOverrides } from './coordinates.js';
 import type { RegisteredDevice } from '../types.js';
 
@@ -70,7 +71,7 @@ export async function loadRegisteredDevices(registryPath = defaultRegistryPath):
                 coordinatesForProfile(device.coordinateProfile);
             }
         }
-        device.pluginData ??= {};
+        device.pluginData = canonicalizePluginData(device.pluginData ?? {});
     }
     return devices;
 }
@@ -103,6 +104,7 @@ export async function saveRegisteredDevices(devices: RegisteredDevice[], registr
             );
             if (Object.keys(device.instagramCoordinates).length === 0) delete device.instagramCoordinates;
         }
+        device.pluginData = canonicalizePluginData(device.pluginData ?? {});
         if (device.disabled !== true) delete device.disabled;
         if (unique.has(device.udid)) throw new Error(`Device ${device.udid} is already registered`);
         unique.add(device.udid);

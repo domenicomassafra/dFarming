@@ -4,6 +4,8 @@ import net from 'node:net';
 import { Readable } from 'node:stream';
 import { promisify } from 'node:util';
 
+import { dfarmingEnv } from '../env.js';
+
 const execFileAsync = promisify(execFile);
 const VERSION = /^\d+\.\d+(?:\.\d+)?$/;
 const SERIAL = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -16,11 +18,11 @@ export interface ScrcpyVideoConfiguration {
 }
 
 export function scrcpyVideoConfiguration(env: NodeJS.ProcessEnv = process.env): ScrcpyVideoConfiguration | null {
-    const serverJar = env.PHONE_FARM_SCRCPY_SERVER_JAR?.trim();
-    const version = env.PHONE_FARM_SCRCPY_VERSION?.trim();
+    const serverJar = dfarmingEnv('SCRCPY_SERVER_JAR', env)?.trim();
+    const version = dfarmingEnv('SCRCPY_VERSION', env)?.trim();
     if (!serverJar || !version) return null;
-    if (!VERSION.test(version)) throw new Error('PHONE_FARM_SCRCPY_VERSION must look like 4.0 or 4.0.1');
-    const configured = Number(env.PHONE_FARM_SCRCPY_MAX_SIZE ?? 1920);
+    if (!VERSION.test(version)) throw new Error('DFARMING_SCRCPY_VERSION must look like 4.0 or 4.0.1');
+    const configured = Number(dfarmingEnv('SCRCPY_MAX_SIZE', env) ?? 1920);
     const maxSize = Number.isFinite(configured) ? Math.max(320, Math.min(4096, Math.round(configured))) : 1920;
     return { serverJar, version, maxSize };
 }
@@ -62,7 +64,7 @@ export class ScrcpyVideoSource {
         if (!config) throw new Error('scrcpy H.264 is not configured on this worker');
         await access(config.serverJar);
 
-        const remoteJar = '/data/local/tmp/mobile-farm-scrcpy-server.jar';
+        const remoteJar = '/data/local/tmp/dfarming-scrcpy-server.jar';
         const cacheKey = `${udid}\0${config.serverJar}`;
         if (!pushed.has(cacheKey)) {
             await execFileAsync('adb', ['-s', udid, 'push', config.serverJar, remoteJar], { timeout: 30_000, maxBuffer: 1024 * 1024 });
@@ -104,7 +106,7 @@ export class ScrcpyVideoSource {
                 headers: {
                     'content-type': 'video/h264',
                     'cache-control': 'no-store, no-cache, must-revalidate',
-                    'x-mobile-farm-video-backend': 'scrcpy-raw-h264',
+                    'x-dfarming-video-backend': 'scrcpy-raw-h264',
                 },
             });
         } catch (error) {

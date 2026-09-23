@@ -1,8 +1,8 @@
-# Plan — best-of-breed mobile farming control plane
+# Plan — dFarming best-of-breed mobile control plane
 
 ## Architecture decision
 
-Keep the current Kevs/Agni lineage as the fleet and scheduler core. Add a small account/policy control plane inside this TypeScript project. Keep semantic/LLM automation behind adapters instead of importing Ghost, Hermes, DSH or an MCP server wholesale.
+Keep dFarming as the fleet and scheduler core, preserving the Kevs/Agni lineage only as provenance. Add a small account/policy control plane inside this TypeScript project. Keep semantic/LLM automation behind adapters instead of importing Ghost, Hermes, DSH or an MCP server wholesale.
 
 Production topology is explicitly hybrid: the Linux MiniPC is the always-on authority for web/API, PostgreSQL/pg-boss metadata, policy, campaigns and canonical media, while any compatible machine may also be an execution host. macOS nodes can host physical iPhones, iOS Simulators and Android runtimes; Linux nodes, including the MiniPC itself, can host Android physical/emulated runtimes when ADB/Appium/Android Emulator are installed. Linux must never advertise iOS Simulator/WDA ownership. Device control is proxied through authenticated worker gateways while execution workers claim their device queues from the MiniPC database. Pools may mix hosts and physical/virtual kinds; exact kind remains a hard filter while soft kind preference lets the scheduler choose the least-loaded matching device. Heavy SDK/runtime images are not duplicated merely for symmetry: reuse existing capacity first and add emulator runtimes to another host only when the extra capacity is worth the disk cost.
 
@@ -66,7 +66,7 @@ The worker model now supports physical iPhone, iOS Simulator, physical Android a
 
 ### Wave I — reusable automation library (source complete)
 
-Portable flows are now persistent product objects rather than ephemeral browser state. PostgreSQL stores a flow identity plus immutable revisions; Automation Studio can create, version, duplicate, restore, delete, import and export them. Native `mobile-farm-flow@1` JSON remains the lossless format, while a bounded Maestro YAML adapter imports/exports only commands with a safe semantic mapping and rejects lossy conversion.
+Portable flows are now persistent product objects rather than ephemeral browser state. PostgreSQL stores a flow identity plus immutable revisions; Automation Studio can create, version, duplicate, restore, delete, import and export them. Native `dfarming-flow@1` JSON is the lossless format; legacy `mobile-farm-flow@1` imports remain accepted during migration, while a bounded Maestro YAML adapter imports/exports only commands with a safe semantic mapping and rejects lossy conversion.
 
 ### Wave J — optimized video adapters (source adapter complete, live benchmark pending)
 

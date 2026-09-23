@@ -46,7 +46,7 @@ test('manual retries preserve execution policy identity and the original run win
 test('manual retry requires confirmation when automatic retry is disabled for side effects', () => {
     const plugins = new PluginRegistry([createTikTokPlugin()]);
     const base = {
-        pluginId: 'com.git-agni.tiktok', taskType: 'doomscroll', taskVersion: 1,
+        pluginId: 'com.dfarming.tiktok', taskType: 'doomscroll', taskVersion: 1,
     };
     assert.equal(executionRetryRequiresConfirmation(plugins, {
         ...base,
@@ -57,7 +57,7 @@ test('manual retry requires confirmation when automatic retry is disabled for si
         payload: { durationMinutes: 5, personality: 'casual', likeEnabled: true, saveEnabled: false, commentEnabled: false },
     }), true);
     assert.equal(executionRetryRequiresConfirmation(plugins, {
-        pluginId: 'com.git-agni.tiktok', taskType: 'post', taskVersion: 1,
+        pluginId: 'com.dfarming.tiktok', taskType: 'post', taskVersion: 1,
         payload: { media: [{ assetId: 'x', name: 'x.mp4', mimeType: 'video/mp4' }], destination: 'publish' },
     }), true);
 });

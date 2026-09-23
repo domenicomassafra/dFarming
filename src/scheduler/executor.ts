@@ -234,7 +234,7 @@ export async function executeAutomation(
         signal.removeEventListener('abort', forwardAbort);
         return { exitCode: null, stopped: controller.signal.aborted, error: error instanceof Error ? error.message : String(error) };
     }
-    const workspaceDirectory = await mkdtemp(`${os.tmpdir()}/phone-farm-${execution.id}-`);
+    const workspaceDirectory = await mkdtemp(`${os.tmpdir()}/dfarming-${execution.id}-`);
     const task = { pluginId: execution.pluginId, taskType: execution.taskType, taskVersion: execution.taskVersion, payload: execution.payload };
     try {
         const definition = plugins.task(task);
@@ -244,8 +244,8 @@ export async function executeAutomation(
             IOS_UDID: device.udid,
             WDA_URL: `http://127.0.0.1:${registered.wdaLocalPort ?? Number(process.env.WDA_LOCAL_PORT ?? 8100)}`,
             ...(passcode ? { IOS_PASSCODE: passcode } : {}),
-            ...(execution.executionProfileId ? { PHONE_FARM_EXECUTION_PROFILE_ID: execution.executionProfileId } : {}),
-            ...(execution.networkRouteId ? { PHONE_FARM_NETWORK_ROUTE_ID: execution.networkRouteId } : {}),
+            ...(execution.executionProfileId ? { DFARMING_EXECUTION_PROFILE_ID: execution.executionProfileId, PHONE_FARM_EXECUTION_PROFILE_ID: execution.executionProfileId } : {}),
+            ...(execution.networkRouteId ? { DFARMING_NETWORK_ROUTE_ID: execution.networkRouteId, PHONE_FARM_NETWORK_ROUTE_ID: execution.networkRouteId } : {}),
         };
         const context: TaskExecutionContext = {
             executionId: execution.id,

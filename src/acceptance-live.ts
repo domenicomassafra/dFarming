@@ -3,8 +3,9 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { FarmAgentClient } from './agent/client.js';
+import { DFarmingAgentClient } from './agent/client.js';
 import { collectDoctorReport, type DoctorReport } from './doctor.js';
+import { dfarmingEnv } from './env.js';
 import type { CreateTaskInput } from './types.js';
 
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'skipped', 'stopped']);
@@ -25,7 +26,8 @@ export interface AcceptanceHost {
 }
 
 export function acceptanceReceiptDirectory(env: NodeJS.ProcessEnv = process.env): string {
-    if (env.PHONE_FARM_ACCEPTANCE_DIR?.trim()) return path.resolve(env.PHONE_FARM_ACCEPTANCE_DIR.trim());
+    const configured = dfarmingEnv('ACCEPTANCE_DIR', env);
+    if (configured?.trim()) return path.resolve(configured.trim());
     if (env.SCHEDULER_DATA_DIR?.trim()) return path.resolve(env.SCHEDULER_DATA_DIR.trim(), 'acceptance');
     return path.resolve('.runtime/acceptance');
 }
@@ -71,7 +73,8 @@ function has(name: string): boolean { return process.argv.includes(name); }
 export function acceptanceRequestHeaders(base: URL, body?: unknown): Headers {
     const headers = new Headers({ accept: 'application/json' });
     if (body !== undefined) headers.set('content-type', 'application/json');
-    if (process.env.PHONE_FARM_TOKEN) headers.set('authorization', `Bearer ${process.env.PHONE_FARM_TOKEN}`);
+    const token = dfarmingEnv('TOKEN');
+    if (token) headers.set('authorization', `Bearer ${token}`);
     else headers.set('origin', base.origin);
     return headers;
 }
@@ -95,7 +98,7 @@ export async function runLiveAcceptance(): Promise<Record<string, unknown>> {
     if (!udid) throw new Error('--udid is required');
 
     const doctor = collectDoctorReport();
-    const client = new FarmAgentClient();
+    const client = new DFarmingAgentClient();
     const base = client.baseUrl;
     const startedAt = new Date();
     const health = await client.health();
@@ -159,7 +162,7 @@ export async function runLiveAcceptance(): Promise<Record<string, unknown>> {
     }
 
     const receipt = {
-        kind: 'phone-farm-live-acceptance',
+        kind: 'dfarming-live-acceptance',
         startedAt: startedAt.toISOString(),
         finishedAt: new Date().toISOString(),
         device: { udid, name: device.name },

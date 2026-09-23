@@ -1,5 +1,5 @@
 <style>.instagram-form{display:grid;gap:10px;margin:12px 0 24px}.instagram-form label{display:grid;gap:4px}.timing{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}</style>
-<p>Schedule one-off or recurring private workflows. Device-specific accounts and coordinates belong in <code>pluginData["com.git-agni.instagram"]</code>.</p>
+<p>Schedule one-off or recurring private workflows. Device-specific accounts and coordinates belong in <code>pluginData["com.dfarming.instagram"]</code>.</p>
 <form id="instagram-doomscroll-form" class="instagram-form">
   <h3>Warmup</h3>
   <div class="timing"><label>Duration (minutes)<input name="duration" type="number" min="1" max="180" value="5" required></label><label>Personality<select name="personality"><option>casual</option><option>skimmer</option><option>engaged</option></select></label><label>Account<input name="account" autocomplete="off"></label></div>
@@ -10,7 +10,7 @@
 <p id="instagram-form-result" class="muted"></p>
 <script>
 (function () {
-  var pluginId = 'com.git-agni.instagram';
+  var pluginId = 'com.dfarming.instagram';
   var deviceUdid = decodeURIComponent(location.pathname.split('/').pop());
   var result = document.getElementById('instagram-form-result');
   function timing(form) {

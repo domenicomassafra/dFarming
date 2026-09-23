@@ -91,7 +91,7 @@ export class AppiumRemoteControl implements RemoteControl {
 
     async getMjpegStream(udid: string, signal?: AbortSignal): Promise<Response> {
         this.assertTarget(udid);
-        const boundary = 'MobileFarmFrame';
+        const boundary = 'DFarmingFrame';
         const encoder = new TextEncoder();
         let cancelled = false;
         const stream = new ReadableStream<Uint8Array>({

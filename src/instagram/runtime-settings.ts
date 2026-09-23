@@ -1,7 +1,6 @@
 import type { RegisteredDevice } from '../types.js';
+import { INSTAGRAM_PLUGIN_ID } from '../branding.js';
 import { socialCoordinateProfile, socialRegisteredAccounts } from '../social/runtime-settings.js';
-
-export const INSTAGRAM_PLUGIN_ID = 'com.git-agni.instagram';
 
 export function coordinateProfile(device: RegisteredDevice | undefined): string {
     return socialCoordinateProfile(device, INSTAGRAM_PLUGIN_ID);

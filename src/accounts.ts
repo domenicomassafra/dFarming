@@ -1,4 +1,9 @@
 import type { JsonObject } from './types.js';
+import {
+    canonicalPluginId,
+    INSTAGRAM_PLUGIN_ID,
+    TIKTOK_PLUGIN_ID,
+} from './branding.js';
 import type { RegisteredDevice } from './devices/registry.js';
 import { normalizeDeviceTags } from './devices/registry.js';
 import { normalizeNetworkRouteId } from './network-routes.js';
@@ -7,8 +12,8 @@ export const SOCIAL_ACCOUNT_PLATFORMS = ['tiktok', 'instagram'] as const;
 export type SocialAccountPlatform = (typeof SOCIAL_ACCOUNT_PLATFORMS)[number];
 
 const PLATFORM_PLUGIN_IDS: Record<SocialAccountPlatform, string> = {
-    tiktok: 'com.git-agni.tiktok',
-    instagram: 'com.git-agni.instagram',
+    tiktok: TIKTOK_PLUGIN_ID,
+    instagram: INSTAGRAM_PLUGIN_ID,
 };
 
 const HANDLE_PATTERN = /^@[A-Za-z0-9._]{1,64}$/;
@@ -42,7 +47,8 @@ export function pluginIdForPlatform(platform: SocialAccountPlatform): string {
 }
 
 export function socialPlatformForPluginId(pluginId: string): SocialAccountPlatform | undefined {
-    return SOCIAL_ACCOUNT_PLATFORMS.find((platform) => PLATFORM_PLUGIN_IDS[platform] === pluginId);
+    const canonical = canonicalPluginId(pluginId);
+    return SOCIAL_ACCOUNT_PLATFORMS.find((platform) => PLATFORM_PLUGIN_IDS[platform] === canonical);
 }
 
 function parsedExecutionProfile(value: unknown): AccountExecutionProfile | undefined {

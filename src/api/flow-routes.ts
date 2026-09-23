@@ -1,5 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 
+import {
+    LEGACY_PORTABLE_FLOW_FORMAT,
+    PORTABLE_FLOW_FORMAT,
+    PORTABLE_FLOW_PLUGIN_ID,
+} from '../branding.js';
 import type { PortableFlowPayload } from '../flow-plugin.js';
 import { exportMaestroFlow, importMaestroFlow } from '../flows/maestro.js';
 import type { PluginRegistry } from '../registry.js';
@@ -17,7 +22,7 @@ export function registerFlowRoutes(
 ): void {
     const validatedFlowPayload = (value: JsonValue): JsonObject => {
         const definition = plugins.task({
-            pluginId: 'com.phone-farm.flow',
+            pluginId: PORTABLE_FLOW_PLUGIN_ID,
             taskType: 'flow',
             taskVersion: 1,
             payload: {},
@@ -33,8 +38,8 @@ export function registerFlowRoutes(
     });
 
     app.post<{ Body: { format?: string; flow?: JsonValue } }>('/api/flows/import', async (request, reply) => {
-        if (request.body.format !== 'mobile-farm-flow@1' || !request.body.flow) {
-            return reply.code(400).send({ error: 'Expected a mobile-farm-flow@1 export' });
+        if (![PORTABLE_FLOW_FORMAT, LEGACY_PORTABLE_FLOW_FORMAT].includes(request.body.format ?? '') || !request.body.flow) {
+            return reply.code(400).send({ error: `Expected a ${PORTABLE_FLOW_FORMAT} export` });
         }
         const flow = await scheduler.createFlowDefinition(validatedFlowPayload(request.body.flow));
         return reply.code(201).send({ flow });
@@ -83,8 +88,8 @@ export function registerFlowRoutes(
     app.get<{ Params: { id: string } }>('/api/flows/:id/export', async (request, reply) => {
         const flow = await scheduler.flowDefinition(request.params.id);
         if (!flow) return reply.code(404).send({ error: 'Flow not found' });
-        return reply.header('content-disposition', `attachment; filename="${safeExportName(flow.name)}.mobile-flow.json"`)
-            .send({ format: 'mobile-farm-flow@1', exportedAt: new Date().toISOString(), flow: flow.payload });
+        return reply.header('content-disposition', `attachment; filename="${safeExportName(flow.name)}.dfarming-flow.json"`)
+            .send({ format: PORTABLE_FLOW_FORMAT, exportedAt: new Date().toISOString(), flow: flow.payload });
     });
 
     app.get<{ Params: { id: string } }>('/api/flows/:id/export/maestro', async (request, reply) => {

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { invalidateAppiumExtensionCache } from './appium-runtime-hardening.js';
+import { dfarmingEnv } from './env.js';
 import { isEntrypoint } from './entrypoint.js';
 
 const execFileAsync = promisify(execFile);
@@ -54,18 +55,18 @@ async function matchingDirectorySize(parent: string, prefix: string): Promise<nu
     return total;
 }
 
-export function runtimeDiskBudgetBytes(value = process.env.PHONE_FARM_RUNTIME_DISK_BUDGET_GB): number {
+export function runtimeDiskBudgetBytes(value = dfarmingEnv('RUNTIME_DISK_BUDGET_GB')): number {
     const parsed = value === undefined || value.trim() === '' ? DEFAULT_RUNTIME_DISK_BUDGET_GB : Number(value);
     if (!Number.isFinite(parsed) || parsed <= 0) {
-        throw new Error('PHONE_FARM_RUNTIME_DISK_BUDGET_GB must be a positive number');
+        throw new Error('DFARMING_RUNTIME_DISK_BUDGET_GB must be a positive number');
     }
     return Math.round(parsed * GIB);
 }
 
-export function runtimeStaleDays(value = process.env.PHONE_FARM_RUNTIME_STALE_DAYS): number {
+export function runtimeStaleDays(value = dfarmingEnv('RUNTIME_STALE_DAYS')): number {
     const parsed = value === undefined || value.trim() === '' ? DEFAULT_RUNTIME_STALE_DAYS : Number(value);
     if (!Number.isFinite(parsed) || parsed < 0) {
-        throw new Error('PHONE_FARM_RUNTIME_STALE_DAYS must be a non-negative number');
+        throw new Error('DFARMING_RUNTIME_STALE_DAYS must be a non-negative number');
     }
     return parsed;
 }
@@ -100,7 +101,7 @@ export async function collectRuntimeStorageReport(options: {
         { id: 'wda-derived-data', path: locations.xcodeDerivedDataRoot, bytes: await matchingDirectorySize(locations.xcodeDerivedDataRoot, 'WebDriverAgent-') },
     ];
     const totalBytes = entries.reduce((sum, entry) => sum + entry.bytes, 0);
-    const budgetBytes = options.budgetBytes ?? runtimeDiskBudgetBytes(options.env?.PHONE_FARM_RUNTIME_DISK_BUDGET_GB);
+    const budgetBytes = options.budgetBytes ?? runtimeDiskBudgetBytes(dfarmingEnv('RUNTIME_DISK_BUDGET_GB', options.env));
     return { budgetBytes, totalBytes, overBudget: totalBytes > budgetBytes, entries };
 }
 
@@ -153,7 +154,7 @@ export async function cleanupRuntimeStorage(options: {
     runCommand?: (command: string, args: string[]) => Promise<void>;
 } = {}): Promise<RuntimeStorageCleanupResult> {
     const locations = runtimeStorageLocations(options);
-    const staleDays = options.staleDays ?? runtimeStaleDays(options.env?.PHONE_FARM_RUNTIME_STALE_DAYS);
+    const staleDays = options.staleDays ?? runtimeStaleDays(dfarmingEnv('RUNTIME_STALE_DAYS', options.env));
     const cutoffMs = (options.nowMs ?? Date.now()) - staleDays * 24 * 60 * 60 * 1000;
     await invalidateAppiumExtensionCache(locations.appiumHome);
 

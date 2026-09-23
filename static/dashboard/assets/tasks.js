@@ -57,21 +57,21 @@ function date(value) {
     return value ? new Date(value).toLocaleString() : '—';
 }
 function pluginLabel(pluginId) {
-    if (pluginId === 'com.phone-farm.flow')
+    if (pluginId === 'com.dfarming.flow' || pluginId === 'com.phone-farm.flow')
         return 'Portable flow';
-    if (pluginId === 'com.git-agni.instagram')
+    if (pluginId === 'com.dfarming.instagram' || pluginId === 'com.git-agni.instagram')
         return 'Instagram';
-    if (pluginId === 'com.git-agni.tiktok')
+    if (pluginId === 'com.dfarming.tiktok' || pluginId === 'com.git-agni.tiktok')
         return 'TikTok';
-    return pluginId.replace(/^com\.(?:git-agni\.|phone-farm\.)/, '');
+    return pluginId.replace(/^com\.(?:dfarming\.|git-agni\.|phone-farm\.)/, '');
 }
 function taskLabel(pluginId, taskType) {
-    if (pluginId === 'com.phone-farm.flow' && taskType === 'flow')
+    if ((pluginId === 'com.dfarming.flow' || pluginId === 'com.phone-farm.flow') && taskType === 'flow')
         return 'Portable flow';
     return `${pluginLabel(pluginId)} ${taskType}`;
 }
 function flowName(item) {
-    if (item.pluginId !== 'com.phone-farm.flow' || item.taskType !== 'flow')
+    if (!['com.dfarming.flow', 'com.phone-farm.flow'].includes(item.pluginId) || item.taskType !== 'flow')
         return undefined;
     const name = item.payload?.name;
     return typeof name === 'string' && name.trim() ? name.trim() : 'Portable flow';
@@ -202,7 +202,7 @@ async function openExecutionDetail(id) {
         const links = [
             detailLink('Device', `/devices/${encodeURIComponent(execution.deviceUdid)}`),
         ];
-        if (execution.pluginId === 'com.phone-farm.flow' && execution.taskType === 'flow') {
+        if (['com.dfarming.flow', 'com.phone-farm.flow'].includes(execution.pluginId) && execution.taskType === 'flow') {
             const sourceFlowId = typeof execution.payload.sourceFlowId === 'string' ? execution.payload.sourceFlowId : undefined;
             links.push(detailLink(sourceFlowId ? 'Saved flow' : 'Flow workspace', sourceFlowId ? `/api/flows/${encodeURIComponent(sourceFlowId)}` : `/automations?template=flow&device=${encodeURIComponent(execution.deviceUdid)}`));
         }

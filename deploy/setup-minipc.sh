@@ -21,8 +21,8 @@ if [[ ! -f .env.minipc ]]; then
     -e "s/replace-with-a-long-random-token/${worker_token}/" \
     -e "s/replace-with-a-different-long-random-token/${internal_token}/" \
     -e "s/replace-with-at-least-32-random-bytes/${stream_secret}/" \
-    -e "s/^PHONE_FARM_UID=.*/PHONE_FARM_UID=$(id -u)/" \
-    -e "s/^PHONE_FARM_GID=.*/PHONE_FARM_GID=$(id -g)/" \
+    -e "s/^DFARMING_UID=.*/DFARMING_UID=$(id -u)/" \
+    -e "s/^DFARMING_GID=.*/DFARMING_GID=$(id -g)/" \
     .env.minipc
   chmod 600 .env.minipc
   if command -v tailscale >/dev/null 2>&1; then
@@ -31,12 +31,14 @@ if [[ ! -f .env.minipc ]]; then
       sed -i -e "s/^POSTGRES_LISTEN_ADDRESSES=.*/POSTGRES_LISTEN_ADDRESSES=127.0.0.1,${tailscale_ip}/" .env.minipc
     fi
   fi
-  echo "Created .env.minipc with private runtime secrets. Review PHONE_FARM_DEVICE_WORKERS before adding more Mac workers."
+  echo "Created .env.minipc with private runtime secrets. Review DFARMING_DEVICE_WORKERS before adding more Mac workers."
 fi
 
 set -a
 source .env.minipc
 set +a
+source deploy/env-compat.sh
+dfarming_import_legacy_env
 
 # Compose treats the database volume as an explicit external resource so a
 # repository/project rename cannot silently allocate a fresh empty database.
@@ -85,7 +87,7 @@ docker compose --env-file .env.minipc -f docker-compose.production.yml \
   exec -T control-plane npm run doctor:control-plane
 
 if command -v tailscale >/dev/null 2>&1; then
-  tailscale serve --bg --yes --https="${PHONE_FARM_TAILSCALE_HTTPS_PORT:-18443}" "${WEB_PORT:-4050}"
+  tailscale serve --bg --yes --https="${DFARMING_TAILSCALE_HTTPS_PORT:-18443}" "${WEB_PORT:-4050}"
   echo "Tailscale Serve status:"
   tailscale serve status || true
 else

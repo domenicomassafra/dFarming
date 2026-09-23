@@ -15,6 +15,8 @@ import type { RemoteControl } from '../devices/wda-remote.js';
 import type { DeviceConnectionStatus } from '../devices/connection-manager.js';
 import type { AuthProvider, PluginNavLink } from '../plugin.js';
 import type { PluginRegistry } from '../registry.js';
+import { canonicalPluginId, INSTAGRAM_PLUGIN_ID, PORTABLE_FLOW_PLUGIN_ID, TIKTOK_PLUGIN_ID } from '../branding.js';
+import { dfarmingEnv } from '../env.js';
 import type { JsonObject } from '../types.js';
 import type { SchedulerRepository } from '../scheduler/repository.js';
 import {
@@ -138,8 +140,8 @@ function automationTimerHtml(execution: {
 }
 
 // Shown at the foot of every dashboard page. Override the link with
-// PHONE_FARM_BRAND_URL; the text is fixed.
-const FOOTER_HTML = `Built by <a href="${escapeHtml(process.env.PHONE_FARM_BRAND_URL ?? '#')}" target="_blank" rel="noopener">kevbuilds apps</a> with love &#10084;&#65039;`;
+// DFARMING_BRAND_URL; the text is fixed.
+const FOOTER_HTML = `Built by <a href="${escapeHtml(dfarmingEnv('BRAND_URL') ?? '#')}" target="_blank" rel="noopener">kevbuilds apps</a> with love &#10084;&#65039;`;
 
 function page(title: string, body: string, logoutPath?: string, navLinks: readonly PluginNavLink[] = []): string {
     const logout = logoutPath ? `<a href="${escapeHtml(logoutPath)}" style="float:right;margin-right:0">Log out</a>` : '';
@@ -294,7 +296,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
         // Deploy tooling writes a RELEASED file (sha, subject, deployedAt) into the
         // working directory; surface it so "what's live" is answerable over HTTP.
         try {
-            body.release = JSON.parse(await readFile(path.resolve(process.env.PHONE_FARM_RELEASE_FILE ?? 'RELEASED'), 'utf8'));
+            body.release = JSON.parse(await readFile(path.resolve(dfarmingEnv('RELEASE_FILE') ?? 'RELEASED'), 'utf8'));
         } catch { /* no release marker — fine */ }
         return body;
     });
@@ -548,9 +550,13 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
             const healthState = attention.length
                 ? `<div class="control-alerts">${attention.map((item) => `<a class="control-alert" href="${item.href}"><span class="control-alert-mark"></span><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.copy)}</small></span><span aria-hidden="true">→</span></a>`).join('')}</div>`
                 : '<div class="control-alert healthy"><span class="control-alert-mark"></span><span><strong>Control plane healthy</strong><small>No device, host or recent execution failures require attention.</small></span></div>';
-            const pluginName = (pluginId: string) => pluginId === 'com.phone-farm.flow'
-                ? 'Portable flow'
-                : pluginId === 'com.git-agni.instagram' ? 'Instagram' : pluginId === 'com.git-agni.tiktok' ? 'TikTok' : pluginId;
+            const pluginName = (pluginId: string) => {
+                const canonical = canonicalPluginId(pluginId);
+                if (canonical === PORTABLE_FLOW_PLUGIN_ID) return 'Portable flow';
+                if (canonical === INSTAGRAM_PLUGIN_ID) return 'Instagram';
+                if (canonical === TIKTOK_PLUGIN_ID) return 'TikTok';
+                return pluginId;
+            };
             const recent = recentExecutions.length
                 ? recentExecutions.map((execution) => `<a class="recent-run" href="/tasks"><span class="status ${escapeHtml(execution.status)}">${escapeHtml(execution.status)}</span><span class="recent-run-copy"><strong>${escapeHtml(pluginName(execution.pluginId))} · ${escapeHtml(execution.taskType)}</strong><small>${escapeHtml(execution.deviceUdid)} · ${escapeHtml(execution.scheduledFor.toISOString())}</small></span><span aria-hidden="true">→</span></a>`).join('')
                 : '<div class="empty-state-inline">No executions yet. Build a flow to create the first scheduler run.</div>';

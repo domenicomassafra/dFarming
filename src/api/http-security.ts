@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { AuthProvider } from '../plugin.js';
+import { dfarmingEnv } from '../env.js';
 import { bearerMatches, bearerToken } from '../security/bearer.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -8,13 +9,13 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 function csrfBlocked(reply: FastifyReply): FastifyReply {
     return reply.code(403).send({
         error: 'Cross-origin write blocked. Send an Authorization: Bearer token for API clients, '
-            + 'or add the origin to PHONE_FARM_TRUSTED_ORIGINS.',
+            + 'or add the origin to DFARMING_TRUSTED_ORIGINS.',
     });
 }
 
 export function trustedOrigins(
     publicOrigin = process.env.PUBLIC_ORIGIN,
-    configured = process.env.PHONE_FARM_TRUSTED_ORIGINS,
+    configured = dfarmingEnv('TRUSTED_ORIGINS'),
 ): string[] {
     return [publicOrigin, ...(configured ?? '').split(',')]
         .map((value) => value?.trim().replace(/\/+$/, ''))
@@ -32,7 +33,7 @@ export function sameOriginAllowed(origin: string, host: string | undefined): boo
 
 export function internalWorkerAuthorized(
     request: FastifyRequest,
-    expected = process.env.PHONE_FARM_INTERNAL_TOKEN,
+    expected = dfarmingEnv('INTERNAL_TOKEN'),
 ): boolean {
     return bearerMatches(request.headers.authorization, expected);
 }

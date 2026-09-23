@@ -12,12 +12,12 @@ process.env.DEVICES_CONFIG_PATH = configPath;
 test('GET /api/accounts exposes a redacted cross-device account inventory', async (context) => {
     await writeFile(configPath, JSON.stringify([{
         name: 'Phone A', udid: 'udid-a', passcode: '123456', pluginData: {
-            'com.git-agni.tiktok': { accounts: ['@alpha'] },
-            'com.git-agni.instagram': { accounts: ['@bravo'] },
+            'com.dfarming.tiktok': { accounts: ['@alpha'] },
+            'com.dfarming.instagram': { accounts: ['@bravo'] },
         },
     }, {
         name: 'Phone B', udid: 'udid-b', disabled: true, pluginData: {
-            'com.git-agni.tiktok': { accounts: ['@charlie'] },
+            'com.dfarming.tiktok': { accounts: ['@charlie'] },
         },
     }]));
 

@@ -8,9 +8,9 @@ import { assertSafeBind } from '../src/security.js';
 
 test('control-plane and workers share every built-in executable plugin', async () => {
     const ids = new Set((await defaultPlugins()).map(({ id }) => id));
-    assert.ok(ids.has('com.phone-farm.flow'));
-    assert.ok(ids.has('com.git-agni.tiktok'));
-    assert.ok(ids.has('com.git-agni.instagram'));
+    assert.ok(ids.has('com.dfarming.flow'));
+    assert.ok(ids.has('com.dfarming.tiktok'));
+    assert.ok(ids.has('com.dfarming.instagram'));
 });
 
 test('registers and validates a versioned plugin task', () => {
@@ -27,6 +27,22 @@ test('registers and validates a versioned plugin task', () => {
     });
     assert.equal(input.task.payload.bundleId, 'com.example.demo');
     assert.equal(registry.task(input.task).summarize(input.task.payload), 'Open com.example.demo for 10 seconds');
+});
+
+test('legacy plugin ids are accepted but new state is canonicalized to dFarming ids', async () => {
+    const registry = new PluginRegistry(await defaultPlugins());
+    const legacy = registry.validate({
+        deviceUdid: 'device-12345678',
+        task: {
+            pluginId: 'com.phone-farm.flow',
+            taskType: 'flow',
+            taskVersion: 1,
+            payload: { name: 'Legacy flow', steps: [{ action: 'wait', milliseconds: 50 }] },
+        },
+        timing: { kind: 'now' },
+    });
+    assert.equal(legacy.task.pluginId, 'com.dfarming.flow');
+    assert.equal(registry.plugin('com.phone-farm.flow').id, 'com.dfarming.flow');
 });
 
 test('rejects unavailable plugin tasks and duplicate plugins', () => {

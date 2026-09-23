@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { FarmAgentClient } from './client.js';
+import { DFarmingAgentClient } from './client.js';
 
 function option(args: string[], name: string): string | undefined {
     const index = args.indexOf(name);
@@ -20,7 +20,7 @@ async function readStdin(): Promise<string> {
     return Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
 }
 
-export async function runAgentCli(args = process.argv.slice(2), client = new FarmAgentClient()): Promise<unknown> {
+export async function runAgentCli(args = process.argv.slice(2), client = new DFarmingAgentClient()): Promise<unknown> {
     const [command] = args;
     if (command === 'health') return client.health();
     if (command === 'accounts') return client.accounts();

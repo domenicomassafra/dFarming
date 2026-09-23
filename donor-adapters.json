@@ -49,6 +49,27 @@
       "boundary": "bounded portable-flow import/export",
       "implementation": "src/flows/maestro.ts",
       "failureMode": "unsupported or lossy commands are rejected; native Portable Flow remains canonical"
+    },
+    {
+      "id": "baguette",
+      "status": "held",
+      "boundary": "iOS Simulator video, accessibility and input transport",
+      "reason": "the current Appium/XCUITest Simulator lane is already live-proven; adopt Baguette only where measurement shows a concrete latency, density or streaming gain without duplicating scheduler authority.",
+      "failureMode": "no runtime dependency; Appium/XCUITest screenshots, semantic snapshots, input and MJPEG remain canonical"
+    },
+    {
+      "id": "mobile-use",
+      "status": "reference-only",
+      "boundary": "agent strategy and cross-platform mobile-use skills",
+      "reason": "dFarming already owns device allocation, deterministic workflows, policy, scheduling and receipts; only agent interaction patterns should be borrowed.",
+      "failureMode": "no runtime dependency; deterministic recipes and dFarming semantic flows remain available"
+    },
+    {
+      "id": "device-farm-ios",
+      "status": "held",
+      "boundary": "physical-iPhone qvh/H.264 benchmark transport",
+      "reason": "the donor is useful for measuring modern iOS video transport, but must not replace WDA/Appium control or become a second device-farm authority before physical-device benchmarks.",
+      "failureMode": "no runtime dependency; physical iPhone continues through the existing WDA/Appium lane"
     }
   ]
 }

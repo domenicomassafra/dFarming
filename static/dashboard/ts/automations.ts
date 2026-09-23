@@ -705,7 +705,7 @@ async function runPortableFlow(): Promise<{ id?: string; schedule?: { id?: strin
     }
     const timing = selectedFlowTiming();
     const common = {
-        task: { pluginId: 'com.phone-farm.flow', taskType: 'flow', taskVersion: 1, payload },
+        task: { pluginId: 'com.dfarming.flow', taskType: 'flow', taskVersion: 1, payload },
         timing,
         runWindowMinutes: 30,
     };
@@ -1033,7 +1033,7 @@ elements.flowRestore.addEventListener('click', async () => {
 });
 elements.flowImport.addEventListener('click', async () => {
     const file = elements.flowImportFile.files?.[0];
-    if (!file) { elements.flowResult.textContent = 'Choose a Mobile Farm JSON export first.'; return; }
+    if (!file) { elements.flowResult.textContent = 'Choose a dFarming JSON export first.'; return; }
     try {
         const text = await file.text();
         const maestro = /\.ya?ml$/i.test(file.name) || file.type.includes('yaml');

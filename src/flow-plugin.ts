@@ -1,4 +1,5 @@
-import type { PhoneFarmPlugin, TaskDefinition } from './plugin.js';
+import { PORTABLE_FLOW_PLUGIN_ID } from './branding.js';
+import type { DFarmingPlugin, TaskDefinition } from './plugin.js';
 import type { JsonObject, JsonValue } from './types.js';
 
 export type FlowStep =
@@ -188,8 +189,8 @@ const portableFlowTask: TaskDefinition<PortableFlowPayload> = {
     },
 };
 
-export const portableFlowPlugin: PhoneFarmPlugin = {
-    id: 'com.phone-farm.flow',
+export const portableFlowPlugin: DFarmingPlugin = {
+    id: PORTABLE_FLOW_PLUGIN_ID,
     version: '1.1.0',
     displayName: 'Portable Flows',
     tasks: [portableFlowTask],

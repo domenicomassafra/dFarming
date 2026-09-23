@@ -80,7 +80,7 @@ test('TikTok plugin validates following doomscroll and workflow replay', () => {
     const following = registry.validate({
         deviceUdid: 'device-12345678',
         task: {
-            pluginId: 'com.git-agni.tiktok',
+            pluginId: 'com.dfarming.tiktok',
             taskType: 'doomscroll-following',
             taskVersion: 1,
             payload: {
@@ -99,7 +99,7 @@ test('TikTok plugin validates following doomscroll and workflow replay', () => {
     assert.throws(() => registry.validate({
         deviceUdid: 'device-12345678',
         task: {
-            pluginId: 'com.git-agni.tiktok',
+            pluginId: 'com.dfarming.tiktok',
             taskType: 'doomscroll-following',
             taskVersion: 1,
             payload: {
@@ -116,7 +116,7 @@ test('TikTok plugin validates following doomscroll and workflow replay', () => {
     const replay = registry.validate({
         deviceUdid: 'device-12345678',
         task: {
-            pluginId: 'com.git-agni.tiktok',
+            pluginId: 'com.dfarming.tiktok',
             taskType: 'workflow-replay',
             taskVersion: 1,
             payload: { workflowId: 'abc', durationMinutes: 3 },

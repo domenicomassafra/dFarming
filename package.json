@@ -27,8 +27,8 @@
   },
   "scripts": {
     "doctor": "node --import tsx src/doctor.ts",
-    "doctor:control-plane": "PHONE_FARM_ROLE=control-plane node --env-file-if-exists=.env.minipc --env-file-if-exists=.env --import tsx src/doctor.ts",
-    "doctor:device-worker": "PHONE_FARM_ROLE=device-worker node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/doctor.ts",
+    "doctor:control-plane": "DFARMING_ROLE=control-plane node --env-file-if-exists=.env.minipc --env-file-if-exists=.env --import tsx src/doctor.ts",
+    "doctor:device-worker": "DFARMING_ROLE=device-worker node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/doctor.ts",
     "agent:client": "node --import tsx src/agent/cli.ts",
     "agent:mcp": "node --import tsx src/agent/mcp.ts",
     "device-worker": "node --env-file-if-exists=.env --env-file-if-exists=.env.devices --import tsx src/device-worker-server.ts",

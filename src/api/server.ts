@@ -1,6 +1,7 @@
 import type { AddressInfo } from 'node:net';
 
-import type { AuthProvider, PhoneFarmPlugin } from '../plugin.js';
+import type { AuthProvider, DFarmingPlugin } from '../plugin.js';
+import { dfarmingEnv } from '../env.js';
 import { loadAuthProvider } from '../loader.js';
 import { PluginRegistry } from '../registry.js';
 import { createSchedulerRuntime } from '../scheduler/runtime.js';
@@ -18,7 +19,7 @@ import { loadRegisteredDevices } from '../devices/registry.js';
 import { resolveTaskExecutionPolicy } from '../execution-policy.js';
 
 export interface StartServerOptions {
-    plugins?: readonly PhoneFarmPlugin[];
+    plugins?: readonly DFarmingPlugin[];
     authProvider?: AuthProvider | null;
     host?: string;
     port?: number;
@@ -28,16 +29,16 @@ export interface StartServerOptions {
 export async function startServer(options: StartServerOptions = {}) {
     const loadedPlugins = options.plugins ?? await defaultPlugins();
     const authProvider = options.authProvider === undefined
-        ? await loadAuthProvider(process.env.PHONE_FARM_AUTH_PLUGIN)
+        ? await loadAuthProvider(dfarmingEnv('AUTH_PLUGIN'))
         : options.authProvider;
     const host = options.host ?? process.env.WEB_HOST ?? '127.0.0.1';
     const port = options.port ?? Number(process.env.WEB_PORT ?? 3000);
     assertSafeBind(host, authProvider);
     const plugins = new PluginRegistry(loadedPlugins);
     const scheduler = await createSchedulerRuntime(plugins);
-    const role = process.env.PHONE_FARM_ROLE ?? 'standalone';
+    const role = dfarmingEnv('ROLE') ?? 'standalone';
     if (!['standalone', 'control-plane'].includes(role)) {
-        throw new Error(`PHONE_FARM_ROLE must be standalone or control-plane for the web process; received ${role}`);
+        throw new Error(`DFARMING_ROLE must be standalone or control-plane for the web process; received ${role}`);
     }
     const registrations = role === 'standalone' ? new DeviceRegistrationService() : undefined;
     await registrations?.start();
@@ -46,16 +47,16 @@ export async function startServer(options: StartServerOptions = {}) {
     scheduler.repository.setExecutionPolicyResolver(async (input) => resolveTaskExecutionPolicy(
         input,
         await loadRegisteredDevices(),
-        workerFleet ? workerFleet.hosts() : [await detectHostCapabilities({ id: process.env.PHONE_FARM_WORKER_ID ?? 'local' })],
+        workerFleet ? workerFleet.hosts() : [await detectHostCapabilities({ id: dfarmingEnv('WORKER_ID') ?? 'local' })],
     ));
-    const refreshMs = Math.max(2_000, Number(process.env.PHONE_FARM_WORKER_REFRESH_MS ?? 10_000));
+    const refreshMs = Math.max(2_000, Number(dfarmingEnv('WORKER_REFRESH_MS') ?? 10_000));
     const workerRefreshTimer = workerFleet
         ? setInterval(() => void workerFleet.refresh().catch((error) => console.error('Device worker refresh failed:', error)), refreshMs)
         : undefined;
     const app = await createApp({
         plugins, scheduler: scheduler.repository, authProvider,
         dashboardTheme: options.dashboardTheme ?? defaultDashboardTheme, registrations, logger: true,
-        requireStreamToken: process.env.PHONE_FARM_REQUIRE_STREAM_TOKEN === 'true' || !isLoopbackHost(host),
+        requireStreamToken: dfarmingEnv('REQUIRE_STREAM_TOKEN') === 'true' || !isLoopbackHost(host),
         ...(workerFleet ? {
             remote: workerFleet,
             discoverDevices: () => workerFleet.discoverDevices(),
@@ -74,7 +75,7 @@ export async function startServer(options: StartServerOptions = {}) {
             reconnectDevice: (udid: string) => workerFleet.reconnectDevice(udid),
             syncDeviceConfiguration: (device) => workerFleet.syncDeviceConfiguration(device),
         } : {
-            listHosts: async () => [await detectHostCapabilities({ id: process.env.PHONE_FARM_WORKER_ID ?? 'local' })],
+            listHosts: async () => [await detectHostCapabilities({ id: dfarmingEnv('WORKER_ID') ?? 'local' })],
             discoverDevices: discoverRuntimeDevices,
             runtimeCandidates: discoverRuntimeDevices,
             virtualRuntimes: async () => (await listVirtualRuntimes()).map((runtime) => ({ ...runtime, workerId: 'local' })),

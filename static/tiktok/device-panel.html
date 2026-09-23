@@ -1,5 +1,5 @@
 <style>.tiktok-form{display:grid;gap:10px;margin:12px 0 24px}.tiktok-form label{display:grid;gap:4px}.timing{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}</style>
-<p>Schedule one-off or recurring private workflows. Device-specific accounts and coordinates belong in <code>pluginData["com.git-agni.tiktok"]</code>.</p>
+<p>Schedule one-off or recurring private workflows. Device-specific accounts and coordinates belong in <code>pluginData["com.dfarming.tiktok"]</code>.</p>
 <form id="tiktok-doomscroll-form" class="tiktok-form">
   <h3>Doomscroll</h3>
   <div class="timing"><label>Duration (minutes)<input name="duration" type="number" min="1" max="180" value="5" required></label><label>Personality<select name="personality"><option>casual</option><option>skimmer</option><option>engaged</option></select></label><label>Account<input name="account" autocomplete="off"></label></div>
@@ -19,7 +19,7 @@
 <p id="tiktok-form-result" class="muted"></p>
 <script>
 (function () {
-  var pluginId = 'com.git-agni.tiktok';
+  var pluginId = 'com.dfarming.tiktok';
   var deviceUdid = decodeURIComponent(location.pathname.split('/').pop());
   var result = document.getElementById('tiktok-form-result');
   function timing(form) {

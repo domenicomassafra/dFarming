@@ -105,9 +105,10 @@ cp .env.device-worker.example .env
 npm run doctor:device-worker
 ```
 
-Set `PHONE_FARM_ENABLE_PHYSICAL_IOS=false` for a simulator-only Mac. The
-`PHONE_FARM_*` environment prefix remains a compatibility wire/config
-namespace during the dFarming migration; it is not the product name.
+Set `DFARMING_ENABLE_PHYSICAL_IOS=false` for a simulator-only Mac. The
+canonical configuration namespace is `DFARMING_*`. Existing `PHONE_FARM_*`
+variables are still accepted as migration aliases so already-installed nodes
+can be upgraded without rewriting secrets in place.
 
 ## Linux Android worker
 

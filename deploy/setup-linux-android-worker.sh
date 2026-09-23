@@ -24,6 +24,8 @@ fi
 set -a
 source .env
 set +a
+source deploy/env-compat.sh
+dfarming_import_legacy_env
 
 require_configured() {
   local name="$1"
@@ -51,10 +53,10 @@ wait_for_http() {
   exit 1
 }
 
-[[ "${PHONE_FARM_ROLE:-}" == "device-worker" ]] || { echo "PHONE_FARM_ROLE=device-worker is required." >&2; exit 1; }
-require_configured PHONE_FARM_DEVICE_WORKER_TOKEN "${PHONE_FARM_DEVICE_WORKER_TOKEN:-}"
-require_configured PHONE_FARM_INTERNAL_TOKEN "${PHONE_FARM_INTERNAL_TOKEN:-}"
-require_configured PHONE_FARM_CONTROL_PLANE_URL "${PHONE_FARM_CONTROL_PLANE_URL:-}"
+[[ "${DFARMING_ROLE:-}" == "device-worker" ]] || { echo "DFARMING_ROLE=device-worker is required." >&2; exit 1; }
+require_configured DFARMING_DEVICE_WORKER_TOKEN "${DFARMING_DEVICE_WORKER_TOKEN:-}"
+require_configured DFARMING_INTERNAL_TOKEN "${DFARMING_INTERNAL_TOKEN:-}"
+require_configured DFARMING_CONTROL_PLANE_URL "${DFARMING_CONTROL_PLANE_URL:-}"
 require_configured DATABASE_URL "${DATABASE_URL:-}"
 
 android_sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.local/share/android-sdk}}"
@@ -158,8 +160,8 @@ done
 
 wait_for_http "Appium runtime" "http://127.0.0.1:${APPIUM_RUNTIME_PORT:-4726}/status"
 wait_for_http "Device worker" "http://127.0.0.1:${DEVICE_WORKER_PORT:-3010}/health" \
-  "Authorization: Bearer $PHONE_FARM_DEVICE_WORKER_TOKEN"
-curl -fsS -H "Authorization: Bearer $PHONE_FARM_DEVICE_WORKER_TOKEN" \
+  "Authorization: Bearer $DFARMING_DEVICE_WORKER_TOKEN"
+curl -fsS -H "Authorization: Bearer $DFARMING_DEVICE_WORKER_TOKEN" \
   "http://127.0.0.1:${DEVICE_WORKER_PORT:-3010}/health"
 echo
 echo "Linux Android worker is installed and locally healthy."

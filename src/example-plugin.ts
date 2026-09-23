@@ -1,4 +1,5 @@
-import type { PhoneFarmPlugin, TaskDefinition } from './plugin.js';
+import { EXAMPLE_PLUGIN_ID } from './branding.js';
+import type { DFarmingPlugin, TaskDefinition } from './plugin.js';
 import type { JsonObject, JsonValue } from './types.js';
 
 interface OpenAppPayload extends JsonObject {
@@ -39,8 +40,8 @@ const openAppTask: TaskDefinition<OpenAppPayload> = {
     },
 };
 
-export const examplePlugin: PhoneFarmPlugin = {
-    id: 'org.phone-farm.example',
+export const examplePlugin: DFarmingPlugin = {
+    id: EXAMPLE_PLUGIN_ID,
     version: '0.1.0',
     displayName: 'Example app launcher',
     tasks: [openAppTask],

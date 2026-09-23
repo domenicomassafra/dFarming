@@ -74,7 +74,7 @@ async function extractVideoFrames(filePath: string): Promise<Buffer[]> {
         : [0.5, 1, 2, 5];
     const unique = [...new Set(stamps.map((t) => Number(t.toFixed(2))))];
 
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'phone-farm-frame-'));
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'dfarming-frame-'));
     try {
         const frames: Buffer[] = [];
         for (const [i, stamp] of unique.entries()) {

@@ -5,6 +5,8 @@ import path from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
+import { dfarmingEnv } from '../env.js';
+
 export interface MaterializableAsset {
     id: string;
     relativePath: string;
@@ -42,7 +44,7 @@ function controlPlaneAssetUrl(base: string | undefined, assetId: string): URL | 
 }
 
 function internalWorkerHeaders(token: string | undefined): Headers {
-    if (!token) throw new Error('PHONE_FARM_INTERNAL_TOKEN is required for distributed worker asset access');
+    if (!token) throw new Error('DFARMING_INTERNAL_TOKEN is required for distributed worker asset access');
     return new Headers({ authorization: `Bearer ${token}` });
 }
 
@@ -64,14 +66,14 @@ async function materialize(
     } catch { /* fetch the canonical copy below */ }
 
     const url = controlPlaneAssetUrl(
-        options.controlPlaneUrl ?? process.env.PHONE_FARM_CONTROL_PLANE_URL,
+        options.controlPlaneUrl ?? dfarmingEnv('CONTROL_PLANE_URL'),
         asset.id,
     );
     if (!url) throw new Error(`Asset file is missing on this execution node (${asset.originalName})`);
 
     const fetchImpl = options.fetchImpl ?? fetch;
     const response = await fetchImpl(url, {
-        headers: internalWorkerHeaders(options.internalToken ?? process.env.PHONE_FARM_INTERNAL_TOKEN),
+        headers: internalWorkerHeaders(options.internalToken ?? dfarmingEnv('INTERNAL_TOKEN')),
         signal: AbortSignal.timeout(options.timeoutMs ?? 120_000),
     });
     if (!response.ok || !response.body) {
@@ -148,14 +150,14 @@ export async function purgeRemoteAsset(
 ): Promise<void> {
     const root = path.resolve(options.dataRoot ?? process.env.SCHEDULER_DATA_DIR ?? '.scheduler-data');
     const url = controlPlaneAssetUrl(
-        options.controlPlaneUrl ?? process.env.PHONE_FARM_CONTROL_PLANE_URL,
+        options.controlPlaneUrl ?? dfarmingEnv('CONTROL_PLANE_URL'),
         assetId,
     );
-    if (!url) throw new Error('PHONE_FARM_CONTROL_PLANE_URL is required for distributed worker asset cleanup');
+    if (!url) throw new Error('DFARMING_CONTROL_PLANE_URL is required for distributed worker asset cleanup');
     const fetchImpl = options.fetchImpl ?? fetch;
     const response = await fetchImpl(url, {
         method: 'DELETE',
-        headers: internalWorkerHeaders(options.internalToken ?? process.env.PHONE_FARM_INTERNAL_TOKEN),
+        headers: internalWorkerHeaders(options.internalToken ?? dfarmingEnv('INTERNAL_TOKEN')),
         signal: AbortSignal.timeout(options.timeoutMs ?? 30_000),
     });
     if (!response.ok && response.status !== 404) {

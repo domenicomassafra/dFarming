@@ -13,8 +13,8 @@ test('Windows Android packaging reuses canonical worker processes and Task Sched
     assert.match(installer, /node_modules\\appium-runtime\\index\.js/);
     assert.match(installer, /Register-ScheduledTask/);
     assert.match(installer, /New-ScheduledTaskTrigger -AtLogOn/);
-    assert.match(installer, /PHONE_FARM_DEVICE_WORKER_TOKEN/);
-    assert.match(installer, /PHONE_FARM_CONTROL_PLANE_URL/);
+    assert.match(installer, /DFARMING_DEVICE_WORKER_TOKEN/);
+    assert.match(installer, /DFARMING_CONTROL_PLANE_URL/);
     assert.match(installer, /DATABASE_URL/);
     assert.match(installer, /doctor:device-worker/);
     assert.match(installer, /appium:runtime:sync/);
@@ -24,5 +24,5 @@ test('Windows Android packaging reuses canonical worker processes and Task Sched
     assert.doesNotMatch(installer, /\$IsWindows/);
     assert.match(installer, /\$env:ANDROID_HOME = \$androidRoot/);
     assert.doesNotMatch(installer, /Invoke-Expression|iex\b/i);
-    assert.doesNotMatch(installer, /PHONE_FARM_ROLE=control-plane/);
+    assert.doesNotMatch(installer, /DFARMING_ROLE=control-plane/);
 });

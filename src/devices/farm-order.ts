@@ -1,5 +1,5 @@
 /**
- * Farm seat order from the operator-facing device name.
+ * dFarming seat order from the operator-facing device name.
  * "#1" / "Farm 1" / "1st" → 1. Unnumbered devices sort last.
  * Does not treat model names like "iPhone 17 Pro" as farm seats.
  */

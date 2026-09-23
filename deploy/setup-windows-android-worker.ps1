@@ -65,11 +65,20 @@ if (-not (Test-Path -LiteralPath $EnvFile)) {
 }
 Import-DfarmingEnv $EnvFile
 Import-DfarmingEnv (Join-Path $Root '.env.devices')
+# Transitional compatibility for nodes that still have PHONE_FARM_* in .env.
+foreach ($entry in Get-ChildItem Env:) {
+    if (-not $entry.Name.StartsWith('PHONE_FARM_')) { continue }
+    $suffix = $entry.Name.Substring('PHONE_FARM_'.Length)
+    $canonical = "DFARMING_$suffix"
+    if ([string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($canonical, 'Process'))) {
+        [Environment]::SetEnvironmentVariable($canonical, $entry.Value, 'Process')
+    }
+}
 
-if ($env:PHONE_FARM_ROLE -ne 'device-worker') { throw 'PHONE_FARM_ROLE=device-worker is required.' }
-Require-Configured 'PHONE_FARM_DEVICE_WORKER_TOKEN'
-Require-Configured 'PHONE_FARM_INTERNAL_TOKEN'
-Require-Configured 'PHONE_FARM_CONTROL_PLANE_URL'
+if ($env:DFARMING_ROLE -ne 'device-worker') { throw 'DFARMING_ROLE=device-worker is required.' }
+Require-Configured 'DFARMING_DEVICE_WORKER_TOKEN'
+Require-Configured 'DFARMING_INTERNAL_TOKEN'
+Require-Configured 'DFARMING_CONTROL_PLANE_URL'
 Require-Configured 'DATABASE_URL'
 
 $AndroidRoot = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
@@ -154,7 +163,7 @@ Wait-Http 'Appium runtime' "http://127.0.0.1:$AppiumPort/status"
 Start-ScheduledTask -TaskName 'dFarming-SchedulerWorker'
 Start-ScheduledTask -TaskName 'dFarming-DeviceGateway'
 $GatewayPort = if ($env:DEVICE_WORKER_PORT) { [int]$env:DEVICE_WORKER_PORT } else { 3010 }
-Wait-Http 'Device worker' "http://127.0.0.1:$GatewayPort/health" @{ Authorization = "Bearer $($env:PHONE_FARM_DEVICE_WORKER_TOKEN)" }
+Wait-Http 'Device worker' "http://127.0.0.1:$GatewayPort/health" @{ Authorization = "Bearer $($env:DFARMING_DEVICE_WORKER_TOKEN)" }
 
 Write-Host 'Windows Android worker is installed and locally healthy.'
-Write-Host "MiniPC worker entry: $($env:PHONE_FARM_WORKER_ID)=http://<this-windows-private-address>:$GatewayPort"
+Write-Host "MiniPC worker entry: $($env:DFARMING_WORKER_ID)=http://<this-windows-private-address>:$GatewayPort"

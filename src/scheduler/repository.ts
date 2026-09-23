@@ -4,6 +4,7 @@ import { access, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { DatabaseConnection } from '../database/client.js';
+import { dfarmingEnv } from '../env.js';
 import {
     assets, campaigns, devicePools, executionAttempts, executionLogs, executions, flowDefinitions, flowVersions, pipelineItems, schedules,
     type CampaignRow, type DevicePoolRow, type ExecutionRow, type FlowDefinitionRow, type FlowVersionRow, type PipelineItemRow, type ScheduleRow,
@@ -981,7 +982,7 @@ export class SchedulerRepository {
     private async purgeAssetIds(ids: string[]): Promise<void> {
         if (!ids.length) return;
         const rows = await this.connection.db.select().from(assets).where(inArray(assets.id, ids));
-        if ((process.env.PHONE_FARM_ROLE ?? 'standalone') === 'device-worker' && process.env.PHONE_FARM_CONTROL_PLANE_URL) {
+        if ((dfarmingEnv('ROLE') ?? 'standalone') === 'device-worker' && dfarmingEnv('CONTROL_PLANE_URL')) {
             for (const asset of rows) await purgeRemoteAsset(asset.id);
             return;
         }

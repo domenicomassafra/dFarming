@@ -4,6 +4,7 @@ import { Readable } from 'node:stream';
 import type { FastifyInstance } from 'fastify';
 
 import type { DeviceConnectionStatus } from '../devices/connection-manager.js';
+import { dfarmingEnv } from '../env.js';
 import type { Device } from '../devices/discovery.js';
 import { loadRegisteredDevices } from '../devices/registry.js';
 import type { RemoteAction, RemoteControl } from '../devices/wda-remote.js';
@@ -37,7 +38,7 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
     const { remote, scheduler, discoverDevices } = options;
     const semantic = new SemanticController(remote, options.semanticTraceRoot);
     const streamTokens = new StreamTokenService(
-        options.streamTokenSecret ?? process.env.PHONE_FARM_STREAM_SECRET ?? crypto.randomBytes(32),
+        options.streamTokenSecret ?? dfarmingEnv('STREAM_SECRET') ?? crypto.randomBytes(32),
     );
     let fleetStreamLease: FleetStreamLease | undefined;
 
@@ -191,7 +192,12 @@ export function registerRemoteControlRoutes(app: FastifyInstance, options: Remot
             const upstream = await remote.getH264Stream(request.params.udid, abort.signal);
             if (!upstream.body) return reply.code(503).send({ error: 'H.264 stream is unavailable' });
             return reply.header('cache-control', 'no-store, no-cache, must-revalidate')
-                .header('x-mobile-farm-video-backend', upstream.headers.get('x-mobile-farm-video-backend') ?? 'h264')
+                .header(
+                    'x-dfarming-video-backend',
+                    upstream.headers.get('x-dfarming-video-backend')
+                        ?? upstream.headers.get('x-mobile-farm-video-backend')
+                        ?? 'h264',
+                )
                 .type(upstream.headers.get('content-type') ?? 'video/h264')
                 .send(Readable.from(upstream.body as AsyncIterable<Uint8Array>));
         } catch (error) {

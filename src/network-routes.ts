@@ -1,3 +1,5 @@
+import { dfarmingEnv } from './env.js';
+
 const ROUTE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
 export interface NetworkRouteAttestation {
@@ -16,19 +18,19 @@ export function normalizeNetworkRouteId(value: unknown): string {
 }
 
 export function parseNetworkRouteAttestations(
-    value: string | undefined = process.env.PHONE_FARM_NETWORK_ROUTES,
+    value: string | undefined = dfarmingEnv('NETWORK_ROUTES'),
 ): NetworkRouteAttestation[] {
     if (!value?.trim()) return [];
     const trimmed = value.trim();
     let raw: unknown;
     if (trimmed.startsWith('[')) {
         try { raw = JSON.parse(trimmed); }
-        catch (error) { throw new Error(`PHONE_FARM_NETWORK_ROUTES contains invalid JSON: ${error instanceof Error ? error.message : String(error)}`); }
+        catch (error) { throw new Error(`DFARMING_NETWORK_ROUTES contains invalid JSON: ${error instanceof Error ? error.message : String(error)}`); }
     } else {
         raw = trimmed.split(',').map((id) => ({ id }));
     }
-    if (!Array.isArray(raw)) throw new Error('PHONE_FARM_NETWORK_ROUTES must be a JSON array or comma-separated route ids');
-    if (raw.length > 64) throw new Error('PHONE_FARM_NETWORK_ROUTES may define at most 64 routes');
+    if (!Array.isArray(raw)) throw new Error('DFARMING_NETWORK_ROUTES must be a JSON array or comma-separated route ids');
+    if (raw.length > 64) throw new Error('DFARMING_NETWORK_ROUTES may define at most 64 routes');
     const seen = new Set<string>();
     return raw.map((entry) => {
         const record: Record<string, unknown> = entry && typeof entry === 'object' && !Array.isArray(entry)

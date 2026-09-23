@@ -106,7 +106,7 @@ test('worker protocol handshake rejects stale gateways before they can publish d
 });
 
 test('worker recovery emits one recovery transition after an outage', async (context) => {
-    const directory = await mkdtemp(path.join(os.tmpdir(), 'phone-farm-recovery-'));
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'dfarming-recovery-'));
     const registryPath = path.join(directory, 'devices.json');
     context.after(() => rm(directory, { recursive: true, force: true }));
     let available = false;
@@ -145,7 +145,7 @@ test('worker recovery emits one recovery transition after an outage', async (con
 });
 
 test('cross-platform control plane quarantines malformed worker devices without poisoning its registry', async (context) => {
-    const directory = await mkdtemp(path.join(os.tmpdir(), 'phone-farm-worker-'));
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'dfarming-worker-'));
     const registryPath = path.join(directory, 'devices.json');
     context.after(() => rm(directory, { recursive: true, force: true }));
     const fetchImpl: typeof fetch = async (input) => {
@@ -185,7 +185,7 @@ test('cross-platform control plane quarantines malformed worker devices without 
 });
 
 test('duplicate UDIDs from two workers are quarantined instead of choosing an arbitrary owner', async (context) => {
-    const directory = await mkdtemp(path.join(os.tmpdir(), 'phone-farm-duplicate-'));
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'dfarming-duplicate-'));
     const registryPath = path.join(directory, 'devices.json');
     context.after(() => rm(directory, { recursive: true, force: true }));
     const fetchImpl: typeof fetch = async (input) => {

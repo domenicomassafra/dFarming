@@ -16,6 +16,7 @@ import {
 import { changeVirtualRuntimeState, listVirtualRuntimes, type VirtualRuntimePlatform } from './devices/virtual-runtime.js';
 import { DEVICE_WORKER_PROTOCOL_VERSION } from './device-workers.js';
 import { physicalIosLaneEnabled } from './runtime-options.js';
+import { dfarmingEnv } from './env.js';
 import { isEntrypoint } from './entrypoint.js';
 import { bearerMatches } from './security/bearer.js';
 
@@ -135,10 +136,10 @@ export interface StartDeviceWorkerServerOptions {
 export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOptions = {}) {
     const host = options.host ?? process.env.DEVICE_WORKER_HOST ?? '127.0.0.1';
     const port = options.port ?? Number(process.env.DEVICE_WORKER_PORT ?? 3010);
-    const token = options.token ?? process.env.PHONE_FARM_DEVICE_WORKER_TOKEN;
-    const workerId = options.workerId ?? process.env.PHONE_FARM_WORKER_ID ?? 'mac-worker';
+    const token = options.token ?? dfarmingEnv('DEVICE_WORKER_TOKEN');
+    const workerId = options.workerId ?? dfarmingEnv('WORKER_ID') ?? 'mac-worker';
     const nonLoopback = !['127.0.0.1', '::1', 'localhost'].includes(host);
-    if (nonLoopback && !token) throw new Error('PHONE_FARM_DEVICE_WORKER_TOKEN is required when the device worker binds outside loopback');
+    if (nonLoopback && !token) throw new Error('DFARMING_DEVICE_WORKER_TOKEN is required when the device worker binds outside loopback');
     if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error('DEVICE_WORKER_PORT must be a valid TCP port');
 
     const app = Fastify({ logger: options.logger ?? false, bodyLimit: 128 * 1024 });
@@ -236,7 +237,12 @@ export async function startDeviceWorkerServer(options: StartDeviceWorkerServerOp
             const upstream = await remote.getH264Stream(request.params.udid, abort.signal);
             if (!upstream.body) return reply.code(503).send({ error: 'H.264 stream is unavailable' });
             return reply.header('cache-control', 'no-store, no-cache, must-revalidate')
-                .header('x-mobile-farm-video-backend', upstream.headers.get('x-mobile-farm-video-backend') ?? 'h264')
+                .header(
+                    'x-dfarming-video-backend',
+                    upstream.headers.get('x-dfarming-video-backend')
+                        ?? upstream.headers.get('x-mobile-farm-video-backend')
+                        ?? 'h264',
+                )
                 .type(upstream.headers.get('content-type') ?? 'video/h264')
                 .send(Readable.from(upstream.body as AsyncIterable<Uint8Array>));
         } catch (error) {

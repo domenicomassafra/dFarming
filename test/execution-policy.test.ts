@@ -8,7 +8,7 @@ import type { RegisteredDevice } from '../src/types.js';
 const device: RegisteredDevice = {
     name: 'Phone A', udid: 'phone-a', platform: 'ios', kind: 'simulator', automationBackend: 'appium',
     workerId: 'studio', tags: ['creator', 'italy'], pluginData: {
-        'com.git-agni.tiktok': {
+        'com.dfarming.tiktok': {
             accounts: ['@owner'],
             accountPolicies: {
                 '@owner': {
@@ -32,7 +32,7 @@ const host: HostSnapshot = {
 test('account execution profiles enforce dedicated device, tags, and worker route attestation', () => {
     assert.deepEqual(resolveTaskExecutionPolicy({
         deviceUdid: 'phone-a', timing: { kind: 'now' }, task: {
-            pluginId: 'com.git-agni.tiktok', taskType: 'post', taskVersion: 1, payload: { account: '@owner' },
+            pluginId: 'com.dfarming.tiktok', taskType: 'post', taskVersion: 1, payload: { account: '@owner' },
         },
     }, [device], [host]), {
         executionProfileId: 'owner-primary', networkRouteId: 'italy.private',
@@ -45,7 +45,7 @@ test('account execution profiles enforce dedicated device, tags, and worker rout
 test('tasks without an account execution profile remain unchanged', () => {
     assert.deepEqual(resolveTaskExecutionPolicy({
         deviceUdid: 'phone-a', timing: { kind: 'now' }, task: {
-            pluginId: 'com.phone-farm.flow', taskType: 'flow', taskVersion: 1, payload: { name: 'safe', steps: [] },
+            pluginId: 'com.dfarming.flow', taskType: 'flow', taskVersion: 1, payload: { name: 'safe', steps: [] },
         },
     }, [device], [host]), {});
 });

@@ -37,7 +37,7 @@ interface PostRun {
 }
 
 type SocialTaskType = 'doomscroll' | 'doomscroll-following' | 'post';
-type SocialPluginId = 'com.git-agni.tiktok' | 'com.git-agni.instagram' | string;
+type SocialPluginId = 'com.dfarming.tiktok' | 'com.dfarming.instagram' | string;
 type CalibrateApp = 'tiktok' | 'instagram';
 
 interface DeviceSchedule {
@@ -693,7 +693,7 @@ function useDeviceSummary(summary: HTMLElement): void {
     elements.enabledToggle.dataset.disabled = String(deviceDisabled);
     elements.enabledToggle.textContent = deviceDisabled ? 'Enable device' : 'Disable device';
     const name = summary.querySelector('h1')?.textContent;
-    if (name) document.title = `${name} · Mobile Farm`;
+    if (name) document.title = `${name} · dFarming`;
     if (deviceDisabled) {
         elements.screen.removeAttribute('src');
         setScreenPresentation('empty', 'Device disabled — enable it to reconnect.');
@@ -1041,15 +1041,15 @@ function taskActionButton(label: string, action: () => Promise<void>): HTMLButto
 }
 
 function pluginLabel(pluginId: SocialPluginId | undefined): string {
-    if (pluginId === 'com.git-agni.instagram') return 'Instagram';
-    if (pluginId === 'com.git-agni.tiktok') return 'TikTok';
+    if (pluginId === 'com.dfarming.instagram' || pluginId === 'com.git-agni.instagram') return 'Instagram';
+    if (pluginId === 'com.dfarming.tiktok' || pluginId === 'com.git-agni.tiktok') return 'TikTok';
     return pluginId ? pluginId.replace(/^com\.git-agni\./, '') : 'Task';
 }
 
 function taskTitle(taskType: DeviceSchedule['taskType'], payload?: DeviceSchedule['payload'], pluginId?: SocialPluginId): string {
     const app = pluginLabel(pluginId);
     if (taskType === 'doomscroll' || taskType === 'doomscroll-following') {
-        const isInstagram = pluginId === 'com.git-agni.instagram';
+        const isInstagram = pluginId === 'com.dfarming.instagram' || pluginId === 'com.git-agni.instagram';
         const label = taskType === 'doomscroll-following'
             ? (isInstagram ? 'engage following' : 'engagement')
             : (isInstagram ? 'warmup' : 'warmup');
@@ -1521,7 +1521,7 @@ elements.renameForm.addEventListener('submit', (event) => {
             await jsonRequest(`/api/devices/${encodeURIComponent(udid)}`, {
                 method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }),
             });
-            document.title = `${name} · Mobile Farm`;
+            document.title = `${name} · dFarming`;
             const response = await fetch(`/api/devices/${encodeURIComponent(udid)}/fragments/summary`);
             if (!response.ok) throw new Error(`Could not refresh device header (${response.status})`);
             const html = await response.text();

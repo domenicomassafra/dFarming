@@ -1,6 +1,8 @@
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { dfarmingEnv } from '../env.js';
+
 const execFileAsync = promisify(execFile);
 
 export type VirtualRuntimePlatform = 'ios' | 'android';
@@ -120,7 +122,7 @@ export async function changeVirtualRuntimeState(
     if (action === 'boot') {
         if (runtime.state === 'booted') return;
         const args = ['-avd', runtime.id, '-no-snapshot-save', '-no-boot-anim'];
-        if (process.env.PHONE_FARM_ANDROID_EMULATOR_HEADLESS === 'true') args.push('-no-window');
+        if (dfarmingEnv('ANDROID_EMULATOR_HEADLESS') === 'true') args.push('-no-window');
         const child = spawn('emulator', args, { detached: true, stdio: 'ignore' });
         child.unref();
         return;

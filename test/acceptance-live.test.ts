@@ -52,29 +52,29 @@ test('all acceptance targets require a connected device', () => {
 });
 
 test('acceptance requests prove same-origin when no bearer token is configured', () => {
-    const previous = process.env.PHONE_FARM_TOKEN;
+    const previous = process.env.DFARMING_TOKEN;
     try {
-        delete process.env.PHONE_FARM_TOKEN;
+        delete process.env.DFARMING_TOKEN;
         const headers = acceptanceRequestHeaders(new URL('http://127.0.0.1:4050'), {});
         assert.equal(headers.get('origin'), 'http://127.0.0.1:4050');
         assert.equal(headers.get('authorization'), null);
         assert.equal(headers.get('content-type'), 'application/json');
     } finally {
-        if (previous === undefined) delete process.env.PHONE_FARM_TOKEN;
-        else process.env.PHONE_FARM_TOKEN = previous;
+        if (previous === undefined) delete process.env.DFARMING_TOKEN;
+        else process.env.DFARMING_TOKEN = previous;
     }
 });
 
 test('acceptance requests prefer bearer auth when a token is configured', () => {
-    const previous = process.env.PHONE_FARM_TOKEN;
+    const previous = process.env.DFARMING_TOKEN;
     try {
-        process.env.PHONE_FARM_TOKEN = 'test-token';
+        process.env.DFARMING_TOKEN = 'test-token';
         const headers = acceptanceRequestHeaders(new URL('http://127.0.0.1:4050'));
         assert.equal(headers.get('authorization'), 'Bearer test-token');
         assert.equal(headers.get('origin'), null);
     } finally {
-        if (previous === undefined) delete process.env.PHONE_FARM_TOKEN;
-        else process.env.PHONE_FARM_TOKEN = previous;
+        if (previous === undefined) delete process.env.DFARMING_TOKEN;
+        else process.env.DFARMING_TOKEN = previous;
     }
 });
 
@@ -86,7 +86,7 @@ test('acceptance receipts use the scheduler volume in production and remain over
     assert.equal(
         acceptanceReceiptDirectory({
             SCHEDULER_DATA_DIR: '/data/scheduler',
-            PHONE_FARM_ACCEPTANCE_DIR: '/receipts/live',
+            DFARMING_ACCEPTANCE_DIR: '/receipts/live',
         }),
         '/receipts/live',
     );

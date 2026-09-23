@@ -1,6 +1,6 @@
 # Hinge
 
-Measured on Phone Farm #1 (iPhone 13, 390×844 pt, scale 3) on 2026-09-13.
+Measured on dFarming #1 (iPhone 13, 390×844 pt, scale 3) on 2026-09-13.
 Coordinates live in `src/hinge/coordinates.ts`; screen detection in
 `src/hinge/screen.ts`. Bundle id `co.hinge.mobile.ios`.
 

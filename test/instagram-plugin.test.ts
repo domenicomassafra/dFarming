@@ -7,7 +7,7 @@ import { createInstagramPlugin } from '../src/instagram-plugin.js';
 const plugin = createInstagramPlugin({ doomscrollEntrypoint: '/example/doomscroll.js', postEntrypoint: '/example/post.js' });
 
 test('built-in Instagram plugin validates versioned doomscroll tasks', () => {
-    assert.equal(plugin.id, 'com.git-agni.instagram');
+    assert.equal(plugin.id, 'com.dfarming.instagram');
     const registry = new PluginRegistry([plugin]);
     const value = registry.validate({
         deviceUdid: 'device-12345678',

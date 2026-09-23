@@ -11,7 +11,7 @@ test('campaign planner binds each target to an account actually configured on th
     const plan = planCampaign(registry, {
         name: 'Launch batch A',
         task: {
-            pluginId: 'com.git-agni.tiktok', taskType: 'post', taskVersion: 1,
+            pluginId: 'com.dfarming.tiktok', taskType: 'post', taskVersion: 1,
             payload: {
                 media: [{ assetId: 'asset-1', name: 'video.mp4', mimeType: 'video/mp4' }],
                 destination: 'draft',
@@ -37,7 +37,7 @@ test('campaign planner refuses unconfigured accounts and marks public publishing
     const input = {
         name: 'Publish wave',
         task: {
-            pluginId: 'com.git-agni.tiktok', taskType: 'post', taskVersion: 1,
+            pluginId: 'com.dfarming.tiktok', taskType: 'post', taskVersion: 1,
             payload: {
                 media: [{ assetId: 'asset-1', name: 'video.mp4', mimeType: 'video/mp4' }],
                 destination: 'publish', recurringPublishConfirmed: true,
@@ -57,7 +57,7 @@ test('campaign planner caps fan-out and rejects duplicate targets', () => {
     const base = {
         name: 'Warmup',
         task: {
-            pluginId: 'com.git-agni.tiktok', taskType: 'doomscroll', taskVersion: 1,
+            pluginId: 'com.dfarming.tiktok', taskType: 'doomscroll', taskVersion: 1,
             payload: { durationMinutes: 5, personality: 'casual', likeEnabled: false, saveEnabled: false },
         },
         timing: { kind: 'now' as const },

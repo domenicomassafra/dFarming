@@ -12,9 +12,9 @@ compatibility rules. This document is the how‑to.
 Everything is in `src/plugin.ts`. A plugin is a plain object:
 
 ```ts
-import type { PhoneFarmPlugin } from '@domenicomassafra/dfarming-core';
+import type { DFarmingPlugin } from '@domenicomassafra/dfarming-core';
 
-const plugin: PhoneFarmPlugin = {
+const plugin: DFarmingPlugin = {
     id: 'com.acme.instagram',   // reverse-DNS, stable forever
     version: '1.0.0',           // package version, informational
     displayName: 'Instagram',
@@ -35,16 +35,16 @@ set shared by `web` and every scheduler worker:
 
 | Plugin id | Package export | Tasks | Bundle env |
 | --- | --- | --- | --- |
-| `com.phone-farm.flow` | built in | `flow@1` | — |
-| `com.git-agni.tiktok` | `@domenicomassafra/dfarming-core/tiktok` | `doomscroll@1`, `post@1` | `TIKTOK_BUNDLE_ID` (default `com.zhiliaoapp.musically`) |
-| `com.git-agni.instagram` | `@domenicomassafra/dfarming-core/instagram` | `doomscroll@1`, `post@1` | `INSTAGRAM_BUNDLE_ID` (default `com.burbn.instagram`) |
+| `com.dfarming.flow` | built in | `flow@1` | — |
+| `com.dfarming.tiktok` | `@domenicomassafra/dfarming-core/tiktok` | `doomscroll@1`, `post@1` | `TIKTOK_BUNDLE_ID` (default `com.zhiliaoapp.musically`) |
+| `com.dfarming.instagram` | `@domenicomassafra/dfarming-core/instagram` | `doomscroll@1`, `post@1` | `INSTAGRAM_BUNDLE_ID` (default `com.burbn.instagram`) |
 
-Instagram HTTP routes are namespaced under `/plugins/com.git-agni.instagram/instagram/…`
+Instagram HTTP routes are namespaced under `/plugins/com.dfarming.instagram/instagram/…`
 so they do not collide with TikTok’s `/accounts` and `/posts`. Set accounts on
 the device page (or during registration); both plugins store
 `pluginData[id].accounts`.
 
-Extra plugins still load via `PHONE_FARM_PLUGINS` (comma‑separated ESM package
+Extra plugins still load via `DFARMING_PLUGINS` (comma‑separated ESM package
 names). `loadPlugins()` imports each and expects a `default` (or `plugin`)
 export with an `id` and a `tasks` array.
 
@@ -219,7 +219,7 @@ through `wda:prepare`.
 1. A normal npm package, `"type": "module"`, `export default` the plugin.
 2. `peerDependencies`: `@domenicomassafra/dfarming-core`.
 3. Publish privately (or reference a pinned git commit).
-4. Add the package name to `PHONE_FARM_PLUGINS` for **both** the `web` and
+4. Add the package name to `DFARMING_PLUGINS` for **both** the `web` and
    `worker` units; restart both.
 5. `GET /health` should now list your `{ id, version }`.
 
@@ -230,5 +230,5 @@ exactly‑pinned packages.
 ## Trying the reference plugin
 
 `src/example-plugin.ts` is a complete minimal plugin (`open-app@1`). To load it
-during development, point `PHONE_FARM_PLUGINS` at the built package path or add
+during development, point `DFARMING_PLUGINS` at the built package path or add
 it to `defaultPlugins()` locally.

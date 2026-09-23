@@ -212,8 +212,8 @@ test('overview control center exposes the major product surfaces instead of hidi
         async listSchedules() { return [{ status: 'active' }, { status: 'paused' }]; },
         async listExecutions() {
             return [
-                { status: 'running', pluginId: 'com.phone-farm.flow', taskType: 'flow', deviceUdid: 'sim-1', scheduledFor: new Date(0) },
-                { status: 'queued', pluginId: 'com.git-agni.instagram', taskType: 'doomscroll', deviceUdid: 'iphone-1', scheduledFor: new Date(1) },
+                { status: 'running', pluginId: 'com.dfarming.flow', taskType: 'flow', deviceUdid: 'sim-1', scheduledFor: new Date(0) },
+                { status: 'queued', pluginId: 'com.dfarming.instagram', taskType: 'doomscroll', deviceUdid: 'iphone-1', scheduledFor: new Date(1) },
             ];
         },
     } as unknown as SchedulerRepository;
@@ -301,7 +301,7 @@ test('overview control center exposes the major product surfaces instead of hidi
 
     const runs = await inject(app, { method: 'GET', url: '/tasks' });
     assert.equal(runs.statusCode, 200);
-    assert.match(runs.body, /Runs · Mobile Farm/);
+    assert.match(runs.body, /Runs · dFarming/);
     assert.match(runs.body, /id="runs-search"/);
     assert.match(runs.body, /id="runs-device"/);
     assert.match(runs.body, /id="runs-flow"/);
@@ -428,6 +428,6 @@ test('flow library API validates, versions and exports portable flows through th
 
     const exported = await app.inject({ method: 'GET', url: '/api/flows/11111111-1111-4111-8111-111111111111/export' });
     assert.equal(exported.statusCode, 200);
-    assert.equal(exported.json().format, 'mobile-farm-flow@1');
+    assert.equal(exported.json().format, 'dfarming-flow@1');
     assert.equal(exported.json().flow.name, 'Login');
 });

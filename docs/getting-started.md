@@ -16,7 +16,7 @@ same scheduler and evidence path.
 | Android platform-tools | Required on workers that expose physical Android or Android Emulator runtimes. |
 | Node.js 22+ | Required for source validation and device-worker processes. |
 | iOS Simulator | Optional execution lane through the isolated Appium/XCUITest runtime. |
-| Physical iPhone + Apple Developer team | Optional physical lane. Required only when `PHONE_FARM_ENABLE_PHYSICAL_IOS=true`. |
+| Physical iPhone + Apple Developer team | Optional physical lane. Required only when `DFARMING_ENABLE_PHYSICAL_IOS=true`. |
 | Android Emulator / AVD | Optional virtual Android lane. Linux hosts should have hardware virtualization enabled. |
 
 ## 1. Prepare a macOS execution worker
@@ -94,12 +94,12 @@ private-network/Tailscale layout and current production ports.
 
 ```sh
 cp .env.device-worker.example .env
-# point DATABASE_URL and PHONE_FARM_CONTROL_PLANE_URL at the MiniPC
-# copy PHONE_FARM_DEVICE_WORKER_TOKEN and PHONE_FARM_INTERNAL_TOKEN from MiniPC config
+# point DATABASE_URL and DFARMING_CONTROL_PLANE_URL at the MiniPC
+# copy DFARMING_DEVICE_WORKER_TOKEN and DFARMING_INTERNAL_TOKEN from MiniPC config
 ./deploy/setup-device-worker.sh
 ```
 
-Set `PHONE_FARM_ENABLE_PHYSICAL_IOS=false` for a simulator-only worker. That
+Set `DFARMING_ENABLE_PHYSICAL_IOS=false` for a simulator-only worker. That
 setting suppresses physical-iPhone discovery, WDA/legacy-Appium launch agents,
 and direct physical-device control while keeping the Appium Simulator lane.
 
@@ -111,7 +111,7 @@ launchd state with `npm run service -- status`.
 
 Keep execution-host disk use bounded with `npm run runtime:storage`. The report
 covers Appium, Simulator/AVD data and WebDriverAgent DerivedData and compares the
-combined footprint with `PHONE_FARM_RUNTIME_DISK_BUDGET_GB` (20 GiB by default).
+combined footprint with `DFARMING_RUNTIME_DISK_BUDGET_GB` (20 GiB by default).
 Use `npm run runtime:storage:cleanup` for conservative reclamation: it removes
 only unavailable iOS Simulators and rebuildable stale caches, skips running
 Android AVDs, and preserves device registration, userdata and USB trust state.
@@ -120,7 +120,7 @@ Android AVDs, and preserves device registration, userdata and USB trust state.
 
 ```sh
 cp .env.linux-android-worker.example .env
-# point DATABASE_URL and PHONE_FARM_CONTROL_PLANE_URL at the MiniPC
+# point DATABASE_URL and DFARMING_CONTROL_PLANE_URL at the MiniPC
 # copy the shared worker/internal tokens
 ./deploy/setup-linux-android-worker.sh
 ```
@@ -165,7 +165,7 @@ progress in **Activity**; full logs are under `GET /api/executions/:id`.
 ## Authentication
 
 On a loopback bind (`WEB_HOST=127.0.0.1`) auth is optional. Before binding to
-anything else, set `PHONE_FARM_AUTH_PLUGIN` to an ESM module exporting an
+anything else, set `DFARMING_AUTH_PLUGIN` to an ESM module exporting an
 `AuthProvider`; startup **deliberately fails** otherwise (`assertSafeBind`).
 Write the provider against the `AuthProvider` interface in `src/plugin.ts` —
 it hands you the Fastify instance to register login routes on, an
@@ -186,8 +186,8 @@ Registered devices live in `devices.json` (git‑ignored):
     "coordinateProfile": "iphone8",
     "passcode": "123456",
     "pluginData": {
-      "com.git-agni.tiktok": { "accounts": ["@handle"] },
-      "com.git-agni.instagram": { "accounts": ["@handle"] }
+      "com.dfarming.tiktok": { "accounts": ["@handle"] },
+      "com.dfarming.instagram": { "accounts": ["@handle"] }
     }
   }
 ]
@@ -215,10 +215,10 @@ Registered devices live in `devices.json` (git‑ignored):
 | --- | --- |
 | `wda: error … stale or corrupted` | Re‑run `npm run wda:prepare`; delete `~/Library/Developer/Xcode/DerivedData/WebDriverAgent-*` if it keeps producing an empty `.app`. |
 | `wda: unlock-required` | Physically unlock the iPhone once. |
-| physical device is missing from a worker | Check `PHONE_FARM_ENABLE_PHYSICAL_IOS`, `npm run doctor:device-worker`, USB trust and Xcode signing. |
+| physical device is missing from a worker | Check `DFARMING_ENABLE_PHYSICAL_IOS`, `npm run doctor:device-worker`, USB trust and Xcode signing. |
 | Simulator is missing | Check `npm run doctor:device-worker`, `xcrun simctl list devices available`, and the `appium-runtime` launchd service. |
 | worker is shown offline on MiniPC | Verify the private worker URL/token and `npm run service -- status` on the Mac. |
-| web returns 401 everywhere | An auth provider is configured — sign in, or unset `PHONE_FARM_AUTH_PLUGIN` on loopback. |
+| web returns 401 everywhere | An auth provider is configured — sign in, or unset `DFARMING_AUTH_PLUGIN` on loopback. |
 | physical Appium listener is unavailable | Run `npm ci`, `npm run appium:runtime:install-ios`, `npm run wda:patch`, then `npm run service -- install`; both iOS listeners use Appium 3 and `.appium-runtime`. |
 
 `GET /health` on the MiniPC lists the loaded plugins and versions. Physical

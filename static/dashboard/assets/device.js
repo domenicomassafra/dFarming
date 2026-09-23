@@ -600,7 +600,7 @@ function useDeviceSummary(summary) {
     elements.enabledToggle.textContent = deviceDisabled ? 'Enable device' : 'Disable device';
     const name = summary.querySelector('h1')?.textContent;
     if (name)
-        document.title = `${name} · Mobile Farm`;
+        document.title = `${name} · dFarming`;
     if (deviceDisabled) {
         elements.screen.removeAttribute('src');
         setScreenPresentation('empty', 'Device disabled — enable it to reconnect.');
@@ -952,16 +952,16 @@ function taskActionButton(label, action) {
     return buttonElement;
 }
 function pluginLabel(pluginId) {
-    if (pluginId === 'com.git-agni.instagram')
+    if (pluginId === 'com.dfarming.instagram' || pluginId === 'com.git-agni.instagram')
         return 'Instagram';
-    if (pluginId === 'com.git-agni.tiktok')
+    if (pluginId === 'com.dfarming.tiktok' || pluginId === 'com.git-agni.tiktok')
         return 'TikTok';
     return pluginId ? pluginId.replace(/^com\.git-agni\./, '') : 'Task';
 }
 function taskTitle(taskType, payload, pluginId) {
     const app = pluginLabel(pluginId);
     if (taskType === 'doomscroll' || taskType === 'doomscroll-following') {
-        const isInstagram = pluginId === 'com.git-agni.instagram';
+        const isInstagram = pluginId === 'com.dfarming.instagram' || pluginId === 'com.git-agni.instagram';
         const label = taskType === 'doomscroll-following'
             ? (isInstagram ? 'engage following' : 'engagement')
             : (isInstagram ? 'warmup' : 'warmup');
@@ -1441,7 +1441,7 @@ elements.renameForm.addEventListener('submit', (event) => {
             await jsonRequest(`/api/devices/${encodeURIComponent(udid)}`, {
                 method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }),
             });
-            document.title = `${name} · Mobile Farm`;
+            document.title = `${name} · dFarming`;
             const response = await fetch(`/api/devices/${encodeURIComponent(udid)}/fragments/summary`);
             if (!response.ok)
                 throw new Error(`Could not refresh device header (${response.status})`);

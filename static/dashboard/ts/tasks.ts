@@ -103,19 +103,19 @@ function date(value: string | null): string {
 }
 
 function pluginLabel(pluginId: string): string {
-    if (pluginId === 'com.phone-farm.flow') return 'Portable flow';
-    if (pluginId === 'com.git-agni.instagram') return 'Instagram';
-    if (pluginId === 'com.git-agni.tiktok') return 'TikTok';
-    return pluginId.replace(/^com\.(?:git-agni\.|phone-farm\.)/, '');
+    if (pluginId === 'com.dfarming.flow' || pluginId === 'com.phone-farm.flow') return 'Portable flow';
+    if (pluginId === 'com.dfarming.instagram' || pluginId === 'com.git-agni.instagram') return 'Instagram';
+    if (pluginId === 'com.dfarming.tiktok' || pluginId === 'com.git-agni.tiktok') return 'TikTok';
+    return pluginId.replace(/^com\.(?:dfarming\.|git-agni\.|phone-farm\.)/, '');
 }
 
 function taskLabel(pluginId: string, taskType: string): string {
-    if (pluginId === 'com.phone-farm.flow' && taskType === 'flow') return 'Portable flow';
+    if ((pluginId === 'com.dfarming.flow' || pluginId === 'com.phone-farm.flow') && taskType === 'flow') return 'Portable flow';
     return `${pluginLabel(pluginId)} ${taskType}`;
 }
 
 function flowName(item: Pick<Execution, 'pluginId' | 'taskType' | 'payload'> | Pick<Schedule, 'pluginId' | 'taskType' | 'payload'>): string | undefined {
-    if (item.pluginId !== 'com.phone-farm.flow' || item.taskType !== 'flow') return undefined;
+    if (!['com.dfarming.flow', 'com.phone-farm.flow'].includes(item.pluginId) || item.taskType !== 'flow') return undefined;
     const name = item.payload?.name;
     return typeof name === 'string' && name.trim() ? name.trim() : 'Portable flow';
 }
@@ -235,7 +235,7 @@ async function openExecutionDetail(id: string): Promise<void> {
         const links: HTMLAnchorElement[] = [
             detailLink('Device', `/devices/${encodeURIComponent(execution.deviceUdid)}`),
         ];
-        if (execution.pluginId === 'com.phone-farm.flow' && execution.taskType === 'flow') {
+        if (['com.dfarming.flow', 'com.phone-farm.flow'].includes(execution.pluginId) && execution.taskType === 'flow') {
             const sourceFlowId = typeof execution.payload.sourceFlowId === 'string' ? execution.payload.sourceFlowId : undefined;
             links.push(detailLink(
                 sourceFlowId ? 'Saved flow' : 'Flow workspace',

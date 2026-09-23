@@ -2,8 +2,8 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-phone_farm}
-      POSTGRES_USER: ${POSTGRES_USER:-phone_farm}
+      POSTGRES_DB: ${POSTGRES_DB:-dfarming}
+      POSTGRES_USER: ${POSTGRES_USER:-dfarming}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
@@ -13,7 +13,7 @@ services:
       timeout: 3s
       retries: 20
     volumes:
-      - phone-farm-postgres:/var/lib/postgresql/data
+      - dfarming-postgres:/var/lib/postgresql/data
 
 volumes:
-  phone-farm-postgres:
+  dfarming-postgres:

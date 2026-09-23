@@ -1,10 +1,8 @@
 import { fileURLToPath } from 'node:url';
 
+import { INSTAGRAM_PLUGIN_ID, TIKTOK_PLUGIN_ID } from './branding.js';
 import type { DashboardTheme } from './api/app.js';
 import type { RegisteredDevice } from './devices/registry.js';
-
-const tiktokPluginId = 'com.git-agni.tiktok';
-const instagramPluginId = 'com.git-agni.instagram';
 
 function accounts(device: RegisteredDevice, pluginId: string): string[] {
     const value = device.pluginData[pluginId]?.accounts;
@@ -23,8 +21,8 @@ function accountOptions(configured: string[]): string {
 export const defaultDashboardTheme: DashboardTheme = {
     rootDirectory: fileURLToPath(new URL('../static/dashboard/', import.meta.url)),
     renderDevice(template, device) {
-        const tiktok = accounts(device, tiktokPluginId);
-        const instagram = accounts(device, instagramPluginId);
+        const tiktok = accounts(device, TIKTOK_PLUGIN_ID);
+        const instagram = accounts(device, INSTAGRAM_PLUGIN_ID);
         const platform = device.platform ?? 'ios';
         const kind = device.kind ?? 'physical';
         const backend = device.automationBackend ?? (platform === 'ios' && kind === 'physical' ? 'wda' : 'appium');

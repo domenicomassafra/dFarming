@@ -1,15 +1,16 @@
-import type { PhoneFarmPlugin, TaskDefinition } from './plugin.js';
+import { canonicalPluginId } from './branding.js';
+import type { DFarmingPlugin, TaskDefinition } from './plugin.js';
 import type { CreateTaskInput, JsonObject, TaskEnvelope } from './types.js';
 
 export class PluginRegistry {
-    private readonly plugins = new Map<string, PhoneFarmPlugin>();
+    private readonly plugins = new Map<string, DFarmingPlugin>();
     private readonly tasks = new Map<string, TaskDefinition>();
 
-    constructor(plugins: readonly PhoneFarmPlugin[] = []) {
+    constructor(plugins: readonly DFarmingPlugin[] = []) {
         for (const plugin of plugins) this.register(plugin);
     }
 
-    register(plugin: PhoneFarmPlugin): void {
+    register(plugin: DFarmingPlugin): void {
         assertIdentifier(plugin.id, 'plugin ID');
         if (this.plugins.has(plugin.id)) throw new Error(`Plugin ${plugin.id} is already registered`);
         for (const task of plugin.tasks) {
@@ -24,18 +25,18 @@ export class PluginRegistry {
         this.plugins.set(plugin.id, plugin);
     }
 
-    list(): PhoneFarmPlugin[] {
+    list(): DFarmingPlugin[] {
         return [...this.plugins.values()];
     }
 
-    plugin(id: string): PhoneFarmPlugin {
-        const plugin = this.plugins.get(id);
+    plugin(id: string): DFarmingPlugin {
+        const plugin = this.plugins.get(canonicalPluginId(id));
         if (!plugin) throw new Error(`Plugin ${id} is unavailable`);
         return plugin;
     }
 
     task<TPayload extends JsonObject = JsonObject>(envelope: TaskEnvelope<TPayload>): TaskDefinition<TPayload> {
-        const definition = this.tasks.get(taskKey(envelope.pluginId, envelope.taskType, envelope.taskVersion));
+        const definition = this.tasks.get(taskKey(canonicalPluginId(envelope.pluginId), envelope.taskType, envelope.taskVersion));
         if (!definition) {
             throw new Error(`Task ${envelope.pluginId}/${envelope.taskType}@${envelope.taskVersion} is unavailable`);
         }
@@ -53,7 +54,7 @@ export class PluginRegistry {
             timingKind: input.timing.kind,
             devicePluginData,
         });
-        return { ...input, task: { ...input.task, payload } };
+        return { ...input, task: { ...input.task, pluginId: canonicalPluginId(input.task.pluginId), payload } };
     }
 }
 

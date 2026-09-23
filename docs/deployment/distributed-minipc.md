@@ -29,7 +29,7 @@ The control-plane image intentionally installs npm dependencies with lifecycle s
 The control-plane worker list uses:
 
 ```text
-PHONE_FARM_DEVICE_WORKERS=macstudio=http://macstudio:3010,othermac=http://othermac:3010
+DFARMING_DEVICE_WORKERS=macstudio=http://macstudio:3010,othermac=http://othermac:3010
 ```
 
 The control plane periodically refreshes those inventories. A sleeping/offline Mac does not prevent the MiniPC from starting; its devices simply appear disconnected.
@@ -38,23 +38,23 @@ The control plane periodically refreshes those inventories. A sleeping/offline M
 
 ```bash
 cp .env.device-worker.example .env
-# point DATABASE_URL and PHONE_FARM_CONTROL_PLANE_URL at the MiniPC
+# point DATABASE_URL and DFARMING_CONTROL_PLANE_URL at the MiniPC
 # copy the two matching shared tokens from .env.minipc
 ./deploy/setup-device-worker.sh
 ```
 
-`PHONE_FARM_ROLE=device-worker` changes launchd packaging to install the pg-boss execution worker, authenticated HTTP device gateway and modern Appium runtime. With `PHONE_FARM_ENABLE_PHYSICAL_IOS=true` it also installs the physical-iPhone compatibility listener and WDA supervisor. Set the flag to `false` for a simulator-only Mac; setup removes stale physical-lane launch agents instead of leaving them active. The web dashboard is deliberately omitted on every worker.
+`DFARMING_ROLE=device-worker` changes launchd packaging to install the pg-boss execution worker, authenticated HTTP device gateway and modern Appium runtime. With `DFARMING_ENABLE_PHYSICAL_IOS=true` it also installs the physical-iPhone compatibility listener and WDA supervisor. Set the flag to `false` for a simulator-only Mac; setup removes stale physical-lane launch agents instead of leaving them active. The web dashboard is deliberately omitted on every worker.
 
 The two Appium **ports** are intentionally separate but no longer have separate dependency trees. Both `:4725` (physical compatibility) and `:4726` (generic Simulator/Android runtime) execute Appium 3 against `.appium-runtime`. Before services are installed, setup applies the checksum/version-pinned WDA customization used by the physical lane. This removes the old Appium 2 tree while preserving the established port contract.
 
 Execution hosts own their disposable runtime footprint as well. `npm run runtime:storage`
 reports the Appium home, iOS Simulator devices, Android AVDs and WebDriverAgent
-DerivedData against `PHONE_FARM_RUNTIME_DISK_BUDGET_GB` (20 GiB by default).
+DerivedData against `DFARMING_RUNTIME_DISK_BUDGET_GB` (20 GiB by default).
 `npm run runtime:storage:cleanup` prunes unavailable iOS Simulators, Appium's
 extension cache, stale WebDriverAgent DerivedData and stale Android emulator
 `cache.img*` files. Cleanup skips locked/running Android AVDs and never deletes
 registered device metadata, Android userdata, or physical-device trust state.
-`PHONE_FARM_RUNTIME_STALE_DAYS` controls the rebuildable-cache age threshold.
+`DFARMING_RUNTIME_STALE_DAYS` controls the rebuildable-cache age threshold.
 
 The local `devices.json` remains the authority for secrets and physical endpoint details such as the unlock passcode and local WDA/MJPEG ports. The MiniPC mirror never receives the passcode.
 

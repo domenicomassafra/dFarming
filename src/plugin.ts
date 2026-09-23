@@ -120,7 +120,7 @@ export interface PluginRouteContext {
     renderActivity(deviceUdid: string, message?: string): Promise<string>;
 }
 
-export interface PhoneFarmPlugin {
+export interface DFarmingPlugin {
     id: string;
     version: string;
     displayName: string;
@@ -131,6 +131,9 @@ export interface PhoneFarmPlugin {
     wdaExtensions?: readonly WdaExtension[];
     registerRoutes?(context: PluginRouteContext): Promise<void> | void;
 }
+
+/** @deprecated Compatibility alias for integrations built before the dFarming rebrand. */
+export type PhoneFarmPlugin = DFarmingPlugin;
 
 export interface AuthenticatedUser {
     id: string;

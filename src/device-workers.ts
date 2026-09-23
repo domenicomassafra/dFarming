@@ -6,6 +6,7 @@ import type { RemoteAction, RemoteControl, ScreenInfo } from './devices/wda-remo
 import type { HostCapability, HostSnapshot } from './hosts/capabilities.js';
 import type { RuntimeDevice } from './devices/runtime-discovery.js';
 import type { VirtualRuntime, VirtualRuntimePlatform } from './devices/virtual-runtime.js';
+import { dfarmingEnv } from './env.js';
 import { normalizeNetworkRouteId, type NetworkRouteAttestation } from './network-routes.js';
 
 export const DEVICE_WORKER_PROTOCOL_VERSION = 1;
@@ -254,14 +255,14 @@ function appendHostWarning(host: HostSnapshot, warning: string): HostSnapshot {
 }
 
 export function configuredDeviceWorkers(
-    value = process.env.PHONE_FARM_DEVICE_WORKERS ?? '',
-    token = process.env.PHONE_FARM_DEVICE_WORKER_TOKEN,
+    value = dfarmingEnv('DEVICE_WORKERS') ?? '',
+    token = dfarmingEnv('DEVICE_WORKER_TOKEN'),
 ): DeviceWorkerDescriptor[] {
     if (!value.trim()) return [];
     const seen = new Set<string>();
     return value.split(',').map((entry) => {
         const separator = entry.indexOf('=');
-        if (separator <= 0) throw new Error('PHONE_FARM_DEVICE_WORKERS must use id=http(s)://host:port entries');
+        if (separator <= 0) throw new Error('DFARMING_DEVICE_WORKERS must use id=http(s)://host:port entries');
         const id = entry.slice(0, separator).trim();
         const rawUrl = entry.slice(separator + 1).trim();
         if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(id)) throw new Error(`Invalid device worker id: ${id}`);

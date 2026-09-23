@@ -514,8 +514,8 @@ export class DeviceRegistrationService implements DeviceRegistrationManager {
                 mjpegLocalPort: session.mjpegLocalPort,
                 ...(session.passcode ? { passcode: session.passcode } : {}),
                 pluginData: {
-                    'com.git-agni.tiktok': { accounts: session.tiktokAccounts },
-                    'com.git-agni.instagram': { accounts: session.instagramAccounts },
+                    'com.dfarming.tiktok': { accounts: session.tiktokAccounts },
+                    'com.dfarming.instagram': { accounts: session.instagramAccounts },
                 },
             });
             return true;

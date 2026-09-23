@@ -4,10 +4,10 @@ The production shape is one MiniPC control plane plus one or more macOS executio
 
 ## 1. Pair a macOS worker with the MiniPC
 
-Configure the execution Mac from `.env.device-worker.example` using the same private worker token configured on the MiniPC. The MiniPC worker list is supplied through `PHONE_FARM_DEVICE_WORKERS`, for example:
+Configure the execution Mac from `.env.device-worker.example` using the same private worker token configured on the MiniPC. The MiniPC worker list is supplied through `DFARMING_DEVICE_WORKERS`, for example:
 
 ```text
-PHONE_FARM_DEVICE_WORKERS=macstudio=http://macstudio:3010,air=http://macbook-air:3010
+DFARMING_DEVICE_WORKERS=macstudio=http://macstudio:3010,air=http://macbook-air:3010
 ```
 
 The two iOS listener ports are deliberately isolated while sharing one modern
@@ -21,7 +21,7 @@ driver toolchain:
 `./deploy/setup-device-worker.sh` prepares the pinned modern runtime for every
 Mac worker and verifies/applies the reviewed WDA patch. There is no separate
 Appium 2 package. Simulator-only workers simply omit the `:4725` listener and
-WDA supervisor when `PHONE_FARM_ENABLE_PHYSICAL_IOS=false`.
+WDA supervisor when `DFARMING_ENABLE_PHYSICAL_IOS=false`.
 
 ## 2. Connect physical iPhones
 
@@ -52,7 +52,7 @@ Home / lock / wake / unlock / volume
 screenshot
 ```
 
-**Run now** creates a normal versioned scheduler task (`com.phone-farm.flow/flow@1`), so it uses the same queueing, stop behavior, logs and execution evidence as built-in tasks.
+**Run now** creates a normal versioned scheduler task (`com.dfarming.flow/flow@1`), so it uses the same queueing, stop behavior, logs and execution evidence as built-in tasks.
 
 Automation Studio can also choose **Any matching idle device**. Select platform,
 runtime kind, execution host and/or normalized tags; the control plane previews

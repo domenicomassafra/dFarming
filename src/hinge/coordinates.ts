@@ -1,5 +1,5 @@
 /**
- * Hinge touch map, measured on Phone Farm #1 (iPhone 13, 390×844 pt, scale 3)
+ * Hinge touch map, measured on dFarming #1 (iPhone 13, 390×844 pt, scale 3)
  * on 2026-09-13 against Hinge's current build. Points are in screen points.
  *
  * Discover is one long vertical card per person: a sticky header with the

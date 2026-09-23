@@ -4,6 +4,7 @@ import { access } from 'node:fs/promises';
 
 import { physicalIosLaneEnabled } from '../runtime-options.js';
 import { parseNetworkRouteAttestations, type NetworkRouteAttestation } from '../network-routes.js';
+import { dfarmingEnv } from '../env.js';
 
 export type HostCapability =
     | 'ios.physical'
@@ -75,8 +76,8 @@ export async function detectHostCapabilities(options: {
         probe('emulator'),
         exists(options.appiumEntry ?? path.resolve('node_modules/appium-runtime/index.js')),
         exists(options.appiumRuntimeEntry ?? path.resolve('node_modules/appium-runtime/index.js')),
-        options.scrcpyServerJar || process.env.PHONE_FARM_SCRCPY_SERVER_JAR
-            ? exists(options.scrcpyServerJar ?? process.env.PHONE_FARM_SCRCPY_SERVER_JAR!)
+        options.scrcpyServerJar || dfarmingEnv('SCRCPY_SERVER_JAR')
+            ? exists(options.scrcpyServerJar ?? dfarmingEnv('SCRCPY_SERVER_JAR')!)
             : Promise.resolve(false),
     ]);
     const capabilities: HostCapability[] = [];
@@ -94,7 +95,7 @@ export async function detectHostCapabilities(options: {
     if (adb && emulator) capabilities.push('android.emulator');
     if (adb && scrcpyVideo) capabilities.push('android.h264');
     return {
-        id: options.id ?? process.env.PHONE_FARM_WORKER_ID ?? 'local',
+        id: options.id ?? dfarmingEnv('WORKER_ID') ?? 'local',
         hostname: options.hostname ?? os.hostname(),
         os: platform,
         arch: options.arch ?? process.arch,

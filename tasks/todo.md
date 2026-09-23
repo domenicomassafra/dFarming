@@ -22,13 +22,17 @@ an old branch.
   confirmed bulk operations and exactly one focused live stream.
 - [x] Optional Android scrcpy H.264 video adapter behind signed capabilities.
 - [x] Account-to-device binding, account pause/task policy and execution evidence.
-- [x] Current clean source gate: TypeScript + **205/205 tests** + web build.
+- [x] Current clean source gate: TypeScript + **214/214 tests** + web build.
 - [x] Dependency audits: root, production-only, isolated Drizzle CLI and the
   generated Appium driver home all report **0 vulnerabilities**.
 - [x] Physical-iOS source lane migrated from the retired Appium 2 tree to the
   pinned Appium 3/XCUITest 12.13.1 + WDA 16.12.9 path; the reviewed custom WDA
   patch is checksum/version-gated and compiles on Xcode 27 / iOS 27 Simulator.
 - [x] Approved donor forks created and pinned in `donors.lock.json`.
+- [x] Product/runtime rebrand completed across UI, plugin IDs, flow format,
+  launchd labels, MCP, stream metadata and the canonical `DFARMING_*`
+  configuration namespace. Legacy identifiers remain read-only migration
+  aliases for persisted tasks, installed services and existing `.env` files.
 
 Historical FARM ticket files remain for provenance; they are not active WIP.
 
@@ -40,9 +44,12 @@ Historical FARM ticket files remain for provenance; they are not active WIP.
 - [x] DFARM-LIVE-02 — The Mac Studio worker runs from `~/Code/dFarming`; the
   iPhone 17 Simulator is proven end to end through the MiniPC, including
   screenshot, semantic snapshot, MJPEG stream and a harmless Portable Flow.
+  Revalidated locally on 2026-09-23 after the dFarming service/plugin rebrand.
 - [x] DFARM-LIVE-03A — The MateBook Linux Android worker is deployed with ADB,
   UiAutomator2 and the Google Android emulator lane; screenshot, semantic
   snapshot, MJPEG stream and a harmless Portable Flow are live-proven.
+  The emulator was recovered and revalidated on 2026-09-23 after its ADB endpoint
+  had been temporarily unavailable during container boot.
 - [ ] DFARM-LIVE-03B — Repeat the matrix on an attached physical Android
   device. This is hardware-gated, not source WIP.
 - [ ] DFARM-LIVE-04 — Run the cross-platform video benchmark on real hardware;

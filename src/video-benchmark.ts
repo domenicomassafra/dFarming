@@ -1,7 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { FarmAgentClient } from './agent/client.js';
+import { DFarmingAgentClient } from './agent/client.js';
+import { dfarmingEnv } from './env.js';
 
 export interface StreamBenchmarkResult {
     name: string;
@@ -89,7 +90,7 @@ export async function runVideoBenchmark(): Promise<Record<string, unknown>> {
     const udid = option('--udid');
     if (!udid) throw new Error('--udid is required');
     const durationMs = Math.max(2_000, Math.min(60_000, Number(option('--duration-ms') ?? 10_000)));
-    const client = new FarmAgentClient();
+    const client = new DFarmingAgentClient();
     const headers = new Headers();
     if (client.token) headers.set('authorization', `Bearer ${client.token}`);
     const controlUrl = new URL(`/api/devices/${encodeURIComponent(udid)}/remote/screenshot`, client.baseUrl);
@@ -102,7 +103,7 @@ export async function runVideoBenchmark(): Promise<Record<string, unknown>> {
     const capability = await capabilityResponse.json() as { url: string };
     const wda = await benchmark('wda-mjpeg', new URL(capability.url, client.baseUrl), controlUrl, headers, durationMs);
 
-    const qvhUrl = option('--qvh-url') ?? process.env.PHONE_FARM_QVH_URL;
+    const qvhUrl = option('--qvh-url') ?? dfarmingEnv('QVH_URL');
     const qvh = qvhUrl ? await benchmark('qvh-h264', new URL(qvhUrl), controlUrl, headers, durationMs) : null;
     let scrcpy: StreamBenchmarkResult | null = null;
     try {

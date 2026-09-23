@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 
 import { listFleetAccounts } from '../accounts.js';
 import { deviceMatchesAllocationSelector, type DeviceAllocationSelector } from '../allocation.js';
+import { canonicalPluginId } from '../branding.js';
 import { loadRegisteredDevices } from '../devices/registry.js';
 import {
     DCREATOR_RECEIPT_SCHEMA, dcreatorRequestHash, normalizeDCreatorJob,
@@ -54,7 +55,7 @@ async function resolveDCreatorTask(request: DCreatorJobRequest, scheduler: Sched
     const device = devices.find(({ udid }) => udid === account.deviceUdid);
     if (!device) throw Object.assign(new Error('Execution-profile device is no longer registered'), { statusCode: 409 });
     if (device.disabled) throw Object.assign(new Error('Execution-profile device is disabled'), { statusCode: 409 });
-    if (request.task.pluginId !== account.pluginId) {
+    if (canonicalPluginId(request.task.pluginId) !== canonicalPluginId(account.pluginId)) {
         throw Object.assign(new Error('task.pluginId does not match the accountRef platform'), { statusCode: 409 });
     }
     const requestedAccount = request.task.payload.account;
@@ -83,7 +84,11 @@ async function resolveDCreatorTask(request: DCreatorJobRequest, scheduler: Sched
     }
     return {
         device,
-        task: { ...request.task, payload: { ...request.task.payload, account: account.handle } },
+        task: {
+            ...request.task,
+            pluginId: canonicalPluginId(request.task.pluginId),
+            payload: { ...request.task.payload, account: account.handle },
+        },
     };
 }
 

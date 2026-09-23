@@ -56,17 +56,17 @@ test('fleet account inventory is redacted and carries device availability', () =
     const result = listFleetAccounts([{
         name: 'Phone A', udid: 'udid-a', disabled: true, passcode: '123456',
         pluginData: {
-            'com.git-agni.tiktok': { accounts: ['@alpha'] },
-            'com.git-agni.instagram': { accounts: ['@bravo'] },
+            'com.dfarming.tiktok': { accounts: ['@alpha'] },
+            'com.dfarming.instagram': { accounts: ['@bravo'] },
         },
     }]);
     assert.deepEqual(result, [
         {
-            platform: 'instagram', pluginId: 'com.git-agni.instagram', handle: '@bravo',
+            platform: 'instagram', pluginId: 'com.dfarming.instagram', handle: '@bravo',
             deviceUdid: 'udid-a', deviceName: 'Phone A', deviceDisabled: true,
         },
         {
-            platform: 'tiktok', pluginId: 'com.git-agni.tiktok', handle: '@alpha',
+            platform: 'tiktok', pluginId: 'com.dfarming.tiktok', handle: '@alpha',
             deviceUdid: 'udid-a', deviceName: 'Phone A', deviceDisabled: true,
         },
     ]);

@@ -1,20 +1,22 @@
-export interface FarmAgentClientOptions {
+import { dfarmingEnv } from '../env.js';
+
+export interface DFarmingAgentClientOptions {
     baseUrl?: string;
     token?: string;
     fetchImpl?: typeof fetch;
 }
 
-export class FarmAgentClient {
+export class DFarmingAgentClient {
     readonly baseUrl: URL;
     readonly token?: string;
     readonly fetch: typeof fetch;
 
-    constructor(options: FarmAgentClientOptions = {}) {
-        this.baseUrl = new URL(options.baseUrl ?? process.env.PHONE_FARM_URL ?? 'http://127.0.0.1:3000');
-        this.token = options.token ?? process.env.PHONE_FARM_TOKEN;
+    constructor(options: DFarmingAgentClientOptions = {}) {
+        this.baseUrl = new URL(options.baseUrl ?? dfarmingEnv('URL') ?? 'http://127.0.0.1:3000');
+        this.token = options.token ?? dfarmingEnv('TOKEN');
         this.fetch = options.fetchImpl ?? fetch;
         if (!isLoopback(this.baseUrl.hostname) && !this.token) {
-            throw new Error('PHONE_FARM_TOKEN is required when PHONE_FARM_URL is not loopback');
+            throw new Error('DFARMING_TOKEN is required when DFARMING_URL is not loopback');
         }
     }
 
@@ -75,6 +77,11 @@ export class FarmAgentClient {
         return payload;
     }
 }
+
+/** @deprecated Use DFarmingAgentClientOptions. */
+export type FarmAgentClientOptions = DFarmingAgentClientOptions;
+/** @deprecated Use DFarmingAgentClient. */
+export { DFarmingAgentClient as FarmAgentClient };
 
 function isLoopback(hostname: string): boolean {
     return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';

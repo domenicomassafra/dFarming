@@ -10,12 +10,12 @@ import { inject } from './support.js';
 test('dCreator job normalization is bounded and request hashing is canonical', () => {
     const a = normalizeDCreatorJob({
         schema: 'dfarming.dcreator-job/v1', externalId: 'creator:42', assetRefs: [], intent: 'inspect', accountRef: 'Owner.Primary',
-        task: { pluginId: 'com.git-agni.tiktok', taskType: 'doomscroll', taskVersion: 1, payload: { b: 2, a: 1 } },
+        task: { pluginId: 'com.dfarming.tiktok', taskType: 'doomscroll', taskVersion: 1, payload: { b: 2, a: 1 } },
         constraints: { executionProfile: 'owner.primary', networkRoute: 'Italy.Private' },
     });
     const b = normalizeDCreatorJob({
         schema: 'dfarming.dcreator-job/v1', externalId: 'creator:42', assetRefs: [], intent: 'inspect', accountRef: 'owner.primary',
-        task: { pluginId: 'com.git-agni.tiktok', taskType: 'doomscroll', taskVersion: 1, payload: { a: 1, b: 2 } },
+        task: { pluginId: 'com.dfarming.tiktok', taskType: 'doomscroll', taskVersion: 1, payload: { a: 1, b: 2 } },
         timing: { kind: 'now' }, constraints: { networkRoute: 'italy.private', executionProfile: 'owner.primary' },
     });
     assert.equal(dcreatorRequestHash(a), dcreatorRequestHash(b));
@@ -28,12 +28,12 @@ test('dCreator bridge requires the internal token and is idempotent by externalI
     const directory = await mkdtemp(path.join(os.tmpdir(), 'dfarming-dcreator-'));
     const configPath = path.join(directory, 'devices.json');
     process.env.DEVICES_CONFIG_PATH = configPath;
-    process.env.PHONE_FARM_INTERNAL_TOKEN = 'bridge-secret';
+    process.env.DFARMING_INTERNAL_TOKEN = 'bridge-secret';
     process.env.SCHEDULER_DATA_DIR = path.join(directory, 'scheduler-data');
     await writeFile(configPath, JSON.stringify([{
         name: 'Creator Phone', udid: 'creator-phone', platform: 'ios', kind: 'physical', automationBackend: 'wda',
         tags: ['creator'], pluginData: {
-            'com.git-agni.tiktok': {
+            'com.dfarming.tiktok': {
                 accounts: ['@owner'], accountPolicies: {
                     '@owner': { executionProfile: { id: 'owner-primary', dedicatedDeviceUdid: 'creator-phone' } },
                 },
@@ -72,7 +72,7 @@ test('dCreator bridge requires the internal token and is idempotent by externalI
     const app = await createApp({ plugins: new PluginRegistry([]), scheduler });
     context.after(async () => {
         await app.close();
-        delete process.env.PHONE_FARM_INTERNAL_TOKEN;
+        delete process.env.DFARMING_INTERNAL_TOKEN;
         delete process.env.SCHEDULER_DATA_DIR;
     });
 
@@ -92,7 +92,7 @@ test('dCreator bridge requires the internal token and is idempotent by externalI
 
     const payload = {
         schema: 'dfarming.dcreator-job/v1', externalId: 'creator-job-42', assetRefs: [], intent: 'publish', accountRef: 'owner-primary',
-        task: { pluginId: 'com.git-agni.tiktok', taskType: 'post', taskVersion: 1, payload: { destination: 'publish' } },
+        task: { pluginId: 'com.dfarming.tiktok', taskType: 'post', taskVersion: 1, payload: { destination: 'publish' } },
         timing: { kind: 'now' }, constraints: { executionProfile: 'owner-primary' },
     };
     const unauthenticated = await inject(app, { method: 'POST', url: '/api/internal/integrations/dcreator/jobs', payload });

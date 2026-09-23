@@ -4,14 +4,14 @@ import * as z from 'zod/v4';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { FarmAgentClient } from './client.js';
+import { DFarmingAgentClient } from './client.js';
 
 function result(value: unknown) {
     return { content: [{ type: 'text' as const, text: JSON.stringify(value) }] };
 }
 
-export function buildFarmMcpServer(client = new FarmAgentClient()): McpServer {
-    const server = new McpServer({ name: 'phone-farm', version: '0.1.0' }, { capabilities: { tools: {} } });
+export function buildDFarmingMcpServer(client = new DFarmingAgentClient()): McpServer {
+    const server = new McpServer({ name: 'dfarming', version: '0.2.0' }, { capabilities: { tools: {} } });
     server.registerTool('farm_health', {
         description: 'Read the dFarming health endpoint.',
         inputSchema: z.object({}),
@@ -43,7 +43,7 @@ export function buildFarmMcpServer(client = new FarmAgentClient()): McpServer {
         annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
     }, async ({ udid, generation, ref }) => result(await client.tapRef(udid, generation, ref)));
     server.registerTool('farm_type_text', {
-        description: 'Type text into the currently focused iPhone field. Farm traces retain only text length, not content.',
+        description: 'Type text into the currently focused iPhone field. dFarming traces retain only text length, not content.',
         inputSchema: z.object({ udid: z.string().min(1), text: z.string().min(1).max(4000) }),
         annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
     }, async ({ udid, text }) => result(await client.typeText(udid, text)));
@@ -52,5 +52,8 @@ export function buildFarmMcpServer(client = new FarmAgentClient()): McpServer {
 
 const entrypoint = process.argv[1] ? path.resolve(process.argv[1]) : '';
 if (entrypoint && fileURLToPath(import.meta.url) === entrypoint) {
-    serveStdio(() => buildFarmMcpServer());
+    serveStdio(() => buildDFarmingMcpServer());
 }
+
+/** @deprecated Use buildDFarmingMcpServer. */
+export const buildFarmMcpServer = buildDFarmingMcpServer;

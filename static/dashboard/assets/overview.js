@@ -13,11 +13,19 @@ const form = document.querySelector('#overview-rename-form');
 const input = document.querySelector('#overview-rename-name');
 const result = document.querySelector('#overview-rename-result');
 const close = document.querySelector('#overview-rename-close');
-const VIEW_STORAGE_KEY = 'mobile-farm.device-list-view';
+const VIEW_STORAGE_KEY = 'dfarming.device-list-view';
+const LEGACY_VIEW_STORAGE_KEY = 'mobile-farm.device-list-view';
 let renameUdid = '';
 let currentView = (() => {
     try {
-        return localStorage.getItem(VIEW_STORAGE_KEY) === 'compact' ? 'compact' : 'grid';
+        const current = localStorage.getItem(VIEW_STORAGE_KEY);
+        const legacy = localStorage.getItem(LEGACY_VIEW_STORAGE_KEY);
+        const value = current ?? legacy;
+        if (current === null && legacy !== null) {
+            localStorage.setItem(VIEW_STORAGE_KEY, legacy);
+            localStorage.removeItem(LEGACY_VIEW_STORAGE_KEY);
+        }
+        return value === 'compact' ? 'compact' : 'grid';
     }
     catch {
         return 'grid';

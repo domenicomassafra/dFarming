@@ -5,13 +5,22 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { physicalIosLaneEnabled } from './runtime-options.js';
+import { dfarmingEnv } from './env.js';
 
 export type ServiceName = 'appium' | 'appium-runtime' | 'wda' | 'worker' | 'device-worker' | 'web';
 
 const SERVICES: ServiceName[] = ['appium', 'appium-runtime', 'wda', 'worker', 'device-worker', 'web'];
+const LEGACY_SERVICE_LABELS: Record<ServiceName, string> = {
+    appium: 'com.phone-farm.appium',
+    'appium-runtime': 'com.phone-farm.appium-runtime',
+    wda: 'com.phone-farm.wda',
+    worker: 'com.phone-farm.worker',
+    'device-worker': 'com.phone-farm.device-worker',
+    web: 'com.phone-farm.web',
+};
 
 export function servicesForRole(
-    role = process.env.PHONE_FARM_ROLE ?? 'standalone',
+    role = dfarmingEnv('ROLE') ?? 'standalone',
     physicalIosEnabled = physicalIosLaneEnabled(),
 ): ServiceName[] {
     if (role === 'device-worker') {
@@ -25,7 +34,7 @@ export function servicesForRole(
             : ['appium-runtime', 'worker', 'web'];
     }
     if (role === 'control-plane') return [];
-    throw new Error(`Unknown PHONE_FARM_ROLE: ${role}`);
+    throw new Error(`Unknown DFARMING_ROLE: ${role}`);
 }
 
 interface ServiceSpec {
@@ -43,19 +52,19 @@ export function serviceSpecs(root = process.cwd(), node = process.execPath): Rec
     const fromRoot = (...segments: string[]) => path.join(root, ...segments);
     return {
         appium: {
-            label: 'com.phone-farm.appium',
+            label: 'com.dfarming.appium',
             args: [node, fromRoot('node_modules', 'appium-runtime', 'index.js'), '--address', '127.0.0.1', '--base-path', '/', '--port', '4725', '--log-level', 'warn'],
             env: { APPIUM_HOME: path.join(root, '.appium-runtime') },
         },
         'appium-runtime': {
-            label: 'com.phone-farm.appium-runtime',
+            label: 'com.dfarming.appium-runtime',
             args: [node, fromRoot('node_modules', 'appium-runtime', 'index.js'), '--address', '127.0.0.1', '--base-path', '/', '--port', '4726', '--log-level', 'warn'],
             env: { APPIUM_HOME: path.join(root, '.appium-runtime') },
         },
-        wda: { label: 'com.phone-farm.wda', args: [node, ...common, fromRoot('src', 'devices', 'wda-service.ts')] },
-        worker: { label: 'com.phone-farm.worker', args: [node, ...common, fromRoot('src', 'scheduler', 'worker.ts')] },
-        'device-worker': { label: 'com.phone-farm.device-worker', args: [node, ...common, fromRoot('src', 'device-worker-server.ts')] },
-        web: { label: 'com.phone-farm.web', args: [node, ...common, fromRoot('src', 'api', 'server.ts')] },
+        wda: { label: 'com.dfarming.wda', args: [node, ...common, fromRoot('src', 'devices', 'wda-service.ts')] },
+        worker: { label: 'com.dfarming.worker', args: [node, ...common, fromRoot('src', 'scheduler', 'worker.ts')] },
+        'device-worker': { label: 'com.dfarming.device-worker', args: [node, ...common, fromRoot('src', 'device-worker-server.ts')] },
+        web: { label: 'com.dfarming.web', args: [node, ...common, fromRoot('src', 'api', 'server.ts')] },
     };
 }
 
@@ -108,6 +117,7 @@ export async function renderLaunchAgents(
     // Remove known stale generated plists so its contents match the selected role.
     for (const service of SERVICES) {
         await rm(path.join(outputDirectory, `${serviceSpecs()[service].label}.plist`), { force: true });
+        await rm(path.join(outputDirectory, `${LEGACY_SERVICE_LABELS[service]}.plist`), { force: true });
     }
     const files: string[] = [];
     for (const service of services) {
@@ -166,6 +176,11 @@ export async function installLaunchAgents(): Promise<void> {
     const uid = process.getuid?.() ?? 0;
     const domain = `gui/${uid}`;
     const selectedLabels = new Set(rendered.map((source) => path.basename(source, '.plist')));
+    for (const legacyLabel of Object.values(LEGACY_SERVICE_LABELS)) {
+        try { launchctlAsUser(uid, ['bootout', `${domain}/${legacyLabel}`], 'pipe'); } catch { /* already unloaded */ }
+        await waitForLaunchAgentUnloaded(domain, legacyLabel);
+        await rm(path.join(target, `${legacyLabel}.plist`), { force: true });
+    }
     for (const service of SERVICES) {
         const label = serviceSpecs()[service].label;
         if (selectedLabels.has(label)) continue;
@@ -191,6 +206,9 @@ export async function uninstallLaunchAgents(): Promise<void> {
         const label = serviceSpecs()[service].label;
         try { launchctl(['bootout', `${domain}/${label}`], 'pipe'); } catch { /* already unloaded */ }
         await rm(path.join(target, `${label}.plist`), { force: true });
+        const legacyLabel = LEGACY_SERVICE_LABELS[service];
+        try { launchctl(['bootout', `${domain}/${legacyLabel}`], 'pipe'); } catch { /* already unloaded */ }
+        await rm(path.join(target, `${legacyLabel}.plist`), { force: true });
     }
 }
 

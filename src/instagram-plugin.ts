@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 
-import type { PhoneFarmPlugin, TaskDefinition, TaskExecutionContext } from './plugin.js';
+import { INSTAGRAM_PLUGIN_ID } from './branding.js';
+import type { DFarmingPlugin, TaskDefinition, TaskExecutionContext } from './plugin.js';
 import type { JsonObject, JsonValue, ScheduleTiming } from './types.js';
 import { validateAccountTaskPolicy, validateConfiguredAccount } from './accounts.js';
 import {
@@ -317,9 +318,9 @@ function createPostTask(configuration: InstagramPluginConfiguration): TaskDefini
     };
 }
 
-export function createInstagramPlugin(configuration: InstagramPluginConfiguration = {}): PhoneFarmPlugin {
+export function createInstagramPlugin(configuration: InstagramPluginConfiguration = {}): DFarmingPlugin {
     return {
-        id: 'com.git-agni.instagram',
+        id: INSTAGRAM_PLUGIN_ID,
         version: '0.1.0',
         displayName: 'Instagram automation',
         tasks: [
@@ -344,7 +345,7 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                 const found = await context.mutateDevices((devices) => {
                     const device = devices.find(({ udid }) => udid === request.params.udid);
                     if (!device) return false;
-                    device.pluginData = { ...device.pluginData, 'com.git-agni.instagram': { ...device.pluginData['com.git-agni.instagram'], accounts } };
+                    device.pluginData = { ...device.pluginData, 'com.dfarming.instagram': { ...device.pluginData['com.dfarming.instagram'], accounts } };
                     return true;
                 });
                 if (!found) return reply.code(404).send({ error: 'Device is not registered' });
@@ -366,13 +367,13 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                         if (kind === 'now') {
                             const recent = await context.scheduler.listExecutions(50, device.udid);
                             const mine = recent.filter(({ pluginId, taskType }) => (
-                                pluginId === 'com.git-agni.instagram' && taskType === 'doomscroll'
+                                pluginId === 'com.dfarming.instagram' && taskType === 'doomscroll'
                             ));
                             if (mine.some(({ status }) => status === 'running')) {
                                 throw new Error('A warmup session is already running on this device. Stop it from Activity, then start again.');
                             }
                             await context.scheduler.clearDeviceQueue(device.udid, {
-                                pluginId: 'com.git-agni.instagram',
+                                pluginId: 'com.dfarming.instagram',
                                 taskType: 'doomscroll',
                                 onlyQueued: true,
                             });
@@ -380,7 +381,7 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                         await context.scheduler.createTask({
                             deviceUdid: device.udid,
                             task: {
-                                pluginId: 'com.git-agni.instagram', taskType: 'doomscroll', taskVersion: 1,
+                                pluginId: 'com.dfarming.instagram', taskType: 'doomscroll', taskVersion: 1,
                                 payload: {
                                     durationMinutes: Number(body.durationMinutes), personality: body.personality,
                                     likeEnabled: body.likeEnabled === 'on',
@@ -391,7 +392,7 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                             },
                             timing,
                             runWindowMinutes: body.runWindowMinutes ? Number(body.runWindowMinutes) : undefined,
-                        }, device.pluginData['com.git-agni.instagram'] ?? {});
+                        }, device.pluginData['com.dfarming.instagram'] ?? {});
                         return reply.code(202).type('text/html').send(await context.renderActivity(device.udid));
                     } catch (error) {
                         const message = error instanceof Error ? error.message : String(error);
@@ -415,13 +416,13 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                         if (kind === 'now') {
                             const recent = await context.scheduler.listExecutions(50, device.udid);
                             const mine = recent.filter(({ pluginId, taskType }) => (
-                                pluginId === 'com.git-agni.instagram' && taskType === 'doomscroll-following'
+                                pluginId === 'com.dfarming.instagram' && taskType === 'doomscroll-following'
                             ));
                             if (mine.some(({ status }) => status === 'running')) {
                                 throw new Error('An engage following session is already running on this device. Stop it from Activity, then start again.');
                             }
                             await context.scheduler.clearDeviceQueue(device.udid, {
-                                pluginId: 'com.git-agni.instagram',
+                                pluginId: 'com.dfarming.instagram',
                                 taskType: 'doomscroll-following',
                                 onlyQueued: true,
                             });
@@ -429,7 +430,7 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                         await context.scheduler.createTask({
                             deviceUdid: device.udid,
                             task: {
-                                pluginId: 'com.git-agni.instagram', taskType: 'doomscroll-following', taskVersion: 1,
+                                pluginId: 'com.dfarming.instagram', taskType: 'doomscroll-following', taskVersion: 1,
                                 payload: {
                                     durationMinutes: Number(body.durationMinutes), personality: body.personality,
                                     likeEnabled: body.likeEnabled === 'on',
@@ -440,7 +441,7 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                             },
                             timing,
                             runWindowMinutes: body.runWindowMinutes ? Number(body.runWindowMinutes) : undefined,
-                        }, device.pluginData['com.git-agni.instagram'] ?? {});
+                        }, device.pluginData['com.dfarming.instagram'] ?? {});
                         return reply.code(202).type('text/html').send(await context.renderActivity(device.udid));
                     } catch (error) {
                         const message = error instanceof Error ? error.message : String(error);
@@ -467,20 +468,20 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                             : undefined;
                         const recent = await context.scheduler.listExecutions(50, device.udid);
                         const mine = recent.filter(({ pluginId, taskType }) => (
-                            pluginId === 'com.git-agni.instagram' && taskType === 'cold-dms'
+                            pluginId === 'com.dfarming.instagram' && taskType === 'cold-dms'
                         ));
                         if (mine.some(({ status }) => status === 'running')) {
                             throw new Error('A cold DMs run is already active on this device. Stop it from Activity, then start again.');
                         }
                         await context.scheduler.clearDeviceQueue(device.udid, {
-                            pluginId: 'com.git-agni.instagram',
+                            pluginId: 'com.dfarming.instagram',
                             taskType: 'cold-dms',
                             onlyQueued: true,
                         });
                         await context.scheduler.createTask({
                             deviceUdid: device.udid,
                             task: {
-                                pluginId: 'com.git-agni.instagram', taskType: 'cold-dms', taskVersion: 1,
+                                pluginId: 'com.dfarming.instagram', taskType: 'cold-dms', taskVersion: 1,
                                 payload: {
                                     handles,
                                     message,
@@ -490,7 +491,7 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                                 },
                             },
                             timing: { kind: 'now' },
-                        }, device.pluginData['com.git-agni.instagram'] ?? {});
+                        }, device.pluginData['com.dfarming.instagram'] ?? {});
                         return reply.code(202).type('text/html').send(await context.renderActivity(device.udid));
                     } catch (error) {
                         const message = error instanceof Error ? error.message : String(error);
@@ -503,7 +504,7 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
 
             context.app.get<{ Params: { udid: string } }>('/api/devices/:udid/instagram/posts/current', async (request) => {
                 const latest = (await context.scheduler.listExecutions(25, request.params.udid))
-                    .find(({ pluginId, taskType }) => pluginId === 'com.git-agni.instagram' && taskType === 'post');
+                    .find(({ pluginId, taskType }) => pluginId === 'com.dfarming.instagram' && taskType === 'post');
                 if (!latest) return { status: 'idle', logs: [] };
                 const detail = await context.scheduler.execution(latest.id);
                 return { ...latest, destination: latest.payload.destination ?? null, logs: detail?.logs ?? [] };
@@ -552,7 +553,7 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                     const schedule = await context.scheduler.createTask({
                         deviceUdid: device.udid,
                         task: {
-                            pluginId: 'com.git-agni.instagram', taskType: 'post', taskVersion: 1,
+                            pluginId: 'com.dfarming.instagram', taskType: 'post', taskVersion: 1,
                             payload: {
                                 media: stored.map(({ id, name, mimeType }) => ({ assetId: id, name, mimeType })),
                                 destination,
@@ -564,7 +565,7 @@ export function createInstagramPlugin(configuration: InstagramPluginConfiguratio
                         },
                         timing,
                         runWindowMinutes: fields.get('runWindowMinutes') ? Number(fields.get('runWindowMinutes')) : undefined,
-                    }, device.pluginData['com.git-agni.instagram'] ?? {}, new Date(), assetIds);
+                    }, device.pluginData['com.dfarming.instagram'] ?? {}, new Date(), assetIds);
                     return reply.code(202).send(schedule);
                 } catch (error) {
                     if (assetIds.length) await context.scheduler.deleteAssets(assetIds);

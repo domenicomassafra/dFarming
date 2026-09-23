@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>Label</key><string>com.phone-farm.wda-service</string>
+  <key>Label</key><string>com.dfarming.wda-service</string>
   <key>ProgramArguments</key><array>
     <string>__NODE_BIN__/npm</string><string>run</string><string>wda:service</string>
   </array>

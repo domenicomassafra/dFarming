@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { dfarmingEnv } from './env.js';
 import { physicalIosLaneEnabled } from './runtime-options.js';
 
 export type DoctorStatus = 'pass' | 'warn' | 'fail';
@@ -89,10 +90,10 @@ export function collectDoctorReport(
     platform: NodeJS.Platform = process.platform,
 ): DoctorReport {
     const checks: DoctorCheck[] = [];
-    const role = (env.PHONE_FARM_ROLE ?? 'standalone') as DoctorReport['role'];
+    const role = (dfarmingEnv('ROLE', env) ?? 'standalone') as DoctorReport['role'];
     const physicalIosEnabled = physicalIosLaneEnabled(env);
     if (!['standalone', 'control-plane', 'device-worker'].includes(role)) {
-        checks.push({ id: 'role', status: 'fail', summary: `Unknown PHONE_FARM_ROLE: ${role}` });
+        checks.push({ id: 'role', status: 'fail', summary: `Unknown DFARMING_ROLE: ${role}` });
     } else {
         checks.push({ id: 'role', status: 'pass', summary: `Runtime role: ${role}` });
     }
@@ -180,7 +181,7 @@ export function collectDoctorReport(
         }
     }
 
-    const insideControlPlaneContainer = role === 'control-plane' && env.PHONE_FARM_CONTAINER === 'true';
+    const insideControlPlaneContainer = role === 'control-plane' && dfarmingEnv('CONTAINER', env) === 'true';
     const docker = insideControlPlaneContainer
         ? { status: 0, stdout: 'Container runtime supplied by host', stderr: '' }
         : command(runner, 'docker', ['--version']);
@@ -198,16 +199,16 @@ export function collectDoctorReport(
         checks.push(env.DATABASE_URL && !env.DATABASE_URL.includes('CHANGE_ME')
             ? { id: 'database-url', status: 'pass', summary: 'DATABASE_URL is configured' }
             : { id: 'database-url', status: 'fail', summary: 'DATABASE_URL is not configured for the control plane' });
-        checks.push(env.PHONE_FARM_DEVICE_WORKERS?.trim()
+        checks.push(dfarmingEnv('DEVICE_WORKERS', env)?.trim()
             ? { id: 'device-workers', status: 'pass', summary: 'At least one remote device worker is configured' }
             : { id: 'device-workers', status: 'warn', summary: 'No remote device workers are configured yet' });
-        if (env.PHONE_FARM_DEVICE_WORKERS?.trim()) {
-            checks.push(env.PHONE_FARM_DEVICE_WORKER_TOKEN
+        if (dfarmingEnv('DEVICE_WORKERS', env)?.trim()) {
+            checks.push(dfarmingEnv('DEVICE_WORKER_TOKEN', env)
                 ? { id: 'worker-token', status: 'pass', summary: 'Device-worker bearer token is configured' }
-                : { id: 'worker-token', status: 'fail', summary: 'PHONE_FARM_DEVICE_WORKER_TOKEN is required for remote workers' });
-            checks.push(env.PHONE_FARM_INTERNAL_TOKEN
+                : { id: 'worker-token', status: 'fail', summary: 'DFARMING_DEVICE_WORKER_TOKEN is required for remote workers' });
+            checks.push(dfarmingEnv('INTERNAL_TOKEN', env)
                 ? { id: 'internal-token', status: 'pass', summary: 'Internal worker asset/config token is configured' }
-                : { id: 'internal-token', status: 'fail', summary: 'PHONE_FARM_INTERNAL_TOKEN is required for distributed execution' });
+                : { id: 'internal-token', status: 'fail', summary: 'DFARMING_INTERNAL_TOKEN is required for distributed execution' });
         }
     }
 
@@ -215,9 +216,10 @@ export function collectDoctorReport(
         checks.push(env.DATABASE_URL && !env.DATABASE_URL.includes('CHANGE_ME')
             ? { id: 'control-database', status: 'pass', summary: 'Control-plane PostgreSQL URL is configured' }
             : { id: 'control-database', status: 'fail', summary: 'DATABASE_URL must point at the MiniPC PostgreSQL instance' });
-        checks.push(env.PHONE_FARM_WORKER_ID?.trim()
-            ? { id: 'worker-id', status: 'pass', summary: `Worker id: ${env.PHONE_FARM_WORKER_ID}` }
-            : { id: 'worker-id', status: 'warn', summary: 'PHONE_FARM_WORKER_ID is not set; mac-worker will be used' });
+        const workerId = dfarmingEnv('WORKER_ID', env);
+        checks.push(workerId?.trim()
+            ? { id: 'worker-id', status: 'pass', summary: `Worker id: ${workerId}` }
+            : { id: 'worker-id', status: 'warn', summary: 'DFARMING_WORKER_ID is not set; mac-worker will be used' });
     }
 
     const envPath = path.resolve(cwd, '.env');
@@ -232,7 +234,7 @@ export function collectDoctorReport(
     if (appleWorker && !physicalIosEnabled) {
         checks.push({
             id: 'iphone', status: 'warn', summary: 'Physical iPhone lane is disabled',
-            detail: 'Set PHONE_FARM_ENABLE_PHYSICAL_IOS=true after configuring Apple Development signing.',
+            detail: 'Set DFARMING_ENABLE_PHYSICAL_IOS=true after configuring Apple Development signing.',
         });
     } else if (appleWorker && fullXcode) {
         const devices = command(runner, 'xcrun', ['xctrace', 'list', 'devices']);
@@ -280,7 +282,7 @@ export function collectDoctorReport(
 
     const sourceRequired = role === 'control-plane' ? ['node'] : ['node', 'appium-runtime'];
     const runtimeRequired = role === 'control-plane'
-        ? ['node', 'database-runtime', 'database-url', ...(env.PHONE_FARM_DEVICE_WORKERS?.trim() ? ['worker-token', 'internal-token'] : [])]
+        ? ['node', 'database-runtime', 'database-url', ...(dfarmingEnv('DEVICE_WORKERS', env)?.trim() ? ['worker-token', 'internal-token'] : [])]
         : role === 'device-worker'
             ? androidOnlyWorker
                 ? ['node', 'appium-runtime', 'uiautomator2', 'adb', 'android-sdk', 'java', 'control-database']
