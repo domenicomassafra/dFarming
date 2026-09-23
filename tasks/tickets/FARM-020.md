@@ -9,7 +9,7 @@ Make general mobile automation a first-class product surface rather than keeping
 
 ## Implemented
 
-- Built-in `com.phone-farm.flow/flow@1` task contract, plugin version `1.1.0`.
+- Built-in `com.dfarming.flow/flow@1` task contract, plugin version `1.1.0`.
 - Bounded portable steps: launch, terminate, wait, tap, swipe, type, Home/lock/wake/unlock/volume and screenshot.
 - Same pg-boss scheduling, stop semantics, logs and execution evidence as every other task.
 - Browser Automation Studio with device picker, ordered step editor, per-step parameters, reordering/removal and Run now.
@@ -21,7 +21,7 @@ Make general mobile automation a first-class product surface rather than keeping
 - Automatic polling/waits avoid hard-coded sleeps for ordinary UI readiness and survive device-size changes better than pixel-only flows.
 - Canonical PostgreSQL Flow Library with immutable version history (`flow_definitions` + `flow_versions`).
 - Automation Studio can create, save a new version, load, duplicate, delete and restore an older revision without bypassing the scheduler.
-- Native `mobile-farm-flow@1` JSON import/export for portable backups and sharing.
+- Native `dfarming-flow@1` JSON export/import for portable backups and sharing; legacy `mobile-farm-flow@1` remains import-compatible.
 - Bounded Maestro YAML compatibility: accessibility-first `launchApp`, `tapOn`, `assertVisible`, `inputText`, `extendedWaitUntil` and supported key presses import into Portable Flow steps; export refuses steps without a lossless mapping instead of silently degrading them.
 
 ## Verification

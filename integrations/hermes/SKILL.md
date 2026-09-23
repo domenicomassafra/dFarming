@@ -1,5 +1,5 @@
 ---
-name: phone-farm
+name: dfarming
 description: Control owner-managed physical iPhones through the dFarming control plane without starting another WDA supervisor or scheduler.
 ---
 
@@ -14,7 +14,7 @@ Use the repository's `npm run agent:client -- ...` adapter. The dFarming web/API
 - Prefer semantic refs and `wait` over raw coordinates. This adapter deliberately has no raw-coordinate command.
 - A ref belongs to exactly one snapshot generation; take a new snapshot after meaningful UI transitions.
 - `tap` and `type` can return 409 while scheduled automation owns the device. Treat that as a control-plane refusal, not a reason to bypass it.
-- Sensitive typed text goes through stdin so it is not exposed in process arguments. The farm trace records text length only.
+- Sensitive typed text goes through stdin so it is not exposed in process arguments. The dFarming trace records text length only.
 - Do not create accounts, discover credentials, bypass login/CAPTCHA walls, evade platform enforcement or automate accounts the owner has not configured.
 
 ## Commands
@@ -28,4 +28,4 @@ npm run -s agent:client -- wait --udid '<udid>' --text 'Home' --timeout-ms 10000
 printf '%s' "$SENSITIVE_TEXT" | npm run -s agent:client -- type --udid '<udid>'
 ```
 
-By default the adapter uses `http://127.0.0.1:3000`. For a non-loopback `PHONE_FARM_URL`, `PHONE_FARM_TOKEN` is mandatory.
+By default the adapter uses `http://127.0.0.1:3000`. For a non-loopback `DFARMING_URL`, `DFARMING_TOKEN` is mandatory. The legacy `PHONE_FARM_*` names are accepted only during migration.

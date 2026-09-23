@@ -10,7 +10,7 @@ Make the distributed mobile farm read like one coherent product instead of a col
 - Automation Studio opens the Portable Flow workspace by default, uses a compact mode switch, and separates Target → Author → Schedule & run.
 - Saved device pools have an explicit editable name and correct dirty/update semantics; unsaved edits are previewed but cannot be scheduled as a stale saved pool.
 - Fleet reports empty/offline/online state directly, keeps search/group/bulk controls, and uses a neutral black/graphite/white interaction palette.
-- Runs is branded Mobile Farm, understands Portable Flow tasks, supports search/status filters, and resolves device names instead of leading with raw UDIDs.
+- Runs is branded dFarming, understands Portable Flow tasks, supports search/status filters, and resolves device names instead of leading with raw UDIDs.
 - Empty states on device/host/fleet surfaces offer a concrete next action.
 - Old mock/demo CSS and remaining stale IOS AGENTS title mutation were removed.
 

@@ -21,7 +21,7 @@ The bridge is an internal service-to-service API on the MiniPC control plane:
 - `GET /api/internal/integrations/dcreator/jobs/:externalId` — read the current
   execution receipt.
 
-Every request uses `Authorization: Bearer <PHONE_FARM_INTERNAL_TOKEN>`. The
+Every request uses `Authorization: Bearer <DFARMING_INTERNAL_TOKEN>`. The
 bridge does not accept dCreator cookies, browser profiles or provider tokens.
 
 ## Job envelope
@@ -34,7 +34,7 @@ bridge does not accept dCreator cookies, browser profiles or provider tokens.
   "intent": "publish|draft|inspect",
   "accountRef": "account-execution-profile-id",
   "task": {
-    "pluginId": "com.git-agni.tiktok",
+    "pluginId": "com.dfarming.tiktok",
     "taskType": "post",
     "taskVersion": 1,
     "payload": {}

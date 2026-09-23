@@ -59,7 +59,7 @@ COPY --from=verified /app/Patches ./Patches
 COPY --from=verified /app/integrations ./integrations
 
 ENV NODE_ENV=production \
-    PHONE_FARM_ROLE=control-plane \
+    DFARMING_ROLE=control-plane \
     WEB_HOST=127.0.0.1 \
     WEB_PORT=3000 \
     DEVICES_CONFIG_PATH=/data/devices.json \

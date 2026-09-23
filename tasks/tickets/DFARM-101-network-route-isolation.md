@@ -13,7 +13,7 @@ rate limits, CAPTCHA, provider enforcement or other safeguards.
 
 ## Implemented
 
-- `PHONE_FARM_NETWORK_ROUTES` parses bounded worker-local route attestations as
+- `DFARMING_NETWORK_ROUTES` parses bounded worker-local route attestations as
   route IDs plus optional device scope; no endpoint, username, password or VPN
   material enters the host snapshot.
 - `/v1/host` publishes those attestations and the MiniPC sanitizes them before

@@ -16,7 +16,7 @@ Status: **source-complete / Windows-live-pending**.
   `Invoke-Expression` or execute environment-file contents as PowerShell.
 - Appium and gateway health are checked before the installer reports success.
 - Named network-route attestations use the same optional
-  `PHONE_FARM_NETWORK_ROUTES` policy as every other worker.
+  `DFARMING_NETWORK_ROUTES` policy as every other worker.
 
 ## Authority
 
