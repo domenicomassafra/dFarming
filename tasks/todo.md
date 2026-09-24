@@ -70,8 +70,9 @@ MiniPC emulator capacity is actually needed.
   binding, pre-persistence refusal and execution-time re-check. Live proof of a
   configured named route remains environment-gated.
 - [x] DFARM-102 — dCreator bridge: internal authenticated asset intake,
-  versioned jobs, DB-backed idempotency and execution receipts. The real
-  dCreator-side caller remains a separate-project integration proof.
+  bounded media intake, intent/task consistency, versioned jobs, DB-backed
+  idempotency and execution receipts. The real dCreator-side caller remains a
+  separate-project integration proof.
 - [x] DFARM-103 — Donor adoption governance with promoted seams kept narrow:
   Google emulator capacity, scrcpy video-only, bounded Maestro, Baguette
   accessibility/readiness patterns, mobile-use observe→act patterns and

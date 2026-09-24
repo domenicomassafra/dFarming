@@ -1,0 +1,1 @@
+ALTER TABLE "scheduler"."assets" ADD COLUMN "source" text;

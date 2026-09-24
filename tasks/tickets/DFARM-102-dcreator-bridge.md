@@ -18,11 +18,18 @@ browser profile, provider credential or raw secret is shared between products.
   narrow that binding, never override it.
 - Database-backed idempotency uses `externalId` + canonical request SHA-256;
   retries converge to one schedule and conflicting reuse is refused.
+- dCreator `intent` is cross-checked with the task side effect: `publish` and
+  `draft` require a matching post destination. `inspect` is not accepted by
+  the current job envelope because no plugin task is certified read-only.
 - Asset attachment and schedule creation are transactional.
+- dCreator asset intake is limited to 10 files, 250 MiB per file and the
+  supported image/video MIME allowlist; paths and URLs remain invalid. Jobs can
+  attach only assets created by the dCreator intake path.
 - Existing plugin validation, public-action confirmation, account policy,
   execution-profile and network-route checks remain authoritative.
-- Receipts expose schedule/execution IDs and status, not cookies, browser
-  profiles or provider credentials.
+- Receipts expose schedule/execution IDs and stable status/failure categories,
+  not cookies, browser profiles, provider credentials, paths or raw internal
+  execution errors.
 
 ## Remaining live proof
 

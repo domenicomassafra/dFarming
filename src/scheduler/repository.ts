@@ -27,6 +27,7 @@ export interface CreateTaskMetadata {
     externalSource?: string;
     externalId?: string;
     externalRequestHash?: string;
+    expectedAssetSource?: string;
 }
 
 export interface ExecutionDetail extends ExecutionRow { logs: string[] }
@@ -277,6 +278,7 @@ export class SchedulerRepository {
                 const attached = await tx.update(assets).set({ scheduleId: schedule.id }).where(and(
                     inArray(assets.id, uniqueAssetIds),
                     isNull(assets.scheduleId), isNull(assets.executionId), isNull(assets.campaignId),
+                    ...(metadata.expectedAssetSource ? [eq(assets.source, metadata.expectedAssetSource)] : []),
                 )).returning({ id: assets.id });
                 if (attached.length !== uniqueAssetIds.length) {
                     throw new Error('One or more schedule assets are missing or already attached');
@@ -422,7 +424,7 @@ export class SchedulerRepository {
     }
 
     async registerAssets(files: Array<{
-        relativePath: string; originalName: string; mimeType: string; size: number; sha256: string;
+        relativePath: string; originalName: string; mimeType: string; size: number; sha256: string; source?: string;
     }>): Promise<Array<{ id: string; name: string; mimeType: string }>> {
         if (!files.length) return [];
         const rows = await this.connection.db.insert(assets).values(files).returning();

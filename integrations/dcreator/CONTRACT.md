@@ -24,6 +24,11 @@ The bridge is an internal service-to-service API on the MiniPC control plane:
 Every request uses `Authorization: Bearer <DFARMING_INTERNAL_TOKEN>`. The
 bridge does not accept dCreator cookies, browser profiles or provider tokens.
 
+Asset uploads are limited to 10 files and 250 MiB per file. The bridge accepts
+only common image/video MIME types; filesystem paths and remote URLs are
+never accepted. Responses expose opaque asset IDs, not storage paths. Jobs can
+attach only assets marked as originating from this intake endpoint.
+
 ## Job envelope
 
 ```json
@@ -81,6 +86,10 @@ same ID for different content is refused.
 
 High-impact public actions keep dFarming's existing confirmation/policy gates.
 The bridge cannot turn dCreator into a bypass around them.
+
+Receipts expose opaque schedule/execution identifiers and stable status/failure
+categories, not cookies, browser profiles, provider credentials, storage paths
+or raw execution errors.
 
 `constraints.platform`, `devicePool`, `executionProfile` and `networkRoute` are
 additional assertions, not routing overrides. They must agree with the account

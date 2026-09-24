@@ -14,8 +14,24 @@ import { internalWorkerAuthorized } from './http-security.js';
 import { ingestMultipartAssets } from './asset-routes.js';
 
 const DCREATOR_SOURCE = 'dcreator';
+const DCREATOR_ASSET_LIMITS = {
+    files: 10,
+    fileSize: 250 * 1024 * 1024,
+    allowedMimeTypes: [
+        'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+        'video/mp4', 'video/quicktime', 'video/webm',
+    ],
+} as const;
 
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
+
+function publicErrorMessage(error: unknown): string {
+    const message = errorMessage(error);
+    if (/\/[^\s]+|(?:postgres(?:ql)?|sql|traceback|stack|secret|password|token)/i.test(message)) {
+        return 'dCreator request was refused by the execution service';
+    }
+    return message;
+}
 
 function refused(externalId: string, reason: string): DCreatorExecutionReceipt {
     return { schema: DCREATOR_RECEIPT_SCHEMA, externalId, status: 'refused', evidenceRefs: [], reason };
@@ -42,7 +58,7 @@ async function scheduleReceipt(
         deviceUdid: schedule.deviceUdid,
         status: receiptStatus(schedule.status, execution?.status),
         evidenceRefs: execution ? [`execution:${execution.id}`] : [],
-        ...(execution?.error ? { reason: execution.error } : {}),
+        ...(execution?.error ? { reason: 'execution failed' } : {}),
     };
 }
 
@@ -57,6 +73,14 @@ async function resolveDCreatorTask(request: DCreatorJobRequest, scheduler: Sched
     if (device.disabled) throw Object.assign(new Error('Execution-profile device is disabled'), { statusCode: 409 });
     if (canonicalPluginId(request.task.pluginId) !== canonicalPluginId(account.pluginId)) {
         throw Object.assign(new Error('task.pluginId does not match the accountRef platform'), { statusCode: 409 });
+    }
+    if (request.task.taskType === 'post') {
+        const destination = request.task.payload.destination;
+        if ((destination !== 'publish' && destination !== 'draft') || destination !== request.intent) {
+            throw Object.assign(new Error('intent must match the post task destination'), { statusCode: 409 });
+        }
+    } else {
+        throw Object.assign(new Error('dCreator job intents require a post task'), { statusCode: 409 });
     }
     const requestedAccount = request.task.payload.account;
     if (requestedAccount !== undefined && requestedAccount !== account.handle) {
@@ -102,10 +126,10 @@ export function registerDCreatorRoutes(app: FastifyInstance, scheduler: Schedule
     app.post('/api/internal/integrations/dcreator/assets', async (request, reply) => {
         if (!authorize(request, reply)) return;
         try {
-            const assets = await ingestMultipartAssets(request, scheduler);
+            const assets = await ingestMultipartAssets(request, scheduler, { ...DCREATOR_ASSET_LIMITS, source: 'dcreator' });
             return reply.code(201).send({ assetRefs: assets.map(({ id }) => id), assets });
         } catch (error) {
-            return reply.code(400).send({ error: errorMessage(error) });
+            return reply.code(400).send({ error: publicErrorMessage(error) });
         }
     });
 
@@ -133,12 +157,13 @@ export function registerDCreatorRoutes(app: FastifyInstance, scheduler: Schedule
                 externalSource: DCREATOR_SOURCE,
                 externalId: job.externalId,
                 externalRequestHash: requestHash,
+                expectedAssetSource: DCREATOR_SOURCE,
             });
             return reply.code(201).send({ receipt: await scheduleReceipt(scheduler, schedule) });
         } catch (error) {
             const statusCode = Number((error as { statusCode?: number }).statusCode ?? 409);
             return reply.code(statusCode >= 400 && statusCode < 500 ? statusCode : 409)
-                .send({ receipt: refused(job.externalId, errorMessage(error)) });
+                .send({ receipt: refused(job.externalId, publicErrorMessage(error)) });
         }
     });
 

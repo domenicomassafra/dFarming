@@ -124,6 +124,7 @@ export const executionLogs = schedulerSchema.table('execution_logs', {
 
 export const assets = schedulerSchema.table('assets', {
     id: uuid('id').primaryKey().defaultRandom(),
+    source: text('source'),
     scheduleId: uuid('schedule_id').references(() => schedules.id, { onDelete: 'cascade' }),
     executionId: uuid('execution_id').references(() => executions.id, { onDelete: 'cascade' }),
     campaignId: uuid('campaign_id').references(() => campaigns.id, { onDelete: 'cascade' }),

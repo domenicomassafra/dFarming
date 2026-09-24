@@ -9,7 +9,24 @@ import { loadRegisteredDevices, redactDevice } from '../devices/registry.js';
 import type { SchedulerRepository } from '../scheduler/repository.js';
 import { internalWorkerAuthorized } from './http-security.js';
 
-export async function ingestMultipartAssets(request: FastifyRequest, scheduler: SchedulerRepository) {
+export interface MultipartAssetLimits {
+    files?: number;
+    fileSize?: number;
+    allowedMimeTypes?: readonly string[];
+}
+
+const DEFAULT_ASSET_LIMITS: Required<MultipartAssetLimits> = {
+    files: 20,
+    fileSize: 2 * 1024 * 1024 * 1024,
+    allowedMimeTypes: [],
+};
+
+export async function ingestMultipartAssets(
+    request: FastifyRequest,
+    scheduler: SchedulerRepository,
+    options: MultipartAssetLimits & { source?: string } = {},
+) {
+    const limits = { ...DEFAULT_ASSET_LIMITS, ...options };
     const dataRoot = path.resolve(process.env.SCHEDULER_DATA_DIR ?? '.scheduler-data');
     const uploadDirectory = path.join(dataRoot, 'uploads');
     await mkdir(uploadDirectory, { recursive: true });
@@ -22,6 +39,10 @@ export async function ingestMultipartAssets(request: FastifyRequest, scheduler: 
     }> = [];
     try {
         for await (const part of request.files()) {
+            if (created.length >= limits.files) throw new Error(`At most ${limits.files} asset files are allowed`);
+            if (limits.allowedMimeTypes.length && !limits.allowedMimeTypes.includes(part.mimetype)) {
+                throw new Error(`Asset type ${part.mimetype || 'unknown'} is not allowed`);
+            }
             const id = crypto.randomUUID();
             const relativePath = path.join('uploads', id);
             const filePath = path.join(dataRoot, relativePath);
@@ -32,6 +53,7 @@ export async function ingestMultipartAssets(request: FastifyRequest, scheduler: 
                 for await (const chunk of part.file) {
                     const buffer = Buffer.from(chunk);
                     size += buffer.length;
+                    if (size > limits.fileSize) throw new Error(`Asset file exceeds ${limits.fileSize} bytes`);
                     hash.update(buffer);
                     await handle.write(buffer);
                 }
@@ -49,7 +71,7 @@ export async function ingestMultipartAssets(request: FastifyRequest, scheduler: 
                 sha256: hash.digest('hex'),
             });
         }
-        return await scheduler.registerAssets(created);
+        return await scheduler.registerAssets(created.map((file) => ({ ...file, source: options.source })));
     } catch (error) {
         for (const file of created) await rm(path.join(dataRoot, file.relativePath), { force: true }).catch(() => undefined);
         throw error;
